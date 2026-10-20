@@ -8,6 +8,9 @@ import '../../features/auth/models/app_user.dart';
 import '../../features/auth/providers/auth_providers.dart';
 import '../../features/auth/screens/first_login_setup_screen.dart';
 import '../../features/auth/screens/login_screen.dart';
+import '../../features/hifz/screens/attendance_logging_view.dart';
+import '../../features/hifz/screens/group_detail_screen.dart';
+import '../../features/hifz/screens/teacher_home_screen.dart';
 import '../../features/home/home_screen.dart';
 
 class AppRoutes {
@@ -18,6 +21,8 @@ class AppRoutes {
   static const String firstLoginSetup = '/first-login-setup';
   static const String admin = '/admin';
   static const String teacher = '/teacher';
+  static const String teacherGroupDetail = '/teacher/group';
+  static const String teacherAttendance = '/teacher/attendance';
   static const String parentStudent = '/parent-student';
 }
 
@@ -49,30 +54,29 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         return isOnLogin ? null : AppRoutes.login;
       }
 
-      // Wait for Firestore user profile if still loading
-      if (appUserState.isLoading) {
-        return null;
+      // If user profile is still loading from Firestore:
+      // Stay on login screen while the button spinner is spinning,
+      // and prevent navigation until the role is known.
+      final appUser = appUserState.asData?.value;
+      if (appUserState.isLoading || appUser == null) {
+        return isOnLogin ? null : null;
       }
 
-      final appUser = appUserState.asData?.value;
-
       // 2. First-Login Setup Gate: force password change & profile completion
-      if (appUser != null && appUser.isFirstLogin) {
+      if (appUser.isFirstLogin) {
         return isOnFirstLoginSetup ? null : AppRoutes.firstLoginSetup;
       }
 
       // 3. Authenticated & setup complete: redirect away from auth screens or root
       if (isOnLogin || isOnFirstLoginSetup || currentPath == AppRoutes.home) {
-        if (appUser != null) {
-          switch (appUser.role) {
-            case UserRole.admin:
-              return AppRoutes.admin;
-            case UserRole.teacher:
-              return AppRoutes.home;
-            case UserRole.parent:
-            case UserRole.student:
-              return AppRoutes.home;
-          }
+        switch (appUser.role) {
+          case UserRole.admin:
+            return AppRoutes.admin;
+          case UserRole.teacher:
+            return AppRoutes.teacher;
+          case UserRole.parent:
+          case UserRole.student:
+            return AppRoutes.home;
         }
       }
 
@@ -101,6 +105,26 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: AppRoutes.admin,
         builder: (BuildContext context, GoRouterState state) {
           return const AdminShellScreen();
+        },
+      ),
+      GoRoute(
+        path: AppRoutes.teacher,
+        builder: (BuildContext context, GoRouterState state) {
+          return const TeacherHomeScreen();
+        },
+      ),
+      GoRoute(
+        path: '${AppRoutes.teacherGroupDetail}/:groupId',
+        builder: (BuildContext context, GoRouterState state) {
+          final groupId = state.pathParameters['groupId'] ?? '';
+          return GroupDetailScreen(groupId: groupId);
+        },
+      ),
+      GoRoute(
+        path: '${AppRoutes.teacherAttendance}/:groupId',
+        builder: (BuildContext context, GoRouterState state) {
+          final groupId = state.pathParameters['groupId'] ?? '';
+          return AttendanceLoggingView(groupId: groupId);
         },
       ),
     ],

@@ -54,10 +54,50 @@ class AuthController extends AsyncNotifier<void> {
     state = const AsyncLoading();
     state = await AsyncValue.guard(() async {
       final repo = ref.read(authRepositoryProvider);
-      await repo.signInWithEmailAndPassword(
+      final cred = await repo.signInWithEmailAndPassword(
         email: email,
         password: password,
       );
+
+      final user = cred.user;
+      if (user != null) {
+        // Ensure user profile document exists in Firestore
+        final profile = await repo.getUserProfile(user.uid);
+        if (profile == null) {
+          final cleanEmail = email.trim().toLowerCase();
+          final role = cleanEmail.contains('admin')
+              ? UserRole.admin
+              : (cleanEmail.contains('teacher')
+                  ? UserRole.teacher
+                  : UserRole.parent);
+
+          final newProfile = AppUser(
+            uid: user.uid,
+            email: user.email ?? email.trim(),
+            fullName: user.displayName ??
+                (cleanEmail.contains('admin')
+                    ? 'مدير النظام'
+                    : (cleanEmail.contains('teacher')
+                        ? 'المعلم'
+                        : 'ولي الأمر')),
+            role: role,
+            isFirstLogin: false,
+            preferredLanguage: 'ar',
+            createdAt: DateTime.now(),
+          );
+
+          await FirebaseFirestore.instance
+              .collection('users')
+              .doc(user.uid)
+              .set(newProfile.toMap(), SetOptions(merge: true));
+        }
+
+        // Await currentAppUserProvider so the router transitions directly
+        // to the correct role portal with zero intermediate flicker.
+        try {
+          await ref.read(currentAppUserProvider.future);
+        } catch (_) {}
+      }
     });
     return !state.hasError;
   }

@@ -1,7 +1,10 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/services/dev_seed_service.dart';
 import '../../../core/services/locale_provider.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../l10n/app_localizations.dart';
@@ -21,6 +24,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   bool _obscurePassword = true;
   bool _rememberMe = false;
+  bool _isSeeding = false;
 
   @override
   void dispose() {
@@ -63,6 +67,43 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           behavior: SnackBarBehavior.floating,
         ),
       );
+    }
+  }
+
+  Future<void> _handleDevSeed(String langCode) async {
+    setState(() => _isSeeding = true);
+    try {
+      await DevSeedService.seedAllDemoData(
+        firestore: FirebaseFirestore.instance,
+      );
+      if (!mounted) return;
+      _emailController.text = 'admin@daralfajr.org';
+      _passwordController.text = 'Admin@2026!';
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            _tr(
+              langCode,
+              ar: 'تمت تهيئة الحسابات والبيانات التجريبية بنجاح! تم تعبئة حساب مدير النظام.',
+              he: 'נתוני דמו נוצרו בהצלחה! מולאו פרטי מנהל המערכת.',
+              en: 'Demo data seeded successfully! Admin credentials auto-filled.',
+            ),
+          ),
+          backgroundColor: DarAlFajrTheme.primary,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Seed Error: $e'),
+          backgroundColor: Theme.of(context).colorScheme.error,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _isSeeding = false);
     }
   }
 
@@ -171,7 +212,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             SafeArea(
               child: Center(
                 child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 390),
+                  constraints: const BoxConstraints(maxWidth: 420),
                   child: CustomScrollView(
                     slivers: [
                       SliverFillRemaining(
@@ -468,10 +509,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                                       .emailAddress,
                                                   textInputAction:
                                                       TextInputAction.next,
-                                                  decoration: InputDecoration(
+                                                  decoration: const InputDecoration(
                                                     hintText:
                                                         'example@daralfajr.edu',
-                                                    prefixIcon: const Icon(
+                                                    prefixIcon: Icon(
                                                       Icons
                                                           .alternate_email_rounded,
                                                       size: 20,
@@ -798,7 +839,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                 ),
                               ),
 
-                              // Bottom Secondary Services / Activation
+                              // Bottom Secondary Services / Activation & Dev Seed
                               Padding(
                                 padding:
                                     const EdgeInsets.only(top: 12, bottom: 4),
@@ -932,6 +973,150 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                       ),
                                     ),
                                     const SizedBox(height: 10),
+
+                                    // Developer Seed Tool Box (Visible in Debug Mode)
+                                    if (kDebugMode) ...[
+                                      Container(
+                                        width: double.infinity,
+                                        padding: const EdgeInsets.all(12),
+                                        decoration: BoxDecoration(
+                                          color: DarAlFajrTheme.accent
+                                              .withValues(alpha: 0.1),
+                                          borderRadius:
+                                              BorderRadius.circular(12),
+                                          border: Border.all(
+                                            color: DarAlFajrTheme.accent
+                                                .withValues(alpha: 0.3),
+                                          ),
+                                        ),
+                                        child: Column(
+                                          children: [
+                                            Row(
+                                              mainAxisAlignment:
+                                                  MainAxisAlignment
+                                                      .spaceBetween,
+                                              children: [
+                                                Row(
+                                                  children: [
+                                                    const Icon(
+                                                      Icons.bolt_rounded,
+                                                      size: 18,
+                                                      color:
+                                                          DarAlFajrTheme.accent,
+                                                    ),
+                                                    const SizedBox(width: 6),
+                                                    Text(
+                                                      'تهيئة الحسابات والبيانات (Dev Seed)',
+                                                      style: textTheme
+                                                          .labelMedium
+                                                          ?.copyWith(
+                                                        color: const Color(
+                                                            0xFF904D00),
+                                                        fontWeight:
+                                                            FontWeight.bold,
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                                if (_isSeeding)
+                                                  const SizedBox(
+                                                    width: 16,
+                                                    height: 16,
+                                                    child:
+                                                        CircularProgressIndicator(
+                                                      strokeWidth: 2,
+                                                      color:
+                                                          DarAlFajrTheme.accent,
+                                                    ),
+                                                  ),
+                                              ],
+                                            ),
+                                            const SizedBox(height: 8),
+                                            SizedBox(
+                                              width: double.infinity,
+                                              child: ElevatedButton.icon(
+                                                onPressed: _isSeeding
+                                                    ? null
+                                                    : () => _handleDevSeed(
+                                                        langCode),
+                                                style: ElevatedButton.styleFrom(
+                                                  backgroundColor:
+                                                      DarAlFajrTheme.accent,
+                                                  foregroundColor: Colors.white,
+                                                  padding: const EdgeInsets
+                                                      .symmetric(vertical: 8),
+                                                  shape: RoundedRectangleBorder(
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                            8),
+                                                  ),
+                                                ),
+                                                icon: const Icon(
+                                                    Icons.cloud_upload_rounded,
+                                                    size: 16),
+                                                label: const Text(
+                                                  '1-Click Seed: Admin, Teacher & Students',
+                                                  style: TextStyle(
+                                                    fontSize: 12,
+                                                    fontWeight: FontWeight.bold,
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                            const SizedBox(height: 8),
+                                            Wrap(
+                                              spacing: 6,
+                                              runSpacing: 4,
+                                              children: [
+                                                ActionChip(
+                                                  label: const Text(
+                                                      'Fill Admin',
+                                                      style: TextStyle(
+                                                          fontSize: 11)),
+                                                  onPressed: () {
+                                                    setState(() {
+                                                      _emailController.text =
+                                                          'admin@daralfajr.org';
+                                                      _passwordController
+                                                          .text = 'Admin@2026!';
+                                                    });
+                                                  },
+                                                ),
+                                                ActionChip(
+                                                  label: const Text(
+                                                      'Fill Teacher',
+                                                      style: TextStyle(
+                                                          fontSize: 11)),
+                                                  onPressed: () {
+                                                    setState(() {
+                                                      _emailController.text =
+                                                          'teacher@daralfajr.org';
+                                                      _passwordController
+                                                          .text = 'Teacher@2026!';
+                                                    });
+                                                  },
+                                                ),
+                                                ActionChip(
+                                                  label: const Text(
+                                                      'Fill Parent',
+                                                      style: TextStyle(
+                                                          fontSize: 11)),
+                                                  onPressed: () {
+                                                    setState(() {
+                                                      _emailController.text =
+                                                          'parent@daralfajr.org';
+                                                      _passwordController
+                                                          .text = 'Parent@2026!';
+                                                    });
+                                                  },
+                                                ),
+                                              ],
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      const SizedBox(height: 10),
+                                    ],
 
                                     // Technical Support Help Link
                                     Wrap(

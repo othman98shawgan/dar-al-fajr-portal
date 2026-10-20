@@ -64,7 +64,7 @@ final adminEnrollmentsProvider = StreamProvider<List<Enrollment>>((ref) {
 /// Selected navigation tab index in the Admin Shell.
 class AdminTabNotifier extends Notifier<int> {
   @override
-  int build() => 0;
+  int build() => 1;
 
   void setTab(int index) {
     state = index;

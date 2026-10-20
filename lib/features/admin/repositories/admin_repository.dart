@@ -11,13 +11,12 @@ class AdminRepository {
   static const String enrollmentsCollection = 'enrollments';
 
   final FirebaseFirestore _firestore;
-  final AuthRepository _authRepository;
+  final AuthRepository authRepository;
 
   AdminRepository({
     FirebaseFirestore? firestore,
-    required AuthRepository authRepository,
-  })  : _firestore = firestore ?? FirebaseFirestore.instance,
-        _authRepository = authRepository;
+    required this.authRepository,
+  }) : _firestore = firestore ?? FirebaseFirestore.instance;
 
   // ---------------------------------------------------------------------------
   // Users & Account Provisioning (Teachers, Parents, Students)
@@ -51,7 +50,7 @@ class AdminRepository {
     String? phoneNumber,
     String preferredLanguage = 'ar',
   }) async {
-    return await _authRepository.provisionUserAccount(
+    return await authRepository.provisionUserAccount(
       email: email,
       temporaryPassword: temporaryPassword,
       fullName: fullName,
@@ -87,7 +86,7 @@ class AdminRepository {
         email.trim().isNotEmpty &&
         temporaryPassword != null &&
         temporaryPassword.isNotEmpty) {
-      final user = await _authRepository.provisionUserAccount(
+      final user = await authRepository.provisionUserAccount(
         email: email.trim(),
         temporaryPassword: temporaryPassword,
         fullName: fullName.trim(),

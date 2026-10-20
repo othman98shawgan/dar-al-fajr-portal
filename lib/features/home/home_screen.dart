@@ -1,7 +1,9 @@
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:dar_al_fajr_portal/core/services/locale_provider.dart';
 import 'package:dar_al_fajr_portal/core/theme/app_theme.dart';
+import 'package:dar_al_fajr_portal/features/auth/providers/auth_providers.dart';
 import 'package:dar_al_fajr_portal/l10n/app_localizations.dart';
 
 class HomeScreen extends ConsumerWidget {
@@ -12,6 +14,24 @@ class HomeScreen extends ConsumerWidget {
     final l10n = AppLocalizations.of(context)!;
     final currentLocale = ref.watch(localeProvider);
     final isRtl = Directionality.of(context) == TextDirection.rtl;
+    final appUserAsync = ref.watch(currentAppUserProvider);
+    final appUser = appUserAsync.asData?.value;
+
+    final isFirebaseActive = Firebase.apps.isNotEmpty;
+    if (isFirebaseActive && (appUserAsync.isLoading || appUser == null)) {
+      return const Scaffold(
+        backgroundColor: DarAlFajrTheme.background,
+        body: Center(
+          child: SizedBox(
+            width: 32,
+            height: 32,
+            child: CircularProgressIndicator(
+              color: DarAlFajrTheme.primary,
+            ),
+          ),
+        ),
+      );
+    }
 
     return Scaffold(
       appBar: AppBar(
@@ -38,6 +58,12 @@ class HomeScreen extends ConsumerWidget {
               ),
             ],
           ),
+          IconButton(
+            icon: const Icon(Icons.logout_rounded),
+            tooltip: 'تسجيل الخروج',
+            onPressed: () =>
+                ref.read(authControllerProvider.notifier).signOut(),
+          ),
         ],
       ),
       body: Center(
@@ -54,8 +80,20 @@ class HomeScreen extends ConsumerWidget {
                   children: [
                     Text(
                       l10n.welcome,
-                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                            color: DarAlFajrTheme.primaryDark,
+                      style:
+                          Theme.of(context).textTheme.headlineSmall?.copyWith(
+                                color: DarAlFajrTheme.primaryDark,
+                                fontWeight: FontWeight.bold,
+                              ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      appUser != null
+                          ? 'مرحباً بك: ${appUser.fullName} (${appUser.email})'
+                          : 'بوابة ولي الأمر والطالب (المرحلة 5)',
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                            color: DarAlFajrTheme.primary,
                             fontWeight: FontWeight.bold,
                           ),
                       textAlign: TextAlign.center,
@@ -79,11 +117,13 @@ class HomeScreen extends ConsumerWidget {
                       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                       children: [
                         Chip(
-                          avatar: const Icon(Icons.check_circle, color: DarAlFajrTheme.primary),
+                          avatar: const Icon(Icons.check_circle,
+                              color: DarAlFajrTheme.primary),
                           label: Text(l10n.present),
                         ),
                         Chip(
-                          avatar: const Icon(Icons.access_time, color: DarAlFajrTheme.accent),
+                          avatar: const Icon(Icons.access_time,
+                              color: DarAlFajrTheme.accent),
                           label: Text(l10n.late),
                         ),
                         Chip(
@@ -91,12 +131,6 @@ class HomeScreen extends ConsumerWidget {
                           label: Text(l10n.absent),
                         ),
                       ],
-                    ),
-                    const SizedBox(height: 24),
-                    ElevatedButton.icon(
-                      onPressed: () {},
-                      icon: const Icon(Icons.login),
-                      label: Text(l10n.login),
                     ),
                   ],
                 ),
