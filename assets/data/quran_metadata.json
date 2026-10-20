@@ -1,0 +1,77 @@
+[
+  {
+    "id": 1,
+    "name": "الفاتحة",
+    "name_english": "Al-Fatihah",
+    "name_hebrew": "אל-פאתיחה",
+    "total_verses": 7,
+    "page_boundaries": [
+      { "start_ayah": 1, "page": 1 }
+    ],
+    "juz_boundaries": [
+      { "start_ayah": 1, "juz": 1 }
+    ]
+  },
+  {
+    "id": 2,
+    "name": "البقرة",
+    "name_english": "Al-Baqarah",
+    "name_hebrew": "אל-בקרה",
+    "total_verses": 286,
+    "page_boundaries": [
+      { "start_ayah": 1, "page": 2 },
+      { "start_ayah": 6, "page": 3 },
+      { "start_ayah": 17, "page": 4 },
+      { "start_ayah": 25, "page": 5 },
+      { "start_ayah": 30, "page": 6 },
+      { "start_ayah": 38, "page": 7 },
+      { "start_ayah": 49, "page": 8 },
+      { "start_ayah": 58, "page": 9 },
+      { "start_ayah": 62, "page": 10 },
+      { "start_ayah": 70, "page": 11 },
+      { "start_ayah": 77, "page": 12 },
+      { "start_ayah": 84, "page": 13 },
+      { "start_ayah": 89, "page": 14 },
+      { "start_ayah": 94, "page": 15 },
+      { "start_ayah": 102, "page": 16 },
+      { "start_ayah": 106, "page": 17 },
+      { "start_ayah": 113, "page": 18 },
+      { "start_ayah": 120, "page": 19 },
+      { "start_ayah": 127, "page": 20 },
+      { "start_ayah": 135, "page": 21 },
+      { "start_ayah": 142, "page": 22 },
+      { "start_ayah": 146, "page": 23 },
+      { "start_ayah": 154, "page": 24 },
+      { "start_ayah": 164, "page": 25 },
+      { "start_ayah": 170, "page": 26 },
+      { "start_ayah": 177, "page": 27 },
+      { "start_ayah": 182, "page": 28 },
+      { "start_ayah": 187, "page": 29 },
+      { "start_ayah": 191, "page": 30 },
+      { "start_ayah": 197, "page": 31 },
+      { "start_ayah": 203, "page": 32 },
+      { "start_ayah": 211, "page": 33 },
+      { "start_ayah": 216, "page": 34 },
+      { "start_ayah": 220, "page": 35 },
+      { "start_ayah": 225, "page": 36 },
+      { "start_ayah": 231, "page": 37 },
+      { "start_ayah": 234, "page": 38 },
+      { "start_ayah": 238, "page": 39 },
+      { "start_ayah": 246, "page": 40 },
+      { "start_ayah": 249, "page": 41 },
+      { "start_ayah": 253, "page": 42 },
+      { "start_ayah": 257, "page": 43 },
+      { "start_ayah": 260, "page": 44 },
+      { "start_ayah": 265, "page": 45 },
+      { "start_ayah": 270, "page": 46 },
+      { "start_ayah": 275, "page": 47 },
+      { "start_ayah": 282, "page": 48 },
+      { "start_ayah": 283, "page": 49 }
+    ],
+    "juz_boundaries": [
+      { "start_ayah": 1, "juz": 1 },
+      { "start_ayah": 142, "juz": 2 },
+      { "start_ayah": 253, "juz": 3 }
+    ]
+  }
+]
