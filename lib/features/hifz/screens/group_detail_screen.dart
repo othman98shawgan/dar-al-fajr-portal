@@ -4,12 +4,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../core/models/quran_metadata.dart';
 import '../../../core/routing/app_router.dart';
 import '../../../core/services/locale_provider.dart';
-import '../../../core/services/quran_metadata_service.dart';
 import '../models/teacher_models.dart';
 import '../providers/teacher_providers.dart';
+import 'student_hifz_modal.dart';
 
 enum _AssignmentFilterTab {
   all,
@@ -90,7 +89,6 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
   static const Color _onSurface = Color(0xFF191C1E);
   static const Color _onSurfaceVariant = Color(0xFF3D4947);
   static const Color _primary = Color(0xFF00685F);
-  static const Color _primaryContainer = Color(0xFF008378);
   static const Color _secondary = Color(0xFF904D00);
   static const Color _secondaryContainer = Color(0xFFFE932C);
   static const Color _secondaryFixed = Color(0xFFFFDCC3);
@@ -293,436 +291,32 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
     required String langCode,
     required String effectiveGroupId,
     _AssignmentCardItem? existingCard,
-  }) async {
-    final quranService = ref.read(quranMetadataServiceProvider);
-    if (quranService.surahs.isEmpty) {
-      try {
-        await quranService.loadMetadata();
-      } catch (_) {}
-    }
+  }) {
+    final teacherGroups =
+        ref.read(teacherGroupsProvider).asData?.value ?? const [];
+    final matchedGroup = teacherGroups
+        .where((g) => g.id == effectiveGroupId)
+        .firstOrNull;
+    final groupTitle = matchedGroup?.name.isNotEmpty == true
+        ? matchedGroup!.name
+        : 'حلقة أبي بكر الصديق';
 
-    if (!context.mounted) return;
-
-    final surahs = quranService.surahs;
-    int selectedSurahId = existingCard?.surahId ?? 16;
-    SurahMetadata? selectedSurah = quranService.getSurahById(selectedSurahId) ??
-        (surahs.isNotEmpty ? surahs.first : null);
-
-    final studentNameCtrl = TextEditingController(
-      text: existingCard?.studentName ?? 'إبراهيم طه عثمان',
-    );
-    final fromAyahCtrl = TextEditingController(
-      text: '${existingCard?.fromAyah ?? 1}',
-    );
-    final toAyahCtrl = TextEditingController(
-      text: '${existingCard?.toAyah ?? (selectedSurah?.totalVerses ?? 30)}',
-    );
-    final notesCtrl = TextEditingController(
-      text: existingCard != null &&
+    return StudentHifzModal.show(
+      context,
+      groupId: effectiveGroupId,
+      groupTitle: groupTitle,
+      studentId: existingCard?.studentId ?? 'st-1042',
+      studentName: existingCard?.studentName ?? 'إبراهيم طه عثمان',
+      currentType: existingCard?.assignmentType ?? AssignmentType.newHifz,
+      currentSurahId: existingCard?.surahId ?? 16,
+      currentSurahName: existingCard?.surahName ?? 'النحل',
+      currentFromAyah: existingCard?.fromAyah ?? 1,
+      currentToAyah: existingCard?.toAyah ?? 128,
+      initialGrade: existingCard?.grade ?? EvaluationGrade.excellent,
+      initialNotes: existingCard != null &&
               existingCard.grade != EvaluationGrade.pending
           ? existingCard.feedbackText
           : '',
-    );
-
-    AssignmentType selectedType =
-        existingCard?.assignmentType ?? AssignmentType.newHifz;
-    EvaluationGrade selectedGrade = existingCard != null &&
-            existingCard.grade != EvaluationGrade.pending
-        ? existingCard.grade
-        : EvaluationGrade.excellent;
-
-    await showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: _surfaceContainerLowest,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (sheetContext) {
-        return StatefulBuilder(
-          builder: (context, setModalState) {
-            final fromAyah = int.tryParse(fromAyahCtrl.text.trim()) ?? 1;
-            final toAyah = int.tryParse(toAyahCtrl.text.trim()) ?? 10;
-            final touchedPages = quranService.surahs.isNotEmpty
-                ? quranService.calculatePages(
-                    selectedSurahId,
-                    fromAyah,
-                    toAyah,
-                  )
-                : <int>[];
-            final touchedJuz = quranService.surahs.isNotEmpty
-                ? quranService.calculateJuz(
-                    selectedSurahId,
-                    fromAyah,
-                    toAyah,
-                  )
-                : <int>[];
-
-            return Padding(
-              padding: EdgeInsets.only(
-                left: 20,
-                right: 20,
-                top: 16,
-                bottom: MediaQuery.viewInsetsOf(context).bottom + 24,
-              ),
-              child: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Center(
-                      child: Container(
-                        width: 40,
-                        height: 4,
-                        decoration: BoxDecoration(
-                          color: _surfaceContainerHigh,
-                          borderRadius: BorderRadius.circular(999),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          existingCard == null
-                              ? _tr(
-                                  langCode,
-                                  ar: 'إضافة واجب وتقييم جديد',
-                                  he: 'הוספת מטלה והערכה חדשה',
-                                  en: 'Add New Assignment & Grade',
-                                )
-                              : _tr(
-                                  langCode,
-                                  ar: 'تقييم ورصد تسميع الطالب',
-                                  he: 'הערכת שינון תלמיד',
-                                  en: 'Evaluate Student Recitation',
-                                ),
-                          style:
-                              Theme.of(context).textTheme.titleMedium?.copyWith(
-                                    fontWeight: FontWeight.bold,
-                                    color: _onSurface,
-                                  ),
-                        ),
-                        IconButton(
-                          onPressed: () => Navigator.of(sheetContext).pop(),
-                          icon: const Icon(Icons.close_rounded),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-
-                    // Student Name
-                    TextField(
-                      controller: studentNameCtrl,
-                      decoration: InputDecoration(
-                        labelText: _tr(
-                          langCode,
-                          ar: 'اسم الطالب',
-                          he: 'שם התלמיד',
-                          en: 'Student Name',
-                        ),
-                        prefixIcon: const Icon(Icons.person_outline_rounded),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-
-                    // Assignment Type Toggle (New Hifz vs Revision)
-                    Row(
-                      children: [
-                        Expanded(
-                          child: ChoiceChip(
-                            label: Text(
-                              _tr(
-                                langCode,
-                                ar: 'حفظ جديد',
-                                he: 'שינון חדש',
-                                en: 'New Hifz',
-                              ),
-                            ),
-                            selected: selectedType == AssignmentType.newHifz,
-                            onSelected: (_) {
-                              setModalState(() {
-                                selectedType = AssignmentType.newHifz;
-                              });
-                            },
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: ChoiceChip(
-                            label: Text(
-                              _tr(
-                                langCode,
-                                ar: 'مراجعة',
-                                he: 'חזרה',
-                                en: 'Revision',
-                              ),
-                            ),
-                            selected: selectedType == AssignmentType.revision,
-                            onSelected: (_) {
-                              setModalState(() {
-                                selectedType = AssignmentType.revision;
-                              });
-                            },
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-
-                    // Surah Selector Dropdown
-                    if (surahs.isNotEmpty)
-                      DropdownButtonFormField<int>(
-                        initialValue: selectedSurahId,
-                        decoration: InputDecoration(
-                          labelText: _tr(
-                            langCode,
-                            ar: 'السورة الكريمة',
-                            he: 'סורה',
-                            en: 'Surah',
-                          ),
-                          prefixIcon: const Icon(Icons.menu_book_rounded),
-                        ),
-                        items: surahs.map((s) {
-                          return DropdownMenuItem<int>(
-                            value: s.id,
-                            child: Text(
-                              '${s.id}. سورة ${s.nameArabic} (${s.totalVerses} آية)',
-                            ),
-                          );
-                        }).toList(),
-                        onChanged: (val) {
-                          if (val == null) return;
-                          setModalState(() {
-                            selectedSurahId = val;
-                            selectedSurah = quranService.getSurahById(val);
-                            fromAyahCtrl.text = '1';
-                            toAyahCtrl.text =
-                                '${selectedSurah?.totalVerses ?? 30}';
-                          });
-                        },
-                      ),
-                    const SizedBox(height: 12),
-
-                    // From Ayah & To Ayah
-                    Row(
-                      children: [
-                        Expanded(
-                          child: TextField(
-                            controller: fromAyahCtrl,
-                            keyboardType: TextInputType.number,
-                            onChanged: (_) => setModalState(() {}),
-                            decoration: InputDecoration(
-                              labelText: _tr(
-                                langCode,
-                                ar: 'من الآية',
-                                he: 'מפסוק',
-                                en: 'From Ayah',
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: TextField(
-                            controller: toAyahCtrl,
-                            keyboardType: TextInputType.number,
-                            onChanged: (_) => setModalState(() {}),
-                            decoration: InputDecoration(
-                              labelText: _tr(
-                                langCode,
-                                ar: 'إلى الآية',
-                                he: 'עד פסוק',
-                                en: 'To Ayah',
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
-
-                    // Automated Quran Engine Preview
-                    if (touchedPages.isNotEmpty)
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 8,
-                        ),
-                        decoration: BoxDecoration(
-                          color: _primary.withValues(alpha: 0.08),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Row(
-                          children: [
-                            const Icon(
-                              Icons.auto_graph_rounded,
-                              size: 18,
-                              color: _primary,
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                'حساب المصحف التلقائي: ${touchedPages.length} صفحة (ص ${touchedPages.first} - ${touchedPages.last}) • الجزء: ${touchedJuz.join("، ")}',
-                                style: const TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                  color: _primary,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    const SizedBox(height: 14),
-
-                    // Grade Selection
-                    Text(
-                      _tr(
-                        langCode,
-                        ar: 'درجة التقييم',
-                        he: 'ציון הערכה',
-                        en: 'Evaluation Grade',
-                      ),
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 13,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: [
-                        ChoiceChip(
-                          label: const Text('ممتاز (٩٨٪)'),
-                          selected: selectedGrade == EvaluationGrade.excellent,
-                          onSelected: (_) => setModalState(
-                            () => selectedGrade = EvaluationGrade.excellent,
-                          ),
-                        ),
-                        ChoiceChip(
-                          label: const Text('جيد جداً (٨٥٪)'),
-                          selected: selectedGrade == EvaluationGrade.good,
-                          onSelected: (_) => setModalState(
-                            () => selectedGrade = EvaluationGrade.good,
-                          ),
-                        ),
-                        ChoiceChip(
-                          label: const Text('يحتاج إعادة'),
-                          selected:
-                              selectedGrade == EvaluationGrade.needsRepeat,
-                          onSelected: (_) => setModalState(
-                            () => selectedGrade = EvaluationGrade.needsRepeat,
-                          ),
-                        ),
-                        ChoiceChip(
-                          label: const Text('بانتظار التقييم'),
-                          selected: selectedGrade == EvaluationGrade.pending,
-                          onSelected: (_) => setModalState(
-                            () => selectedGrade = EvaluationGrade.pending,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-
-                    // Teacher Notes
-                    TextField(
-                      controller: notesCtrl,
-                      maxLines: 2,
-                      decoration: InputDecoration(
-                        labelText: _tr(
-                          langCode,
-                          ar: 'ملاحظات المعلم والتجويد',
-                          he: 'הערות המורה וטג׳וויד',
-                          en: 'Teacher Recitation Feedback',
-                        ),
-                        hintText:
-                            'اكتب ملاحظات التجويد ومواضع الإتقان أو التنبيه...',
-                      ),
-                    ),
-                    const SizedBox(height: 18),
-
-                    // Save Button
-                    SizedBox(
-                      height: 48,
-                      child: ElevatedButton.icon(
-                        onPressed: () async {
-                          final surahObj =
-                              quranService.getSurahById(selectedSurahId);
-                          final surahNameAr =
-                              surahObj?.nameArabic ?? 'النحل';
-                          final studentName =
-                              studentNameCtrl.text.trim().isNotEmpty
-                                  ? studentNameCtrl.text.trim()
-                                  : 'إبراهيم طه عثمان';
-                          final studentId =
-                              existingCard?.studentId ?? 'st-1042';
-
-                          Navigator.of(sheetContext).pop();
-
-                          await ref
-                              .read(teacherControllerProvider.notifier)
-                              .saveHifzAssignment(
-                                studentId: studentId,
-                                studentName: studentName,
-                                groupId: effectiveGroupId,
-                                type: selectedType,
-                                surahId: selectedSurahId,
-                                surahName: surahNameAr,
-                                fromAyah: fromAyah,
-                                toAyah: toAyah,
-                                grade: selectedGrade,
-                                teacherNotes: notesCtrl.text.trim(),
-                              );
-
-                          if (!mounted) return;
-                          ScaffoldMessenger.of(this.context).showSnackBar(
-                            SnackBar(
-                              content: Text(
-                                _tr(
-                                  langCode,
-                                  ar: 'تم حفظ التقييم وتحديث تقدم الطالب ($studentName) بنجاح!',
-                                  he: 'ההערכה נשמרה והתקדמות התלמיד עודכנה!',
-                                  en: 'Assignment saved & student Quran progress updated!',
-                                ),
-                              ),
-                              backgroundColor: _primary,
-                              behavior: SnackBarBehavior.floating,
-                            ),
-                          );
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: _primary,
-                          foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                        icon: const Icon(Icons.check_circle_rounded),
-                        label: Text(
-                          _tr(
-                            langCode,
-                            ar: 'حفظ الواجب والتقييم',
-                            he: 'שמור מטלה והערכה',
-                            en: 'Save Assignment & Evaluation',
-                          ),
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 15,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          },
-        );
-      },
     );
   }
 

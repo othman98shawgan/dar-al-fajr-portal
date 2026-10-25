@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/routing/app_router.dart';
+import '../../account/screens/account_screen.dart';
 import '../../../core/services/locale_provider.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../admin/models/admin_models.dart';
@@ -496,17 +497,21 @@ class _TeacherHomeScreenState extends ConsumerState<TeacherHomeScreen> {
                                 Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    Container(
-                                      width: 32,
-                                      height: 32,
-                                      decoration: const BoxDecoration(
-                                        color: _primary,
-                                        shape: BoxShape.circle,
-                                      ),
-                                      child: const Icon(
-                                        Icons.person_rounded,
-                                        color: Colors.white,
-                                        size: 18,
+                                    InkWell(
+                                      onTap: () => context.push(AppRoutes.account),
+                                      borderRadius: BorderRadius.circular(16),
+                                      child: Container(
+                                        width: 32,
+                                        height: 32,
+                                        decoration: const BoxDecoration(
+                                          color: _primary,
+                                          shape: BoxShape.circle,
+                                        ),
+                                        child: const Icon(
+                                          Icons.person_rounded,
+                                          color: Colors.white,
+                                          size: 18,
+                                        ),
                                       ),
                                     ),
                                     const SizedBox(width: 8),
@@ -557,46 +562,7 @@ class _TeacherHomeScreenState extends ConsumerState<TeacherHomeScreen> {
                                 Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    Material(
-                                      color: _surfaceContainer,
-                                      borderRadius: BorderRadius.circular(8),
-                                      child: InkWell(
-                                        onTap: () => _cycleLanguage(langCode),
-                                        borderRadius: BorderRadius.circular(8),
-                                        child: Container(
-                                          constraints: const BoxConstraints(
-                                            minWidth: 44,
-                                            minHeight: 44,
-                                          ),
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 8,
-                                          ),
-                                          child: Row(
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              const Icon(
-                                                Icons.translate_rounded,
-                                                size: 18,
-                                                color: _onSurfaceVariant,
-                                              ),
-                                              const SizedBox(width: 4),
-                                              Text(
-                                                _nextLangBadge(langCode),
-                                                style: Theme.of(context)
-                                                    .textTheme
-                                                    .labelMedium
-                                                    ?.copyWith(
-                                                      color: _onSurfaceVariant,
-                                                      fontWeight:
-                                                          FontWeight.w600,
-                                                    ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 4),
+
                                     IconButton(
                                       onPressed: () {
                                         ScaffoldMessenger.of(context)
@@ -733,12 +699,7 @@ class _TeacherHomeScreenState extends ConsumerState<TeacherHomeScreen> {
       return _buildDailyScheduleTab(context, langCode);
     }
     if (_selectedBottomTab == 2) {
-      return _buildProfileTab(
-        context,
-        langCode,
-        displayTeacherName,
-        teacherEmail,
-      );
+      return const AccountScreen();
     }
 
     final topPadding = MediaQuery.paddingOf(context).top + 64 + 16;

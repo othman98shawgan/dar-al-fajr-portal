@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:dar_al_fajr_portal/core/services/locale_provider.dart';
 import 'package:dar_al_fajr_portal/core/theme/app_theme.dart';
+import 'package:go_router/go_router.dart';
+import 'package:dar_al_fajr_portal/core/routing/app_router.dart';
 import 'package:dar_al_fajr_portal/features/auth/providers/auth_providers.dart';
 import 'package:dar_al_fajr_portal/l10n/app_localizations.dart';
 
@@ -37,26 +39,10 @@ class HomeScreen extends ConsumerWidget {
       appBar: AppBar(
         title: Text(l10n.appTitle),
         actions: [
-          PopupMenuButton<String>(
-            icon: const Icon(Icons.language),
-            tooltip: l10n.switchLanguage,
-            onSelected: (code) {
-              ref.read(localeProvider.notifier).setLocale(Locale(code));
-            },
-            itemBuilder: (context) => const [
-              PopupMenuItem(
-                value: 'ar',
-                child: Text('العربية (AR)'),
-              ),
-              PopupMenuItem(
-                value: 'he',
-                child: Text('עברית (HE)'),
-              ),
-              PopupMenuItem(
-                value: 'en',
-                child: Text('English (EN)'),
-              ),
-            ],
+          IconButton(
+            icon: const Icon(Icons.account_circle_outlined),
+            tooltip: 'حسابي الشخصي',
+            onPressed: () => context.push(AppRoutes.account),
           ),
           IconButton(
             icon: const Icon(Icons.logout_rounded),

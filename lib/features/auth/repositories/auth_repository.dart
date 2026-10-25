@@ -40,6 +40,18 @@ class AuthRepository {
     await _firebaseAuth.signOut();
   }
 
+  /// Updates the currently signed-in user's password.
+  Future<void> updatePassword(String newPassword) async {
+    final user = _firebaseAuth.currentUser;
+    if (user == null) {
+      throw FirebaseAuthException(
+        code: 'no-current-user',
+        message: 'No authenticated user found.',
+      );
+    }
+    await user.updatePassword(newPassword);
+  }
+
   /// Watches the Firestore `users/{uid}` document in real time.
   Stream<AppUser?> watchUserProfile(String uid) {
     return _firestore

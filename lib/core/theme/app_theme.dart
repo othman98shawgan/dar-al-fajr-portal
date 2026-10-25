@@ -9,6 +9,7 @@ class DarAlFajrTheme {
   static const Color accent = Color(0xFFD97706);
   static const Color background = Color(0xFFF8FAFC);
   static const Color surface = Colors.white;
+  static const Color onSurface = Color(0xFF0F172A);
   static const Color error = Color(0xFFDC2626);
 
   static ThemeData get lightTheme {
@@ -25,7 +26,7 @@ class DarAlFajrTheme {
         secondary: accent,
         onSecondary: Colors.white,
         surface: surface,
-        onSurface: Color(0xFF0F172A),
+        onSurface: onSurface,
         error: Color(0xFFDC2626),
         onError: Colors.white,
       ),

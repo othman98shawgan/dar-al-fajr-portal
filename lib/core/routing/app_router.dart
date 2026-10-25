@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../features/account/screens/account_screen.dart';
 import '../../features/admin/screens/admin_shell_screen.dart';
 import '../../features/auth/models/app_user.dart';
 import '../../features/auth/providers/auth_providers.dart';
@@ -24,6 +25,7 @@ class AppRoutes {
   static const String teacherGroupDetail = '/teacher/group';
   static const String teacherAttendance = '/teacher/attendance';
   static const String parentStudent = '/parent-student';
+  static const String account = '/account';
 }
 
 final appRouterProvider = Provider<GoRouter>((ref) {
@@ -125,6 +127,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (BuildContext context, GoRouterState state) {
           final groupId = state.pathParameters['groupId'] ?? '';
           return AttendanceLoggingView(groupId: groupId);
+        },
+      ),
+      GoRoute(
+        path: AppRoutes.account,
+        builder: (BuildContext context, GoRouterState state) {
+          return const AccountScreen();
         },
       ),
     ],

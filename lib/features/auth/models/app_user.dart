@@ -21,6 +21,53 @@ enum UserRole {
   }
 
   String toJson() => name;
+
+  String localizedName(String langCode) {
+    switch (this) {
+      case UserRole.admin:
+        switch (langCode) {
+          case 'he':
+            return 'מנהל מערכת';
+          case 'en':
+            return 'Admin';
+          case 'ar':
+          default:
+            return 'مدير النظام';
+        }
+      case UserRole.teacher:
+        switch (langCode) {
+          case 'he':
+            return 'מורה';
+          case 'en':
+            return 'Teacher';
+          case 'ar':
+          default:
+            return 'معلم';
+        }
+      case UserRole.parent:
+        switch (langCode) {
+          case 'he':
+            return 'הורה';
+          case 'en':
+            return 'Parent';
+          case 'ar':
+          default:
+            return 'ولي أمر';
+        }
+      case UserRole.student:
+        switch (langCode) {
+          case 'he':
+            return 'תלמיד';
+          case 'en':
+            return 'Student';
+          case 'ar':
+          default:
+            return 'طالب';
+        }
+    }
+  }
+
+  String get displayName => localizedName('ar');
 }
 
 class AppUser {

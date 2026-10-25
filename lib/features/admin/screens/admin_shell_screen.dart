@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import '../../../core/routing/app_router.dart';
 
 import '../../../core/services/locale_provider.dart';
 import '../../../core/theme/app_theme.dart';
@@ -7,6 +9,7 @@ import '../../auth/models/app_user.dart';
 import '../../auth/providers/auth_providers.dart';
 import '../models/admin_models.dart';
 import '../providers/admin_providers.dart';
+import 'admin_mobile_screen.dart';
 
 class _AdminRosterRowData {
   final String id;
@@ -553,9 +556,15 @@ class _AdminShellScreenState extends ConsumerState<AdminShellScreen> {
         ? firestoreEnrollments.where((e) => e.oneOnOneSlotTime != null && e.oneOnOneSlotTime!.isNotEmpty).length
         : 3;
 
-    return Directionality(
-      textDirection: isRtl ? TextDirection.rtl : TextDirection.ltr,
-      child: Scaffold(
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxWidth < 800) {
+          return const AdminMobileScreen();
+        }
+
+        return Directionality(
+          textDirection: isRtl ? TextDirection.rtl : TextDirection.ltr,
+          child: Scaffold(
         backgroundColor: DarAlFajrTheme.background,
         body: Stack(
           children: [
@@ -835,11 +844,6 @@ class _AdminShellScreenState extends ConsumerState<AdminShellScreen> {
                               Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  _LanguageSwitcherBar(
-                                    currentLangCode: langCode,
-                                    onSelect: (code) => ref.read(localeProvider.notifier).setLocale(Locale(code)),
-                                  ),
-                                  const SizedBox(width: 12),
                                   OutlinedButton.icon(
                                     onPressed: () {
                                       setState(() {
@@ -878,14 +882,21 @@ class _AdminShellScreenState extends ConsumerState<AdminShellScreen> {
                                     ),
                                   ),
                                   const SizedBox(width: 12),
-                                  Container(
-                                    width: 32,
-                                    height: 32,
-                                    decoration: const BoxDecoration(
-                                      color: DarAlFajrTheme.primary,
-                                      shape: BoxShape.circle,
+                                  InkWell(
+                                    onTap: () => context.push(AppRoutes.account),
+                                    borderRadius: BorderRadius.circular(18),
+                                    child: Tooltip(
+                                      message: _tr(langCode, ar: 'حسابي', he: 'החשבון שלי', en: 'My Account'),
+                                      child: Container(
+                                        width: 36,
+                                        height: 36,
+                                        decoration: const BoxDecoration(
+                                          color: DarAlFajrTheme.primary,
+                                          shape: BoxShape.circle,
+                                        ),
+                                        child: const Icon(Icons.person_rounded, size: 20, color: Colors.white),
+                                      ),
                                     ),
-                                    child: const Icon(Icons.person_rounded, size: 18, color: Colors.white),
                                   ),
                                 ],
                               ),
@@ -1534,6 +1545,8 @@ class _AdminShellScreenState extends ConsumerState<AdminShellScreen> {
         ),
       ),
     );
+      },
+    );
   }
 
   Widget _buildSelectedTabContent({
@@ -1627,11 +1640,7 @@ class _AdminShellScreenState extends ConsumerState<AdminShellScreen> {
                       ),
                     ),
                   ),
-                  const SizedBox(width: 12),
-                  _LanguageSwitcherBar(
-                    currentLangCode: langCode,
-                    onSelect: (code) => ref.read(localeProvider.notifier).setLocale(Locale(code)),
-                  ),
+
                 ],
               ),
               Row(
@@ -2577,50 +2586,6 @@ class _SidebarNavItem extends StatelessWidget {
                 ),
               ),
             ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _LanguageSwitcherBar extends StatelessWidget {
-  final String currentLangCode;
-  final ValueChanged<String> onSelect;
-
-  const _LanguageSwitcherBar({required this.currentLangCode, required this.onSelect});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(4),
-      decoration: BoxDecoration(color: const Color(0xFFF2F4F6), borderRadius: BorderRadius.circular(12)),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _buildBtn(context, 'ar', 'العربية'),
-          _buildBtn(context, 'he', 'עברית'),
-          _buildBtn(context, 'en', 'EN'),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildBtn(BuildContext context, String code, String label) {
-    final isSelected = currentLangCode == code;
-    return GestureDetector(
-      onTap: () => onSelect(code),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-        decoration: BoxDecoration(
-          color: isSelected ? DarAlFajrTheme.primary : Colors.transparent,
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Text(
-          label,
-          style: Theme.of(context).textTheme.labelMedium?.copyWith(
-            color: isSelected ? Colors.white : const Color(0xFF3D4947),
-            fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
           ),
         ),
       ),
