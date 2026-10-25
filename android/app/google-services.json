@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "179915571219",
+    "project_id": "dar-al-fajr-portal",
+    "storage_bucket": "dar-al-fajr-portal.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:179915571219:android:fb121dd5b8197104f6ffe6",
+        "android_client_info": {
+          "package_name": "com.example.dar_al_fajr_portal"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAsNshJHVxk1WucgdzQlHkKVTwLe4twUDw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

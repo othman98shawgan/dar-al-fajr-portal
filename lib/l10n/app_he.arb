@@ -1,0 +1,14 @@
+{
+  "@@locale": "he",
+  "appTitle": "פורטל דאר אל-פג'ר",
+  "welcome": "ברוכים הבאים לפורטל דאר אל-פג'ר",
+  "login": "התחברות",
+  "email": "דואר אלקטרוני",
+  "password": "סיסמה",
+  "present": "נוכח",
+  "late": "מאחר",
+  "absent": "נעדר",
+  "newHifz": "שינון חדש",
+  "revision": "חזרה",
+  "switchLanguage": "החלף שפה"
+}

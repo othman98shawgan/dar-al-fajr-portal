@@ -1,0 +1,14 @@
+{
+  "@@locale": "en",
+  "appTitle": "Dar al-Fajr Portal",
+  "welcome": "Welcome to Dar al-Fajr Portal",
+  "login": "Login",
+  "email": "Email",
+  "password": "Password",
+  "present": "Present",
+  "late": "Late",
+  "absent": "Absent",
+  "newHifz": "New Hifz",
+  "revision": "Revision",
+  "switchLanguage": "Switch Language"
+}

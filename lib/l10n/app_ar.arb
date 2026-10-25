@@ -1,0 +1,47 @@
+{
+  "@@locale": "ar",
+  "appTitle": "بوابة دار الفجر",
+  "@appTitle": {
+    "description": "اسم التطبيق الرئيسي"
+  },
+  "welcome": "أهلاً بك في بوابة دار الفجر",
+  "@welcome": {
+    "description": "رسالة الترحيب"
+  },
+  "login": "تسجيل الدخول",
+  "@login": {
+    "description": "زر أو عنوان تسجيل الدخول"
+  },
+  "email": "البريد الإلكتروني",
+  "@email": {
+    "description": "حقل البريد الإلكتروني"
+  },
+  "password": "كلمة المرور",
+  "@password": {
+    "description": "حقل كلمة المرور"
+  },
+  "present": "حاضر",
+  "@present": {
+    "description": "حالة الحضور: حاضر"
+  },
+  "late": "متأخر",
+  "@late": {
+    "description": "حالة الحضور: متأخر"
+  },
+  "absent": "غائب",
+  "@absent": {
+    "description": "حالة الحضور: غائب"
+  },
+  "newHifz": "حفظ جديد",
+  "@newHifz": {
+    "description": "حفظ جديد"
+  },
+  "revision": "مراجعة",
+  "@revision": {
+    "description": "مراجعة"
+  },
+  "switchLanguage": "تغيير اللغة",
+  "@switchLanguage": {
+    "description": "خيار تبديل اللغة"
+  }
+}
