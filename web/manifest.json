@@ -1,12 +1,14 @@
 {
-    "name": "dar_al_fajr_portal",
-    "short_name": "dar_al_fajr_portal",
+    "name": "بوابة دار الفجر لتعليم القرآن الكريم",
+    "short_name": "دار الفجر",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "background_color": "#F8FAFC",
+    "theme_color": "#0F2F28",
+    "description": "بوابة دار الفجر لإدارة الحلقات القرآنية، تسجيل الحضور، ومتابعة حفظ ومراجعة القرآن الكريم",
     "orientation": "portrait-primary",
+    "dir": "rtl",
+    "lang": "ar",
     "prefer_related_applications": false,
     "icons": [
         {

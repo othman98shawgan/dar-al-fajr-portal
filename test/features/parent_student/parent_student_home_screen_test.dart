@@ -9,6 +9,10 @@ void main() {
   testWidgets(
     'ParentStudentHomeScreen renders Schedule & Homework and Progress Summary tabs',
     (WidgetTester tester) async {
+      tester.view.physicalSize = const Size(1080, 2400);
+      tester.view.devicePixelRatio = 2.0;
+      addTearDown(() => tester.view.resetPhysicalSize());
+
       await tester.pumpWidget(
         const ProviderScope(
           child: MaterialApp(

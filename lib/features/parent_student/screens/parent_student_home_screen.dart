@@ -1135,22 +1135,23 @@ class _ParentStudentHomeScreenState
       child: InkWell(
         borderRadius: BorderRadius.circular(14),
         onTap: onTap,
-        child: SizedBox(
+        child: Container(
           width: 140,
-          height: 56,
+          padding: const EdgeInsets.symmetric(vertical: 4),
           child: Column(
+            mainAxisSize: MainAxisSize.min,
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Icon(
                 icon,
-                size: 24,
+                size: 22,
                 color: isSelected ? _primary : _onSurfaceVariant,
               ),
-              const SizedBox(height: 4),
+              const SizedBox(height: 2),
               Text(
                 label,
                 style: TextStyle(
-                  fontSize: 12,
+                  fontSize: 11,
                   fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
                   color: isSelected ? _primary : _onSurfaceVariant,
                 ),
@@ -1218,27 +1219,33 @@ class _ParentStudentHomeScreenState
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Row(
-                          children: [
-                            Container(
-                              width: 10,
-                              height: 10,
-                              decoration: const BoxDecoration(
-                                color: _primary,
-                                shape: BoxShape.circle,
+                        Expanded(
+                          child: Row(
+                            children: [
+                              Container(
+                                width: 10,
+                                height: 10,
+                                decoration: const BoxDecoration(
+                                  color: _primary,
+                                  shape: BoxShape.circle,
+                                ),
                               ),
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              child.groupName,
-                              style: const TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.w600,
-                                color: _primary,
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  child.groupName,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w600,
+                                    color: _primary,
+                                  ),
+                                ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
+                        const SizedBox(width: 8),
                         Container(
                           padding: const EdgeInsets.symmetric(
                             horizontal: 10,
@@ -1274,23 +1281,29 @@ class _ParentStudentHomeScreenState
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Row(
-                          children: [
-                            const Icon(
-                              Icons.school_rounded,
-                              size: 16,
-                              color: _primary,
-                            ),
-                            const SizedBox(width: 6),
-                            Text(
-                              child.teacherName,
-                              style: const TextStyle(
-                                fontSize: 13,
-                                color: _onSurfaceVariant,
+                        Expanded(
+                          child: Row(
+                            children: [
+                              const Icon(
+                                Icons.school_rounded,
+                                size: 16,
+                                color: _primary,
                               ),
-                            ),
-                          ],
+                              const SizedBox(width: 6),
+                              Expanded(
+                                child: Text(
+                                  child.teacherName,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontSize: 13,
+                                    color: _onSurfaceVariant,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
+                        const SizedBox(width: 8),
                         Text(
                           child.periodLabel,
                           style: const TextStyle(
@@ -1316,24 +1329,30 @@ class _ParentStudentHomeScreenState
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Row(
-                            children: [
-                              const Icon(
-                                Icons.workspace_premium_rounded,
-                                color: _secondary,
-                                size: 18,
-                              ),
-                              const SizedBox(width: 8),
-                              Text(
-                                child.streakBannerTitle,
-                                style: const TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                  color: _onSurface,
+                          Expanded(
+                            child: Row(
+                              children: [
+                                const Icon(
+                                  Icons.workspace_premium_rounded,
+                                  color: _secondary,
+                                  size: 18,
                                 ),
-                              ),
-                            ],
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    child.streakBannerTitle,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                      color: _onSurface,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
+                          const SizedBox(width: 8),
                           Text(
                             child.streakDaysLabel,
                             style: const TextStyle(
@@ -1374,54 +1393,59 @@ class _ParentStudentHomeScreenState
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    children: [
-                      Container(
-                        width: 40,
-                        height: 40,
-                        decoration: BoxDecoration(
-                          color: _primaryContainer.withValues(alpha: 0.10),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: const Icon(
-                          Icons.calendar_month_rounded,
-                          color: _primary,
-                          size: 22,
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            _tr(
-                              langCode,
-                              ar: 'مواعيد الحضور هذا الأسبوع',
-                              he: 'זמני הגעה השבוע',
-                              en: 'Weekly Arrival Schedule',
-                            ),
-                            style: const TextStyle(
-                              fontSize: 17,
-                              fontWeight: FontWeight.w600,
-                              color: _onSurface,
-                            ),
+                  Expanded(
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Container(
+                          width: 40,
+                          height: 40,
+                          decoration: BoxDecoration(
+                            color: _primaryContainer.withValues(alpha: 0.10),
+                            borderRadius: BorderRadius.circular(12),
                           ),
-                          const SizedBox(height: 2),
-                          Text(
-                            _tr(
-                              langCode,
-                              ar: 'الأسبوع الدراسي الحالي (١٨ - ٢٢ أكتوبر)',
-                              he: 'שבוע הלימודים הנוכחי (18 - 22 באוקטובר)',
-                              en: 'Current Academic Week (Oct 18 - 22)',
-                            ),
-                            style: const TextStyle(
-                              fontSize: 13,
-                              color: _onSurfaceVariant,
-                            ),
+                          child: const Icon(
+                            Icons.calendar_month_rounded,
+                            color: _primary,
+                            size: 22,
                           ),
-                        ],
-                      ),
-                    ],
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                _tr(
+                                  langCode,
+                                  ar: 'مواعيد الحضور هذا الأسبوع',
+                                  he: 'זמני הגעה השבוע',
+                                  en: 'Weekly Arrival Schedule',
+                                ),
+                                style: const TextStyle(
+                                  fontSize: 17,
+                                  fontWeight: FontWeight.w600,
+                                  color: _onSurface,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                _tr(
+                                  langCode,
+                                  ar: 'الأسبوع الدراسي الحالي (١٨ - ٢٢ أكتوبر)',
+                                  he: 'שבוע הלימודים הנוכחי (18 - 22 באוקטובר)',
+                                  en: 'Current Academic Week (Oct 18 - 22)',
+                                ),
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  color: _onSurfaceVariant,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                   IconButton(
                     onPressed: () {
@@ -1483,55 +1507,60 @@ class _ParentStudentHomeScreenState
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Row(
-                    children: [
-                      Container(
-                        width: 40,
-                        height: 40,
-                        decoration: BoxDecoration(
-                          color: _primaryContainer.withValues(alpha: 0.10),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: const Icon(
-                          Icons.menu_book_rounded,
-                          color: _primary,
-                          size: 22,
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            _tr(
-                              langCode,
-                              ar: 'واجب هذا الأسبوع',
-                              he: 'מטלת השבוע',
-                              en: 'This Week\'s Assignment',
-                            ),
-                            style: const TextStyle(
-                              fontSize: 17,
-                              fontWeight: FontWeight.w600,
-                              color: _onSurface,
-                            ),
+                  Expanded(
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 40,
+                          height: 40,
+                          decoration: BoxDecoration(
+                            color: _primaryContainer.withValues(alpha: 0.10),
+                            borderRadius: BorderRadius.circular(12),
                           ),
-                          const SizedBox(height: 2),
-                          Text(
-                            _tr(
-                              langCode,
-                              ar: 'مقرر الإتقان والمراجعة الدورية',
-                              he: 'שינון וחזרה תקופתית',
-                              en: 'Hifz & Periodic Revision Syllabus',
-                            ),
-                            style: const TextStyle(
-                              fontSize: 13,
-                              color: _onSurfaceVariant,
-                            ),
+                          child: const Icon(
+                            Icons.menu_book_rounded,
+                            color: _primary,
+                            size: 22,
                           ),
-                        ],
-                      ),
-                    ],
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                _tr(
+                                  langCode,
+                                  ar: 'واجب هذا الأسبوع',
+                                  he: 'מטלת השבוע',
+                                  en: 'This Week\'s Assignment',
+                                ),
+                                style: const TextStyle(
+                                  fontSize: 17,
+                                  fontWeight: FontWeight.w600,
+                                  color: _onSurface,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                _tr(
+                                  langCode,
+                                  ar: 'مقرر الإتقان والمراجعة الدورية',
+                                  he: 'שינון וחזרה תקופתית',
+                                  en: 'Hifz & Periodic Revision Syllabus',
+                                ),
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  color: _onSurfaceVariant,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
+                  const SizedBox(width: 8),
                   Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 12,
@@ -1689,26 +1718,31 @@ class _ParentStudentHomeScreenState
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Row(
-                                children: [
-                                  Container(
-                                    width: 8,
-                                    height: 8,
-                                    decoration: const BoxDecoration(
-                                      color: _secondaryContainer,
-                                      shape: BoxShape.circle,
+                              Expanded(
+                                child: Row(
+                                  children: [
+                                    Container(
+                                      width: 8,
+                                      height: 8,
+                                      decoration: const BoxDecoration(
+                                        color: _secondaryContainer,
+                                        shape: BoxShape.circle,
+                                      ),
                                     ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  const Text(
-                                    'المراجعة والتثبيت',
-                                    style: TextStyle(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w600,
-                                      color: _onSurface,
+                                    const SizedBox(width: 8),
+                                    const Expanded(
+                                      child: Text(
+                                        'المراجعة والتثبيت',
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w600,
+                                          color: _onSurface,
+                                        ),
+                                      ),
                                     ),
-                                  ),
-                                ],
+                                  ],
+                                ),
                               ),
                               Text(
                                 child.revisionHizbLabel,
@@ -2707,36 +2741,42 @@ class _ParentStudentHomeScreenState
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Row(
-                            children: [
-                              Container(
-                                width: 24,
-                                height: 24,
-                                alignment: Alignment.center,
-                                decoration: const BoxDecoration(
-                                  color: _primaryFixed,
-                                  shape: BoxShape.circle,
-                                ),
-                                child: Text(
-                                  '${surah.surahNumber}',
-                                  style: const TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.bold,
-                                    color: _onPrimaryFixed,
+                          Expanded(
+                            child: Row(
+                              children: [
+                                Container(
+                                  width: 24,
+                                  height: 24,
+                                  alignment: Alignment.center,
+                                  decoration: const BoxDecoration(
+                                    color: _primaryFixed,
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: Text(
+                                    '',
+                                    style: const TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.bold,
+                                      color: _onPrimaryFixed,
+                                    ),
                                   ),
                                 ),
-                              ),
-                              const SizedBox(width: 8),
-                              Text(
-                                surah.surahName,
-                                style: const TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w600,
-                                  color: _onSurface,
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    surah.surahName,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w600,
+                                      color: _onSurface,
+                                    ),
+                                  ),
                                 ),
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
+                          const SizedBox(width: 8),
                           Text(
                             '${surah.progressPercent}% (الآية ${surah.fromAyah} إلى ${surah.toAyah})',
                             style: const TextStyle(
@@ -2829,32 +2869,38 @@ class _ParentStudentHomeScreenState
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Row(
-                    children: [
-                      Container(
-                        width: 32,
-                        height: 32,
-                        decoration: BoxDecoration(
-                          color: _surfaceContainer,
-                          borderRadius: BorderRadius.circular(8),
+                  Expanded(
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 32,
+                          height: 32,
+                          decoration: BoxDecoration(
+                            color: _surfaceContainer,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Icon(
+                            Icons.auto_stories_rounded,
+                            color: _primary,
+                            size: 18,
+                          ),
                         ),
-                        child: const Icon(
-                          Icons.auto_stories_rounded,
-                          color: _primary,
-                          size: 18,
+                        const SizedBox(width: 8),
+                        const Expanded(
+                          child: Text(
+                            'الأجزاء قيد الحفظ',
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 17,
+                              fontWeight: FontWeight.w600,
+                              color: _onSurface,
+                            ),
+                          ),
                         ),
-                      ),
-                      const SizedBox(width: 8),
-                      const Text(
-                        'الأجزاء قيد الحفظ',
-                        style: TextStyle(
-                          fontSize: 17,
-                          fontWeight: FontWeight.w600,
-                          color: _onSurface,
-                        ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
+                  const SizedBox(width: 8),
                   const Text(
                     'مخطط الإتمام لعام 1446هـ',
                     style: TextStyle(
@@ -2959,24 +3005,30 @@ class _ParentStudentHomeScreenState
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Row(
-                        children: [
-                          const Icon(
-                            Icons.radio_button_unchecked_rounded,
-                            size: 18,
-                            color: _outline,
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            juz.juzTitle,
-                            style: const TextStyle(
-                              fontSize: 12.5,
-                              fontWeight: FontWeight.w500,
-                              color: _onSurfaceVariant,
+                      Expanded(
+                        child: Row(
+                          children: [
+                            const Icon(
+                              Icons.radio_button_unchecked_rounded,
+                              size: 18,
+                              color: _outline,
                             ),
-                          ),
-                        ],
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                juz.juzTitle,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontSize: 12.5,
+                                  fontWeight: FontWeight.w500,
+                                  color: _onSurfaceVariant,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
+                      const SizedBox(width: 8),
                       Container(
                         padding: const EdgeInsets.symmetric(
                           horizontal: 8,
