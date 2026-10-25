@@ -18,8 +18,6 @@ class AccountScreen extends ConsumerStatefulWidget {
 }
 
 class _AccountScreenState extends ConsumerState<AccountScreen> {
-  bool _isUpdatingLanguage = false;
-
   String _tr(String langCode, {required String ar, required String he, required String en}) {
     switch (langCode) {
       case 'he':
@@ -35,7 +33,6 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
   Future<void> _handleSelectLanguage(String code, String currentLang, AppUser? appUser) async {
     if (code == currentLang) return;
 
-    setState(() => _isUpdatingLanguage = true);
     try {
       // 1. Update active app-wide locale in Riverpod
       ref.read(localeProvider.notifier).setLocale(Locale(code));
@@ -66,8 +63,6 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
       );
     } catch (_) {
       // If Firestore update fails silently (e.g. offline/mock), local state is still updated
-    } finally {
-      if (mounted) setState(() => _isUpdatingLanguage = false);
     }
   }
 
@@ -127,11 +122,12 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
               }
 
               Navigator.of(dlgCtx).pop();
+              final messenger = ScaffoldMessenger.of(context);
               try {
                 final authRepo = ref.read(authRepositoryProvider);
                 await authRepo.updatePassword(newPass);
                 if (!mounted) return;
-                ScaffoldMessenger.of(context).showSnackBar(
+                messenger.showSnackBar(
                   SnackBar(
                     content: Text(
                       _tr(langCode, ar: 'تم تحديث كلمة المرور بنجاح!', he: 'הסיסמה עודכנה בהצלחה!', en: 'Password updated successfully!'),
@@ -141,7 +137,7 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
                 );
               } catch (e) {
                 if (!mounted) return;
-                ScaffoldMessenger.of(context).showSnackBar(
+                messenger.showSnackBar(
                   SnackBar(
                     content: Text('Error: $e'),
                     backgroundColor: DarAlFajrTheme.error,

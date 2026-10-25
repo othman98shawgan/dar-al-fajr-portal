@@ -7,7 +7,6 @@ import 'package:go_router/go_router.dart';
 import '../../../core/routing/app_router.dart';
 import '../../account/screens/account_screen.dart';
 import '../../../core/services/locale_provider.dart';
-import '../../../core/theme/app_theme.dart';
 import '../../admin/models/admin_models.dart';
 import '../../auth/providers/auth_providers.dart';
 import '../models/teacher_models.dart';
@@ -161,23 +160,6 @@ class _TeacherHomeScreenState extends ConsumerState<TeacherHomeScreen> {
       default:
         return ar;
     }
-  }
-
-  void _cycleLanguage(String currentLangCode) {
-    final nextCode = switch (currentLangCode) {
-      'ar' => 'he',
-      'he' => 'en',
-      _ => 'ar',
-    };
-    ref.read(localeProvider.notifier).setLocale(Locale(nextCode));
-  }
-
-  String _nextLangBadge(String currentLangCode) {
-    return switch (currentLangCode) {
-      'ar' => 'EN',
-      'he' => 'AR',
-      _ => 'عربي',
-    };
   }
 
   void _openGroupDetail(String groupId) {
@@ -2372,83 +2354,6 @@ class _TeacherHomeScreenState extends ConsumerState<TeacherHomeScreen> {
     );
   }
 
-  Widget _buildProfileTab(
-    BuildContext context,
-    String langCode,
-    String displayTeacherName,
-    String teacherEmail,
-  ) {
-    final topPadding = MediaQuery.paddingOf(context).top + 64 + 16;
-    final bottomPadding = MediaQuery.paddingOf(context).bottom + 64 + 24;
-
-    return ListView(
-      padding: EdgeInsets.only(
-        top: topPadding,
-        bottom: bottomPadding,
-        left: 16,
-        right: 16,
-      ),
-      children: [
-        Container(
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            color: _surfaceContainerLowest,
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: Column(
-            children: [
-              Container(
-                width: 68,
-                height: 68,
-                decoration: const BoxDecoration(
-                  color: _primary,
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.person_rounded,
-                  color: Colors.white,
-                  size: 36,
-                ),
-              ),
-              const SizedBox(height: 12),
-              Text(
-                displayTeacherName,
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                teacherEmail,
-                style: const TextStyle(color: _onSurfaceVariant),
-              ),
-              const SizedBox(height: 20),
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton.icon(
-                  onPressed: () =>
-                      ref.read(authControllerProvider.notifier).signOut(),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: DarAlFajrTheme.error,
-                    side: const BorderSide(color: DarAlFajrTheme.error),
-                  ),
-                  icon: const Icon(Icons.logout_rounded),
-                  label: Text(
-                    _tr(
-                      langCode,
-                      ar: 'تسجيل الخروج من الحساب',
-                      he: 'התנתק מהחשבון',
-                      en: 'Sign Out',
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
 }
 
 class _VitalStatBox extends StatelessWidget {

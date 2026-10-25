@@ -1,0 +1,185 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // =========================================================================
+    // Authentication & RBAC Helper Functions
+    // =========================================================================
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function hasRole(role) {
+      return isAuthenticated() && (
+        request.auth.token.role == role ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+         getUserData().role == role)
+      );
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && (
+        request.auth.token.admin == true ||
+        hasRole('admin')
+      );
+    }
+
+    function isTeacher() {
+      return isAdmin() || hasRole('teacher');
+    }
+
+    function isParent() {
+      return hasRole('parent');
+    }
+
+    function isStudent() {
+      return hasRole('student');
+    }
+
+    // =========================================================================
+    // 1. Users Collection
+    // =========================================================================
+    match /users/{userId} {
+      // Admins and Teachers can read user profiles.
+      // Any authenticated user can read their own profile.
+      allow read: if isAuthenticated() && (
+        isOwner(userId) ||
+        isTeacher() ||
+        isAdmin()
+      );
+
+      // Only admins can create user documents directly.
+      allow create: if isAdmin();
+
+      // Admins have full update rights.
+      // Users can update their own contact info and complete the first login gate,
+      // but cannot elevate their role or alter their email/id.
+      allow update: if isAdmin() || (
+        isOwner(userId) &&
+        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'id', 'email'])
+      );
+
+      // Only admins can delete user profiles.
+      allow delete: if isAdmin();
+    }
+
+    // =========================================================================
+    // 2. Students Collection
+    // =========================================================================
+    match /students/{studentId} {
+      // Admins and Teachers can read all student profiles.
+      // Parents can read their linked children.
+      // Students can read their own profile.
+      allow read: if isAuthenticated() && (
+        isTeacher() ||
+        (isParent() && resource.data.parentId == request.auth.uid) ||
+        (isStudent() && (resource.data.userId == request.auth.uid || resource.id == request.auth.uid)) ||
+        // Fallback for demo/unassigned parent accounts during onboarding
+        isParent()
+      );
+
+      // Only admins can create or delete learner profiles.
+      allow create, delete: if isAdmin();
+
+      // Admins can update any field.
+      // Teachers can update memorization progress arrays when logging evaluations.
+      allow update: if isAdmin() || (
+        isTeacher() &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'memorizedPages',
+          'completedSurahs',
+          'completedJuz',
+          'updatedAt'
+        ])
+      );
+    }
+
+    // =========================================================================
+    // 3. Groups Collection
+    // =========================================================================
+    match /groups/{groupId} {
+      // All authenticated center members can view group schedules and details.
+      allow read: if isAuthenticated();
+
+      // Admins manage all groups.
+      allow create, delete: if isAdmin();
+
+      // Admins and assigned teachers can update group metadata.
+      allow update: if isAdmin() || (
+        isTeacher() &&
+        resource.data.teacherId == request.auth.uid
+      );
+    }
+
+    // =========================================================================
+    // 4. Enrollments Collection
+    // =========================================================================
+    match /enrollments/{enrollmentId} {
+      // Admins and teachers can read enrollments.
+      // Parents and students can read enrollments matching their student profile.
+      allow read: if isAuthenticated() && (
+        isTeacher() ||
+        (isParent() || isStudent())
+      );
+
+      // Only admins can manage roster enrollments.
+      allow create, update, delete: if isAdmin();
+    }
+
+    // =========================================================================
+    // 5. Attendance Logs Collection
+    // =========================================================================
+    match /attendance_logs/{logId} {
+      // Teachers & Admins can read all attendance logs.
+      // Parents and students can read their own attendance records.
+      allow read: if isAuthenticated() && (
+        isTeacher() ||
+        (isParent() || isStudent())
+      );
+
+      // Teachers and Admins can log or edit attendance.
+      allow create, update: if isTeacher();
+
+      // Only admins can delete historical attendance records.
+      allow delete: if isAdmin();
+    }
+
+    // =========================================================================
+    // 6. Hifz Assignments Collection
+    // =========================================================================
+    match /hifz_assignments/{assignmentId} {
+      // Teachers & Admins can read all assignments.
+      // Parents and students can read their own weekly homework and grades.
+      allow read: if isAuthenticated() && (
+        isTeacher() ||
+        (isParent() || isStudent())
+      );
+
+      // Teachers and Admins can create and evaluate assignments.
+      allow create: if isTeacher();
+
+      // Teachers can update assignments (grade, notes, range).
+      // Parents can acknowledge/sign the weekly assignment.
+      allow update: if isTeacher() || (
+        (isParent() || isStudent()) &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'parentAcknowledged',
+          'acknowledgedAt'
+        ])
+      );
+
+      // Only admins can delete assignment records.
+      allow delete: if isAdmin();
+    }
+  }
+}

@@ -1,1 +1,70 @@
-{"flutter":{"platforms":{"android":{"default":{"projectId":"dar-al-fajr-portal","appId":"1:179915571219:android:fb121dd5b8197104f6ffe6","fileOutput":"android/app/google-services.json"}},"dart":{"lib/firebase_options.dart":{"projectId":"dar-al-fajr-portal","configurations":{"android":"1:179915571219:android:fb121dd5b8197104f6ffe6","ios":"1:179915571219:ios:53653db31eb1af72f6ffe6","web":"1:179915571219:web:003c289f98eb8d64f6ffe6"}}}}}}
+{
+  "firestore": {
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
+  },
+  "hosting": {
+    "public": "build/web",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ],
+    "rewrites": [
+      {
+        "source": "**",
+        "destination": "/index.html"
+      }
+    ],
+    "headers": [
+      {
+        "source": "assets/**",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "max-age=31536000, immutable"
+          }
+        ]
+      },
+      {
+        "source": "flutter_service_worker.js",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-cache, no-store, must-revalidate"
+          }
+        ]
+      },
+      {
+        "source": "index.html",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-cache, no-store, must-revalidate"
+          }
+        ]
+      }
+    ]
+  },
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "dar-al-fajr-portal",
+          "appId": "1:179915571219:android:fb121dd5b8197104f6ffe6",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "dar-al-fajr-portal",
+          "configurations": {
+            "android": "1:179915571219:android:fb121dd5b8197104f6ffe6",
+            "ios": "1:179915571219:ios:53653db31eb1af72f6ffe6",
+            "web": "1:179915571219:web:003c289f98eb8d64f6ffe6"
+          }
+        }
+      }
+    }
+  }
+}
