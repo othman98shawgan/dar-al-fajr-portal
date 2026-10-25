@@ -6,6 +6,7 @@ import 'package:dar_al_fajr_portal/core/theme/app_theme.dart';
 import 'package:go_router/go_router.dart';
 import 'package:dar_al_fajr_portal/core/routing/app_router.dart';
 import 'package:dar_al_fajr_portal/features/auth/providers/auth_providers.dart';
+import 'package:dar_al_fajr_portal/features/parent_student/screens/parent_student_home_screen.dart';
 import 'package:dar_al_fajr_portal/l10n/app_localizations.dart';
 
 class HomeScreen extends ConsumerWidget {
@@ -33,6 +34,10 @@ class HomeScreen extends ConsumerWidget {
           ),
         ),
       );
+    }
+
+    if (isFirebaseActive && appUser != null) {
+      return const ParentStudentHomeScreen();
     }
 
     return Scaffold(
@@ -75,9 +80,7 @@ class HomeScreen extends ConsumerWidget {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      appUser != null
-                          ? 'مرحباً بك: ${appUser.fullName} (${appUser.email})'
-                          : 'بوابة ولي الأمر والطالب (المرحلة 5)',
+                      'بوابة ولي الأمر والطالب (المرحلة 5)',
                       style: Theme.of(context).textTheme.titleSmall?.copyWith(
                             color: DarAlFajrTheme.primary,
                             fontWeight: FontWeight.bold,

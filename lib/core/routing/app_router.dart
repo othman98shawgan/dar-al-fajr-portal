@@ -13,6 +13,7 @@ import '../../features/hifz/screens/attendance_logging_view.dart';
 import '../../features/hifz/screens/group_detail_screen.dart';
 import '../../features/hifz/screens/teacher_home_screen.dart';
 import '../../features/home/home_screen.dart';
+import '../../features/parent_student/screens/parent_student_home_screen.dart';
 
 class AppRoutes {
   AppRoutes._();
@@ -78,7 +79,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             return AppRoutes.teacher;
           case UserRole.parent:
           case UserRole.student:
-            return AppRoutes.home;
+            return AppRoutes.parentStudent;
         }
       }
 
@@ -127,6 +128,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (BuildContext context, GoRouterState state) {
           final groupId = state.pathParameters['groupId'] ?? '';
           return AttendanceLoggingView(groupId: groupId);
+        },
+      ),
+      GoRoute(
+        path: AppRoutes.parentStudent,
+        builder: (BuildContext context, GoRouterState state) {
+          return const ParentStudentHomeScreen();
         },
       ),
       GoRoute(
