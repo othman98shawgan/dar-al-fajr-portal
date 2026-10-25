@@ -81,7 +81,7 @@ System Specification & Software Requirement Documentation for **Dar al-Fajr Port
 * [x] **Milestone 2:** Firebase Auth Configuration, Secondary App Provisioning & First-Login Setup Gate implementation.  
 * [x] **Milestone 3:** Admin Web Portal Development (Roster management, Groups & Multi-Track Enrollments).  
 * [x] **Milestone 4:** Teacher Workflows (Attendance Logging View & Hifz/Revision Assignment Engine).  
-* [ ] **Milestone 5:** Parent & Student Experience (Child Switcher, Chronological Arrival Schedule & Progress Dashboard UI).  
+* [x] **Milestone 5:** Parent & Student Experience (Child Switcher, Chronological Arrival Schedule & Progress Dashboard UI).  
 * [ ] **Milestone 6:** Security & Deployment (Firestore Security Rules auditing, performance optimization, and Production Deployment).
 
 ## Git
