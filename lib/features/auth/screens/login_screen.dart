@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:wakelock_plus/wakelock_plus.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/routing/app_router.dart';
@@ -277,7 +278,45 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 14),
+                  const SizedBox(height: 10),
+                  FutureBuilder<bool>(
+                    future: WakelockPlus.enabled,
+                    builder: (context, snapshot) {
+                      final isWakelockActive = snapshot.data ?? true;
+                      return SwitchListTile.adaptive(
+                        contentPadding: EdgeInsets.zero,
+                        secondary: const Icon(Icons.screen_lock_portrait_rounded, size: 22, color: DarAlFajrTheme.accent),
+                        title: Text(
+                          _tr(
+                            langCode,
+                            ar: 'إبقاء الشاشة مضاءة (Wakelock)',
+                            he: 'השאר מסך דולק (Wakelock)',
+                            en: 'Keep Screen Awake (Wakelock)',
+                          ),
+                          style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600),
+                        ),
+                        subtitle: Text(
+                          _tr(
+                            langCode,
+                            ar: 'منع قفل الشاشة أثناء الاختبار',
+                            he: 'מניעת נעילת המסך במהלך בדיקות',
+                            en: 'Prevents screen sleep during testing',
+                          ),
+                          style: const TextStyle(fontSize: 11.5, color: DarAlFajrTheme.outline),
+                        ),
+                        value: isWakelockActive,
+                        activeThumbColor: DarAlFajrTheme.primary,
+                        onChanged: (val) async {
+                          if (val) {
+                            await WakelockPlus.enable();
+                          } else {
+                            await WakelockPlus.disable();
+                          }
+                          setSheetState(() {});
+                        },
+                      );
+                    },
+                  ),
                   const Divider(),
                   const SizedBox(height: 10),
                   Text(
