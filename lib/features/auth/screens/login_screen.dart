@@ -556,8 +556,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                                 ),
                                                 child: ClipRRect(
                                                   borderRadius: BorderRadius.circular(12),
-                                                  child: Image.network(
-                                                    'https://lh3.googleusercontent.com/aida/AEtjO1V9Oam7G6sX1YIzr7pz3XpfKfuE8Kfnar5tU7rF7dwmfjdthiNMd1b3Nav3jVdo_ogtlQnVTXJ5vf1wjqqVmw0cAXKFJREXRfZ6_yV_hovhVKddHvMpGrG8A0cPSR50HlPLEwJlHyxFFkwolU2b3NeUU0diAyDacM72OO9qhEcWzzlanJTTHhv88PhTxT4Jk4xdhEg7rM6PzI4tsCzGN2f7TbfXOQXcbEn0I_1175UoSQvMPYQmdCSn-1Q',
+                                                  child: Image.asset(
+                                                    'assets/logo.png',
                                                     fit: BoxFit.contain,
                                                     errorBuilder: (context, error, stackTrace) {
                                                       return const Icon(

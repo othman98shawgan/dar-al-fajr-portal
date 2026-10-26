@@ -513,6 +513,38 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
                     ),
                   ),
                 ),
+                const SizedBox(height: 28),
+                Center(
+                  child: Column(
+                    children: [
+                      Container(
+                        width: 44,
+                        height: 44,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.grey.shade200),
+                        ),
+                        padding: const EdgeInsets.all(6),
+                        child: Image.asset('assets/logo.png', fit: BoxFit.contain),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        _tr(
+                          langCode,
+                          ar: 'بوابة دار الفجر لتعليم القرآن الكريم',
+                          he: 'פורטל דאר אל-פג׳ר ללימוד הקוראן',
+                          en: 'Dar al-Fajr Quran Center Portal',
+                        ),
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Color(0xFF6D7A77),
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
                 const SizedBox(height: 32),
               ],
             ),
