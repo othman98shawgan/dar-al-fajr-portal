@@ -84,9 +84,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           content: Text(
             _tr(
               langCode,
-              ar: 'تمت تهيئة الحسابات والبيانات التجريبية بنجاح! تم تعبئة حساب مدير النظام.',
-              he: 'נתוני דמו נוצרו בהצלחה! מולאו פרטי מנהל המערכת.',
-              en: 'Demo data seeded successfully! Admin credentials auto-filled.',
+              ar: 'تمت تهيئة البيانات بنجاح! تم تعبئة حساب المدير.',
+              he: 'נתוני הדמו נוצרו בהצלחה! מולאו פרטי מנהל.',
+              en: 'Demo data seeded! Admin credentials auto-filled.',
             ),
           ),
           backgroundColor: DarAlFajrTheme.primary,
@@ -114,17 +114,17 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         title: Text(
           _tr(
             langCode,
-            ar: 'مركز الدعم والمساعدة',
-            he: 'מרכז תמיכה ועזרה',
-            en: 'Help & Support Center',
+            ar: 'المساعدة والدعم',
+            he: 'תמיכה ועזרה',
+            en: 'Help & Support',
           ),
         ),
         content: Text(
           _tr(
             langCode,
-            ar: 'للحصول على بيانات الدخول أو إعادة تعيين كلمة المرور، يرجى التواصل مع إدارة مركز دار الفجر.',
-            he: 'לקבלת פרטי התחברות או איפוס סיסמה, אנא פנו להנהלת מרכז דאר אל-פג׳ר.',
-            en: 'To obtain login credentials or reset your password, please contact Dar al-Fajr administration.',
+            ar: 'للحصول على بيانات حسابك أو إعادة تعيين كلمة المرور، يرجى التواصل مع إدارة مركز دار الفجر.',
+            he: 'לקבלת פרטי חשבון או איפוס סיסמה, אנא פנו להנהלת מרכז דאר אל-פג׳ר.',
+            en: 'To obtain your account credentials or reset your password, please contact Dar al-Fajr administration.',
           ),
         ),
         actions: [
@@ -136,6 +136,150 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  void _showDevOptionsSheet(String langCode) {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            return Padding(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade300,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      const Icon(Icons.code_rounded, color: DarAlFajrTheme.accent),
+                      const SizedBox(width: 8),
+                      Text(
+                        _tr(
+                          langCode,
+                          ar: 'خيارات المطور (Dev Options)',
+                          he: 'אפשרויות מפתח',
+                          en: 'Developer Options',
+                        ),
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+                  ElevatedButton.icon(
+                    onPressed: _isSeeding
+                        ? null
+                        : () async {
+                            Navigator.of(ctx).pop();
+                            await _handleDevSeed(langCode);
+                          },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: DarAlFajrTheme.accent,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                    icon: _isSeeding
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : const Icon(Icons.cloud_upload_rounded, size: 20),
+                    label: Text(
+                      _tr(
+                        langCode,
+                        ar: 'تهيئة الحسابات التجريبية (1-Click Seed)',
+                        he: 'אתחול נתוני דמו (1-Click Seed)',
+                        en: 'Seed Demo Accounts (1-Click)',
+                      ),
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  Text(
+                    _tr(
+                      langCode,
+                      ar: 'تعبئة سريعة للحسابات:',
+                      he: 'מילוי מהיר של חשבונות:',
+                      en: 'Quick fill accounts:',
+                    ),
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: Colors.grey.shade700,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      ActionChip(
+                        avatar: const Icon(Icons.admin_panel_settings_rounded, size: 16),
+                        label: const Text('Admin'),
+                        onPressed: () {
+                          setState(() {
+                            _emailController.text = 'admin@daralfajr.org';
+                            _passwordController.text = 'Admin@2026!';
+                          });
+                          Navigator.of(ctx).pop();
+                        },
+                      ),
+                      ActionChip(
+                        avatar: const Icon(Icons.school_rounded, size: 16),
+                        label: const Text('Teacher'),
+                        onPressed: () {
+                          setState(() {
+                            _emailController.text = 'teacher@daralfajr.org';
+                            _passwordController.text = 'Teacher@2026!';
+                          });
+                          Navigator.of(ctx).pop();
+                        },
+                      ),
+                      ActionChip(
+                        avatar: const Icon(Icons.family_restroom_rounded, size: 16),
+                        label: const Text('Parent'),
+                        onPressed: () {
+                          setState(() {
+                            _emailController.text = 'parent@daralfajr.org';
+                            _passwordController.text = 'Parent@2026!';
+                          });
+                          Navigator.of(ctx).pop();
+                        },
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
     );
   }
 
@@ -164,7 +308,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     final l10n = AppLocalizations.of(context);
     final authState = ref.watch(authControllerProvider);
     final isLoading = authState.isLoading;
-    final textTheme = Theme.of(context).textTheme;
 
     return Directionality(
       textDirection: isRtl ? TextDirection.rtl : TextDirection.ltr,
@@ -208,117 +351,105 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               ),
             ),
 
-            // Full-Height Locked Scrollable Container
             SafeArea(
-              child: Center(
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 420),
-                  child: CustomScrollView(
-                    slivers: [
-                      SliverFillRemaining(
-                        hasScrollBody: false,
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 8,
+              child: Column(
+                children: [
+                  // Top Screen Header: Language Switcher & Developer Button
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        // Clean Language Switcher Pill
+                        Container(
+                          padding: const EdgeInsets.all(3),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(999),
+                            border: Border.all(color: Colors.grey.shade200),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.03),
+                                blurRadius: 4,
+                                offset: const Offset(0, 1),
+                              ),
+                            ],
                           ),
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
                             children: [
-                              // Top Utility Bar: Language Switcher & Support
-                              Padding(
-                                padding:
-                                    const EdgeInsets.symmetric(vertical: 6),
-                                child: Row(
-                                  mainAxisAlignment:
-                                      MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    // Language Switcher Pill
-                                    Container(
-                                      padding: const EdgeInsets.all(4),
-                                      decoration: BoxDecoration(
-                                        color: const Color(0xFFF2F4F6),
-                                        borderRadius:
-                                            BorderRadius.circular(999),
-                                        boxShadow: [
-                                          BoxShadow(
-                                            color: Colors.black
-                                                .withValues(alpha: 0.04),
-                                            blurRadius: 4,
-                                            offset: const Offset(0, 1),
-                                          ),
-                                        ],
-                                      ),
-                                      child: Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          _LanguagePillButton(
-                                            label: 'العربية',
-                                            isSelected: langCode == 'ar',
-                                            onTap: () => ref
-                                                .read(localeProvider.notifier)
-                                                .setLocale(
-                                                    const Locale('ar')),
-                                          ),
-                                          _LanguagePillButton(
-                                            label: 'עברית',
-                                            isSelected: langCode == 'he',
-                                            onTap: () => ref
-                                                .read(localeProvider.notifier)
-                                                .setLocale(
-                                                    const Locale('he')),
-                                          ),
-                                          _LanguagePillButton(
-                                            label: 'EN',
-                                            isSelected: langCode == 'en',
-                                            onTap: () => ref
-                                                .read(localeProvider.notifier)
-                                                .setLocale(
-                                                    const Locale('en')),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
+                              _LanguagePillButton(
+                                label: 'العربية',
+                                isSelected: langCode == 'ar',
+                                onTap: () => ref
+                                    .read(localeProvider.notifier)
+                                    .setLocale(const Locale('ar')),
+                              ),
+                              _LanguagePillButton(
+                                label: 'עברית',
+                                isSelected: langCode == 'he',
+                                onTap: () => ref
+                                    .read(localeProvider.notifier)
+                                    .setLocale(const Locale('he')),
+                              ),
+                              _LanguagePillButton(
+                                label: 'EN',
+                                isSelected: langCode == 'en',
+                                onTap: () => ref
+                                    .read(localeProvider.notifier)
+                                    .setLocale(const Locale('en')),
+                              ),
+                            ],
+                          ),
+                        ),
 
-                                    // Quick Help & Inquiries Modal Trigger
-                                    Material(
-                                      color: DarAlFajrTheme.surface,
-                                      shape: const CircleBorder(),
-                                      elevation: 1,
-                                      shadowColor:
-                                          Colors.black.withValues(alpha: 0.08),
-                                      child: InkWell(
-                                        customBorder: const CircleBorder(),
-                                        onTap: () =>
-                                            _showSupportDialog(langCode),
-                                        child: const SizedBox(
-                                          width: 36,
-                                          height: 36,
-                                          child: Icon(
-                                            Icons.help_outline_rounded,
-                                            size: 20,
-                                            color: DarAlFajrTheme.primaryDark,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  ],
+                        // Developer Options Button
+                        if (kDebugMode)
+                          Material(
+                            color: Colors.white,
+                            shape: const CircleBorder(),
+                            elevation: 1,
+                            shadowColor: Colors.black.withValues(alpha: 0.06),
+                            child: InkWell(
+                              customBorder: const CircleBorder(),
+                              onTap: () => _showDevOptionsSheet(langCode),
+                              child: const Padding(
+                                padding: EdgeInsets.all(8.0),
+                                child: Icon(
+                                  Icons.terminal_rounded,
+                                  size: 20,
+                                  color: DarAlFajrTheme.outline,
                                 ),
                               ),
+                            ),
+                          )
+                        else
+                          const SizedBox.shrink(),
+                      ],
+                    ),
+                  ),
 
+                  // Scrollable Body containing the Login Card
+                  Expanded(
+                    child: Center(
+                      child: SingleChildScrollView(
+                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 400),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
                               // Main Card Container
                               Container(
                                 width: double.infinity,
-                                margin: const EdgeInsets.only(top: 8),
                                 decoration: BoxDecoration(
-                                  color: DarAlFajrTheme.surface,
-                                  borderRadius: BorderRadius.circular(14),
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(20),
                                   boxShadow: [
                                     BoxShadow(
-                                      color:
-                                          Colors.black.withValues(alpha: 0.05),
-                                      blurRadius: 12,
-                                      offset: const Offset(0, 4),
+                                      color: Colors.black.withValues(alpha: 0.05),
+                                      blurRadius: 18,
+                                      offset: const Offset(0, 6),
                                     ),
                                   ],
                                 ),
@@ -326,7 +457,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                 child: Column(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    // Dawn Aesthetic Micro Ribbon
+                                    // Multi-color Gradient Ribbon on Top of Card
                                     Container(
                                       height: 6,
                                       width: double.infinity,
@@ -342,11 +473,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                     ),
 
                                     Padding(
-                                      padding: const EdgeInsets.all(20),
+                                      padding: const EdgeInsets.fromLTRB(28, 24, 28, 28),
                                       child: Column(
                                         mainAxisSize: MainAxisSize.min,
                                         children: [
-                                          // Brand Emblem Frame
+                                          // Multi-layered Circular Brand Emblem Frame
                                           Stack(
                                             alignment: Alignment.center,
                                             children: [
@@ -362,37 +493,28 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                               Container(
                                                 width: 72,
                                                 height: 72,
-                                                padding:
-                                                    const EdgeInsets.all(8),
+                                                padding: const EdgeInsets.all(8),
                                                 decoration: BoxDecoration(
-                                                  color:
-                                                      const Color(0xFFF2F4F6),
-                                                  borderRadius:
-                                                      BorderRadius.circular(16),
+                                                  color: const Color(0xFFF2F4F6),
+                                                  borderRadius: BorderRadius.circular(16),
                                                   boxShadow: [
                                                     BoxShadow(
-                                                      color: Colors.black
-                                                          .withValues(
-                                                              alpha: 0.05),
+                                                      color: Colors.black.withValues(alpha: 0.05),
                                                       blurRadius: 6,
-                                                      offset:
-                                                          const Offset(0, 2),
+                                                      offset: const Offset(0, 2),
                                                     ),
                                                   ],
                                                 ),
                                                 child: ClipRRect(
-                                                  borderRadius:
-                                                      BorderRadius.circular(12),
+                                                  borderRadius: BorderRadius.circular(12),
                                                   child: Image.network(
                                                     'https://lh3.googleusercontent.com/aida/AEtjO1V9Oam7G6sX1YIzr7pz3XpfKfuE8Kfnar5tU7rF7dwmfjdthiNMd1b3Nav3jVdo_ogtlQnVTXJ5vf1wjqqVmw0cAXKFJREXRfZ6_yV_hovhVKddHvMpGrG8A0cPSR50HlPLEwJlHyxFFkwolU2b3NeUU0diAyDacM72OO9qhEcWzzlanJTTHhv88PhTxT4Jk4xdhEg7rM6PzI4tsCzGN2f7TbfXOQXcbEn0I_1175UoSQvMPYQmdCSn-1Q',
                                                     fit: BoxFit.contain,
-                                                    errorBuilder: (context,
-                                                        error, stackTrace) {
+                                                    errorBuilder: (context, error, stackTrace) {
                                                       return const Icon(
                                                         Icons.menu_book_rounded,
                                                         size: 36,
-                                                        color: DarAlFajrTheme
-                                                            .primaryDark,
+                                                        color: DarAlFajrTheme.primaryDark,
                                                       );
                                                     },
                                                   ),
@@ -400,141 +522,104 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                               ),
                                             ],
                                           ),
-                                          const SizedBox(height: 12),
 
-                                          // Typography Headings
-                                          Container(
-                                            padding: const EdgeInsets.symmetric(
-                                              horizontal: 10,
-                                              vertical: 3,
-                                            ),
-                                            decoration: BoxDecoration(
-                                              color: DarAlFajrTheme.accent
-                                                  .withValues(alpha: 0.15),
-                                              borderRadius:
-                                                  BorderRadius.circular(999),
-                                            ),
-                                            child: Row(
-                                              mainAxisSize: MainAxisSize.min,
-                                              children: [
-                                                const Icon(
-                                                  Icons.wb_twilight_rounded,
-                                                  size: 14,
-                                                  color: DarAlFajrTheme.accent,
-                                                ),
-                                                const SizedBox(width: 6),
-                                                Text(
-                                                  _tr(
-                                                    langCode,
-                                                    ar: 'بوابة الطالب والمعلم',
-                                                    he: 'פורטל תלמיד ומורה',
-                                                    en: 'Student & Teacher Portal',
-                                                  ),
-                                                  style: textTheme.labelSmall
-                                                      ?.copyWith(
-                                                    color: const Color(
-                                                        0xFF663500),
-                                                    fontWeight: FontWeight.w600,
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-                                          const SizedBox(height: 6),
+                                          const SizedBox(height: 16),
+
+                                          // Clean Title & Subtitle
                                           Text(
-                                            l10n?.login ??
-                                                _tr(
-                                                  langCode,
-                                                  ar: 'تسجيل الدخول',
-                                                  he: 'התחברות',
-                                                  en: 'Login',
-                                                ),
-                                            style: textTheme.headlineSmall
-                                                ?.copyWith(
-                                              color:
-                                                  DarAlFajrTheme.primaryDark,
-                                              fontWeight: FontWeight.w700,
+                                            l10n?.appTitle ?? 'بوابة دار الفجر',
+                                            style: const TextStyle(
+                                              fontSize: 22,
+                                              fontWeight: FontWeight.bold,
+                                              color: DarAlFajrTheme.primaryDark,
                                             ),
                                             textAlign: TextAlign.center,
                                           ),
                                           const SizedBox(height: 4),
-                                          ConstrainedBox(
-                                            constraints: const BoxConstraints(
-                                              maxWidth: 270,
+                                          Text(
+                                            _tr(
+                                              langCode,
+                                              ar: 'تسجيل الدخول للمتابعة',
+                                              he: 'התחבר כדי להמשיך',
+                                              en: 'Sign in to continue',
                                             ),
-                                            child: Text(
-                                              _tr(
-                                                langCode,
-                                                ar: 'أهلاً بك في المنصة التعليمية والقرآنية المتكاملة لمجتمع دار الفجر',
-                                                he: 'ברוכים הבאים לפלטפורמה החינוכית והקוראנית המשולבת של קהילת דאר אל-פג׳ר',
-                                                en: 'Welcome to the integrated Quranic learning platform for the Dar al-Fajr community',
-                                              ),
-                                              style:
-                                                  textTheme.bodySmall?.copyWith(
-                                                color:
-                                                    const Color(0xFF3D4947),
-                                                height: 1.4,
-                                              ),
-                                              textAlign: TextAlign.center,
+                                            style: const TextStyle(
+                                              fontSize: 13.5,
+                                              color: DarAlFajrTheme.outline,
                                             ),
+                                            textAlign: TextAlign.center,
                                           ),
-                                          const SizedBox(height: 18),
 
-                                          // Authentication Form
+                                          const SizedBox(height: 24),
+
+                                          // Form
                                           Form(
                                             key: _formKey,
                                             child: Column(
-                                              crossAxisAlignment:
-                                                  CrossAxisAlignment.stretch,
+                                              crossAxisAlignment: CrossAxisAlignment.stretch,
                                               children: [
-                                                // Input 1: Identity
+                                                // Email Field
                                                 Text(
                                                   _tr(
                                                     langCode,
-                                                    ar: 'البريد الإلكتروني أو اسم المستخدم',
-                                                    he: 'דוא״ל או שם משתמש',
-                                                    en: 'Email or Username',
+                                                    ar: 'البريد الإلكتروني',
+                                                    he: 'אימייל',
+                                                    en: 'Email',
                                                   ),
-                                                  style: textTheme.labelMedium
-                                                      ?.copyWith(
+                                                  style: const TextStyle(
+                                                    fontSize: 13,
                                                     fontWeight: FontWeight.w600,
-                                                    color: const Color(
-                                                        0xFF191C1E),
+                                                    color: Color(0xFF191C1E),
                                                   ),
                                                 ),
                                                 const SizedBox(height: 6),
                                                 TextFormField(
                                                   controller: _emailController,
-                                                  keyboardType: TextInputType
-                                                      .emailAddress,
-                                                  textInputAction:
-                                                      TextInputAction.next,
-                                                  decoration: const InputDecoration(
-                                                    hintText:
-                                                        'example@daralfajr.edu',
-                                                    prefixIcon: Icon(
-                                                      Icons
-                                                          .alternate_email_rounded,
-                                                      size: 20,
-                                                      color: Color(0xFF6D7A77),
+                                                  keyboardType: TextInputType.emailAddress,
+                                                  textInputAction: TextInputAction.next,
+                                                  decoration: InputDecoration(
+                                                    hintText: 'name@daralfajr.org',
+                                                    prefixIcon: const Icon(
+                                                      Icons.alternate_email_rounded,
+                                                      size: 18,
+                                                      color: DarAlFajrTheme.outline,
+                                                    ),
+                                                    contentPadding: const EdgeInsets.symmetric(
+                                                      horizontal: 16,
+                                                      vertical: 14,
+                                                    ),
+                                                    border: OutlineInputBorder(
+                                                      borderRadius: BorderRadius.circular(12),
+                                                      borderSide: BorderSide(color: Colors.grey.shade300),
+                                                    ),
+                                                    enabledBorder: OutlineInputBorder(
+                                                      borderRadius: BorderRadius.circular(12),
+                                                      borderSide: BorderSide(color: Colors.grey.shade300),
+                                                    ),
+                                                    focusedBorder: OutlineInputBorder(
+                                                      borderRadius: BorderRadius.circular(12),
+                                                      borderSide: const BorderSide(
+                                                        color: DarAlFajrTheme.primary,
+                                                        width: 1.5,
+                                                      ),
                                                     ),
                                                   ),
                                                   validator: (value) {
-                                                    if (value == null ||
-                                                        value.trim().isEmpty) {
+                                                    if (value == null || value.trim().isEmpty) {
                                                       return _tr(
                                                         langCode,
                                                         ar: 'يرجى إدخال البريد الإلكتروني',
-                                                        he: 'נא להזין כתובת אימייל',
+                                                        he: 'נא להזין אימייל',
                                                         en: 'Please enter your email',
                                                       );
                                                     }
                                                     return null;
                                                   },
                                                 ),
-                                                const SizedBox(height: 14),
 
-                                                // Input 2: Password
+                                                const SizedBox(height: 16),
+
+                                                // Password Field
                                                 Text(
                                                   l10n?.password ??
                                                       _tr(
@@ -543,52 +628,61 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                                         he: 'סיסמה',
                                                         en: 'Password',
                                                       ),
-                                                  style: textTheme.labelMedium
-                                                      ?.copyWith(
+                                                  style: const TextStyle(
+                                                    fontSize: 13,
                                                     fontWeight: FontWeight.w600,
-                                                    color: const Color(
-                                                        0xFF191C1E),
+                                                    color: Color(0xFF191C1E),
                                                   ),
                                                 ),
                                                 const SizedBox(height: 6),
                                                 TextFormField(
-                                                  controller:
-                                                      _passwordController,
+                                                  controller: _passwordController,
                                                   obscureText: _obscurePassword,
-                                                  textInputAction:
-                                                      TextInputAction.done,
-                                                  onFieldSubmitted: (_) =>
-                                                      _handleSignIn(),
+                                                  textInputAction: TextInputAction.done,
+                                                  onFieldSubmitted: (_) => _handleSignIn(),
                                                   decoration: InputDecoration(
                                                     hintText: '••••••••',
                                                     prefixIcon: const Icon(
-                                                      Icons
-                                                          .lock_outline_rounded,
-                                                      size: 20,
-                                                      color: Color(0xFF6D7A77),
+                                                      Icons.lock_outline_rounded,
+                                                      size: 18,
+                                                      color: DarAlFajrTheme.outline,
                                                     ),
                                                     suffixIcon: IconButton(
                                                       onPressed: () {
                                                         setState(() {
-                                                          _obscurePassword =
-                                                              !_obscurePassword;
+                                                          _obscurePassword = !_obscurePassword;
                                                         });
                                                       },
                                                       icon: Icon(
                                                         _obscurePassword
-                                                            ? Icons
-                                                                .visibility_outlined
-                                                            : Icons
-                                                                .visibility_off_outlined,
-                                                        size: 20,
-                                                        color: const Color(
-                                                            0xFF6D7A77),
+                                                            ? Icons.visibility_outlined
+                                                            : Icons.visibility_off_outlined,
+                                                        size: 18,
+                                                        color: DarAlFajrTheme.outline,
+                                                      ),
+                                                    ),
+                                                    contentPadding: const EdgeInsets.symmetric(
+                                                      horizontal: 16,
+                                                      vertical: 14,
+                                                    ),
+                                                    border: OutlineInputBorder(
+                                                      borderRadius: BorderRadius.circular(12),
+                                                      borderSide: BorderSide(color: Colors.grey.shade300),
+                                                    ),
+                                                    enabledBorder: OutlineInputBorder(
+                                                      borderRadius: BorderRadius.circular(12),
+                                                      borderSide: BorderSide(color: Colors.grey.shade300),
+                                                    ),
+                                                    focusedBorder: OutlineInputBorder(
+                                                      borderRadius: BorderRadius.circular(12),
+                                                      borderSide: const BorderSide(
+                                                        color: DarAlFajrTheme.primary,
+                                                        width: 1.5,
                                                       ),
                                                     ),
                                                   ),
                                                   validator: (value) {
-                                                    if (value == null ||
-                                                        value.isEmpty) {
+                                                    if (value == null || value.isEmpty) {
                                                       return _tr(
                                                         langCode,
                                                         ar: 'يرجى إدخال كلمة المرور',
@@ -599,81 +693,61 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                                     return null;
                                                   },
                                                 ),
-                                                const SizedBox(height: 8),
 
-                                                // Auxiliary Options (Remember Me & Forgot Password)
+                                                const SizedBox(height: 10),
+
+                                                // Remember Me & Forgot Password Row
                                                 Row(
-                                                  mainAxisAlignment:
-                                                      MainAxisAlignment
-                                                          .spaceBetween,
+                                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                                   children: [
                                                     InkWell(
-                                                      borderRadius:
-                                                          BorderRadius.circular(
-                                                              6),
+                                                      borderRadius: BorderRadius.circular(6),
                                                       onTap: () {
                                                         setState(() {
-                                                          _rememberMe =
-                                                              !_rememberMe;
+                                                          _rememberMe = !_rememberMe;
                                                         });
                                                       },
                                                       child: Row(
-                                                        mainAxisSize:
-                                                            MainAxisSize.min,
+                                                        mainAxisSize: MainAxisSize.min,
                                                         children: [
                                                           SizedBox(
-                                                            width: 24,
-                                                            height: 24,
+                                                            width: 20,
+                                                            height: 20,
                                                             child: Checkbox(
-                                                              value:
-                                                                  _rememberMe,
-                                                              activeColor:
-                                                                  DarAlFajrTheme
-                                                                      .primary,
+                                                              value: _rememberMe,
+                                                              activeColor: DarAlFajrTheme.primary,
+                                                              shape: RoundedRectangleBorder(
+                                                                borderRadius: BorderRadius.circular(4),
+                                                              ),
                                                               onChanged: (val) {
                                                                 setState(() {
-                                                                  _rememberMe =
-                                                                      val ??
-                                                                          false;
+                                                                  _rememberMe = val ?? false;
                                                                 });
                                                               },
                                                             ),
                                                           ),
-                                                          const SizedBox(
-                                                              width: 6),
+                                                          const SizedBox(width: 8),
                                                           Text(
                                                             _tr(
                                                               langCode,
-                                                              ar: 'تذكّر تسجيل الدخول',
+                                                              ar: 'تذكرني',
                                                               he: 'זכור אותי',
                                                               en: 'Remember me',
                                                             ),
-                                                            style: textTheme
-                                                                .bodySmall
-                                                                ?.copyWith(
-                                                              color: const Color(
-                                                                  0xFF3D4947),
+                                                            style: const TextStyle(
+                                                              fontSize: 12.5,
+                                                              color: Color(0xFF3D4947),
                                                             ),
                                                           ),
                                                         ],
                                                       ),
                                                     ),
                                                     TextButton(
-                                                      onPressed: () =>
-                                                          _showSupportDialog(
-                                                              langCode),
-                                                      style:
-                                                          TextButton.styleFrom(
-                                                        padding:
-                                                            const EdgeInsets
-                                                                .symmetric(
-                                                          horizontal: 4,
-                                                          vertical: 2,
-                                                        ),
+                                                      onPressed: () => _showSupportDialog(langCode),
+                                                      style: TextButton.styleFrom(
+                                                        padding: EdgeInsets.zero,
                                                         minimumSize: Size.zero,
-                                                        tapTargetSize:
-                                                            MaterialTapTargetSize
-                                                                .shrinkWrap,
+                                                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                                                       ),
                                                       child: Text(
                                                         _tr(
@@ -682,151 +756,53 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                                           he: 'שכחת סיסמה?',
                                                           en: 'Forgot password?',
                                                         ),
-                                                        style: textTheme
-                                                            .labelMedium
-                                                            ?.copyWith(
-                                                          color: DarAlFajrTheme
-                                                              .accent,
-                                                          fontWeight:
-                                                              FontWeight.w600,
+                                                        style: const TextStyle(
+                                                          fontSize: 12.5,
+                                                          color: DarAlFajrTheme.primary,
+                                                          fontWeight: FontWeight.w600,
                                                         ),
                                                       ),
                                                     ),
                                                   ],
                                                 ),
-                                                const SizedBox(height: 12),
 
-                                                // Primary Action CTA
+                                                const SizedBox(height: 22),
+
+                                                // Login Button
                                                 SizedBox(
                                                   height: 48,
                                                   child: ElevatedButton(
-                                                    onPressed: isLoading
-                                                        ? null
-                                                        : _handleSignIn,
-                                                    style: ElevatedButton
-                                                        .styleFrom(
-                                                      backgroundColor:
-                                                          DarAlFajrTheme
-                                                              .primary,
-                                                      foregroundColor:
-                                                          Colors.white,
-                                                      shape:
-                                                          RoundedRectangleBorder(
-                                                        borderRadius:
-                                                            BorderRadius
-                                                                .circular(12),
+                                                    onPressed: isLoading ? null : _handleSignIn,
+                                                    style: ElevatedButton.styleFrom(
+                                                      backgroundColor: DarAlFajrTheme.primary,
+                                                      foregroundColor: Colors.white,
+                                                      elevation: 0,
+                                                      shape: RoundedRectangleBorder(
+                                                        borderRadius: BorderRadius.circular(12),
                                                       ),
-                                                      elevation: 2,
                                                     ),
                                                     child: isLoading
                                                         ? const SizedBox(
-                                                            width: 22,
-                                                            height: 22,
-                                                            child:
-                                                                CircularProgressIndicator(
-                                                              strokeWidth: 2.5,
-                                                              color:
-                                                                  Colors.white,
+                                                            width: 20,
+                                                            height: 20,
+                                                            child: CircularProgressIndicator(
+                                                              strokeWidth: 2,
+                                                              color: Colors.white,
                                                             ),
                                                           )
-                                                        : Row(
-                                                            mainAxisAlignment:
-                                                                MainAxisAlignment
-                                                                    .center,
-                                                            children: [
-                                                              Text(
-                                                                l10n?.login ??
-                                                                    _tr(
-                                                                      langCode,
-                                                                      ar: 'تسجيل الدخول',
-                                                                      he: 'התחברות',
-                                                                      en: 'Login',
-                                                                    ),
-                                                                style: textTheme
-                                                                    .labelLarge
-                                                                    ?.copyWith(
-                                                                  color: Colors
-                                                                      .white,
-                                                                  fontWeight:
-                                                                      FontWeight
-                                                                          .w600,
+                                                        : Text(
+                                                            l10n?.login ??
+                                                                _tr(
+                                                                  langCode,
+                                                                  ar: 'تسجيل الدخول',
+                                                                  he: 'התחברות',
+                                                                  en: 'Sign In',
                                                                 ),
-                                                              ),
-                                                              const SizedBox(
-                                                                  width: 8),
-                                                              const Icon(
-                                                                Icons
-                                                                    .arrow_forward_rounded,
-                                                                size: 18,
-                                                              ),
-                                                            ],
+                                                            style: const TextStyle(
+                                                              fontSize: 15,
+                                                              fontWeight: FontWeight.w600,
+                                                            ),
                                                           ),
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-                                          const SizedBox(height: 16),
-
-                                          // Spiritual/Daily Motivation Micro Banner
-                                          Container(
-                                            width: double.infinity,
-                                            padding: const EdgeInsets.all(10),
-                                            decoration: BoxDecoration(
-                                              color: const Color(0xFFF2F4F6),
-                                              borderRadius:
-                                                  BorderRadius.circular(10),
-                                            ),
-                                            child: Row(
-                                              crossAxisAlignment:
-                                                  CrossAxisAlignment.start,
-                                              children: [
-                                                const Padding(
-                                                  padding:
-                                                      EdgeInsets.only(top: 2),
-                                                  child: Icon(
-                                                    Icons.auto_stories_rounded,
-                                                    size: 18,
-                                                    color:
-                                                        DarAlFajrTheme.accent,
-                                                  ),
-                                                ),
-                                                const SizedBox(width: 8),
-                                                Expanded(
-                                                  child: RichText(
-                                                    text: TextSpan(
-                                                      style: textTheme.bodySmall
-                                                          ?.copyWith(
-                                                        color: const Color(
-                                                            0xFF3D4947),
-                                                        height: 1.4,
-                                                      ),
-                                                      children: [
-                                                        TextSpan(
-                                                          text: _tr(
-                                                            langCode,
-                                                            ar: 'إشراقة الفجر: ',
-                                                            he: 'הארת השחר: ',
-                                                            en: 'Dawn Reflection: ',
-                                                          ),
-                                                          style:
-                                                              const TextStyle(
-                                                            fontWeight:
-                                                                FontWeight.w600,
-                                                            color: Color(
-                                                                0xFF191C1E),
-                                                          ),
-                                                        ),
-                                                        TextSpan(
-                                                          text: _tr(
-                                                            langCode,
-                                                            ar: '"خيركم من تعلّم القرآن وعلّمه" — بداية موفقة لحلقات اليوم.',
-                                                            he: '"הטובים שבכם הם אלה שלומדים את הקוראן ומלמדים אותו" — התחלה מבורכת לשיעורי היום.',
-                                                            en: '"The best among you are those who learn the Quran and teach it" — Have a blessed session today.',
-                                                          ),
-                                                        ),
-                                                      ],
-                                                    ),
                                                   ),
                                                 ),
                                               ],
@@ -839,334 +815,51 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                 ),
                               ),
 
-                              // Bottom Secondary Services / Activation & Dev Seed
-                              Padding(
-                                padding:
-                                    const EdgeInsets.only(top: 12, bottom: 4),
-                                child: Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    // Activation Badge Card
-                                    Container(
-                                      width: double.infinity,
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 12,
-                                        vertical: 10,
+                              const SizedBox(height: 20),
+
+                              // Simple Clean Support Footer
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Text(
+                                    _tr(
+                                      langCode,
+                                      ar: 'تواجه صعوبة في الدخول؟',
+                                      he: 'מתקשה להתחבר?',
+                                      en: 'Having trouble signing in?',
+                                    ),
+                                    style: const TextStyle(
+                                      fontSize: 13,
+                                      color: Color(0xFF6D7A77),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 4),
+                                  GestureDetector(
+                                    onTap: () => _showSupportDialog(langCode),
+                                    child: Text(
+                                      _tr(
+                                        langCode,
+                                        ar: 'تواصل مع الإدارة',
+                                        he: 'פנה להנהלה',
+                                        en: 'Contact admin',
                                       ),
-                                      decoration: BoxDecoration(
-                                        color: DarAlFajrTheme.surface,
-                                        borderRadius:
-                                            BorderRadius.circular(12),
-                                        boxShadow: [
-                                          BoxShadow(
-                                            color: Colors.black
-                                                .withValues(alpha: 0.04),
-                                            blurRadius: 6,
-                                            offset: const Offset(0, 2),
-                                          ),
-                                        ],
-                                      ),
-                                      child: Row(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.spaceBetween,
-                                        children: [
-                                          Expanded(
-                                            child: Row(
-                                              children: [
-                                                Container(
-                                                  width: 34,
-                                                  height: 34,
-                                                  decoration: BoxDecoration(
-                                                    color: DarAlFajrTheme
-                                                        .primary
-                                                        .withValues(
-                                                            alpha: 0.14),
-                                                    borderRadius:
-                                                        BorderRadius.circular(
-                                                            8),
-                                                  ),
-                                                  child: const Icon(
-                                                    Icons.how_to_reg_rounded,
-                                                    size: 18,
-                                                    color:
-                                                        DarAlFajrTheme.primary,
-                                                  ),
-                                                ),
-                                                const SizedBox(width: 10),
-                                                Expanded(
-                                                  child: Column(
-                                                    crossAxisAlignment:
-                                                        CrossAxisAlignment
-                                                            .start,
-                                                    children: [
-                                                      Text(
-                                                        _tr(
-                                                          langCode,
-                                                          ar: 'طالب أو معلم جديد؟',
-                                                          he: 'תלמיד או מורה חדש?',
-                                                          en: 'New Student or Teacher?',
-                                                        ),
-                                                        style: textTheme
-                                                            .labelMedium
-                                                            ?.copyWith(
-                                                          fontWeight:
-                                                              FontWeight.w600,
-                                                          color: const Color(
-                                                              0xFF191C1E),
-                                                        ),
-                                                      ),
-                                                      Text(
-                                                        _tr(
-                                                          langCode,
-                                                          ar: 'تفعيل الحساب لأول مرة عبر الإدارة',
-                                                          he: 'הפעלת חשבון ראשונית דרך ההנהלה',
-                                                          en: 'First-time account activation via Admin',
-                                                        ),
-                                                        style: textTheme
-                                                            .labelSmall
-                                                            ?.copyWith(
-                                                          color: const Color(
-                                                              0xFF3D4947),
-                                                        ),
-                                                      ),
-                                                    ],
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-                                          const SizedBox(width: 8),
-                                          TextButton(
-                                            onPressed: () =>
-                                                _showSupportDialog(langCode),
-                                            style: TextButton.styleFrom(
-                                              backgroundColor:
-                                                  const Color(0xFFECEEF0),
-                                              foregroundColor:
-                                                  DarAlFajrTheme.primaryDark,
-                                              padding:
-                                                  const EdgeInsets.symmetric(
-                                                horizontal: 12,
-                                                vertical: 6,
-                                              ),
-                                              shape: RoundedRectangleBorder(
-                                                borderRadius:
-                                                    BorderRadius.circular(8),
-                                              ),
-                                            ),
-                                            child: Text(
-                                              _tr(
-                                                langCode,
-                                                ar: 'تفعيل الآن',
-                                                he: 'הפעל עכשיו',
-                                                en: 'Activate Now',
-                                              ),
-                                              style: textTheme.labelSmall
-                                                  ?.copyWith(
-                                                color:
-                                                    DarAlFajrTheme.primaryDark,
-                                                fontWeight: FontWeight.w600,
-                                              ),
-                                            ),
-                                          ),
-                                        ],
+                                      style: const TextStyle(
+                                        fontSize: 13,
+                                        color: DarAlFajrTheme.primary,
+                                        fontWeight: FontWeight.bold,
+                                        decoration: TextDecoration.underline,
                                       ),
                                     ),
-                                    const SizedBox(height: 10),
-
-                                    // Developer Seed Tool Box (Visible in Debug Mode)
-                                    if (kDebugMode) ...[
-                                      Container(
-                                        width: double.infinity,
-                                        padding: const EdgeInsets.all(12),
-                                        decoration: BoxDecoration(
-                                          color: DarAlFajrTheme.accent
-                                              .withValues(alpha: 0.1),
-                                          borderRadius:
-                                              BorderRadius.circular(12),
-                                          border: Border.all(
-                                            color: DarAlFajrTheme.accent
-                                                .withValues(alpha: 0.3),
-                                          ),
-                                        ),
-                                        child: Column(
-                                          children: [
-                                            Row(
-                                              mainAxisAlignment:
-                                                  MainAxisAlignment
-                                                      .spaceBetween,
-                                              children: [
-                                                Row(
-                                                  children: [
-                                                    const Icon(
-                                                      Icons.bolt_rounded,
-                                                      size: 18,
-                                                      color:
-                                                          DarAlFajrTheme.accent,
-                                                    ),
-                                                    const SizedBox(width: 6),
-                                                    Text(
-                                                      'تهيئة الحسابات والبيانات (Dev Seed)',
-                                                      style: textTheme
-                                                          .labelMedium
-                                                          ?.copyWith(
-                                                        color: const Color(
-                                                            0xFF904D00),
-                                                        fontWeight:
-                                                            FontWeight.bold,
-                                                      ),
-                                                    ),
-                                                  ],
-                                                ),
-                                                if (_isSeeding)
-                                                  const SizedBox(
-                                                    width: 16,
-                                                    height: 16,
-                                                    child:
-                                                        CircularProgressIndicator(
-                                                      strokeWidth: 2,
-                                                      color:
-                                                          DarAlFajrTheme.accent,
-                                                    ),
-                                                  ),
-                                              ],
-                                            ),
-                                            const SizedBox(height: 8),
-                                            SizedBox(
-                                              width: double.infinity,
-                                              child: ElevatedButton.icon(
-                                                onPressed: _isSeeding
-                                                    ? null
-                                                    : () => _handleDevSeed(
-                                                        langCode),
-                                                style: ElevatedButton.styleFrom(
-                                                  backgroundColor:
-                                                      DarAlFajrTheme.accent,
-                                                  foregroundColor: Colors.white,
-                                                  padding: const EdgeInsets
-                                                      .symmetric(vertical: 8),
-                                                  shape: RoundedRectangleBorder(
-                                                    borderRadius:
-                                                        BorderRadius.circular(
-                                                            8),
-                                                  ),
-                                                ),
-                                                icon: const Icon(
-                                                    Icons.cloud_upload_rounded,
-                                                    size: 16),
-                                                label: const Text(
-                                                  '1-Click Seed: Admin, Teacher & Students',
-                                                  style: TextStyle(
-                                                    fontSize: 12,
-                                                    fontWeight: FontWeight.bold,
-                                                  ),
-                                                ),
-                                              ),
-                                            ),
-                                            const SizedBox(height: 8),
-                                            Wrap(
-                                              spacing: 6,
-                                              runSpacing: 4,
-                                              children: [
-                                                ActionChip(
-                                                  label: const Text(
-                                                      'Fill Admin',
-                                                      style: TextStyle(
-                                                          fontSize: 11)),
-                                                  onPressed: () {
-                                                    setState(() {
-                                                      _emailController.text =
-                                                          'admin@daralfajr.org';
-                                                      _passwordController
-                                                          .text = 'Admin@2026!';
-                                                    });
-                                                  },
-                                                ),
-                                                ActionChip(
-                                                  label: const Text(
-                                                      'Fill Teacher',
-                                                      style: TextStyle(
-                                                          fontSize: 11)),
-                                                  onPressed: () {
-                                                    setState(() {
-                                                      _emailController.text =
-                                                          'teacher@daralfajr.org';
-                                                      _passwordController
-                                                          .text = 'Teacher@2026!';
-                                                    });
-                                                  },
-                                                ),
-                                                ActionChip(
-                                                  label: const Text(
-                                                      'Fill Parent',
-                                                      style: TextStyle(
-                                                          fontSize: 11)),
-                                                  onPressed: () {
-                                                    setState(() {
-                                                      _emailController.text =
-                                                          'parent@daralfajr.org';
-                                                      _passwordController
-                                                          .text = 'Parent@2026!';
-                                                    });
-                                                  },
-                                                ),
-                                              ],
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                      const SizedBox(height: 10),
-                                    ],
-
-                                    // Technical Support Help Link
-                                    Wrap(
-                                      alignment: WrapAlignment.center,
-                                      crossAxisAlignment:
-                                          WrapCrossAlignment.center,
-                                      spacing: 6,
-                                      children: [
-                                        Text(
-                                          _tr(
-                                            langCode,
-                                            ar: 'تواجه صعوبة في الدخول؟',
-                                            he: 'מתקשים בהתחברות?',
-                                            en: 'Having trouble signing in?',
-                                          ),
-                                          style: textTheme.bodySmall?.copyWith(
-                                            color: const Color(0xFF3D4947),
-                                          ),
-                                        ),
-                                        InkWell(
-                                          onTap: () =>
-                                              _showSupportDialog(langCode),
-                                          child: Text(
-                                            _tr(
-                                              langCode,
-                                              ar: 'تواصل مع الدعم الفني',
-                                              he: 'פנה לתמיכה טכנית',
-                                              en: 'Contact Technical Support',
-                                            ),
-                                            style:
-                                                textTheme.bodySmall?.copyWith(
-                                              color: DarAlFajrTheme.primary,
-                                              fontWeight: FontWeight.w600,
-                                              decoration:
-                                                  TextDecoration.underline,
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ],
-                                ),
+                                  ),
+                                ],
                               ),
                             ],
                           ),
                         ),
                       ),
-                    ],
+                    ),
                   ),
-                ),
+                ],
               ),
             ),
           ],
@@ -1192,18 +885,19 @@ class _LanguagePillButton extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 4),
+        duration: const Duration(milliseconds: 160),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
         decoration: BoxDecoration(
           color: isSelected ? DarAlFajrTheme.primary : Colors.transparent,
           borderRadius: BorderRadius.circular(999),
         ),
         child: Text(
           label,
-          style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                color: isSelected ? Colors.white : const Color(0xFF3D4947),
-                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-              ),
+          style: TextStyle(
+            fontSize: 12,
+            color: isSelected ? Colors.white : const Color(0xFF3D4947),
+            fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+          ),
         ),
       ),
     );

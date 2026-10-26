@@ -10,6 +10,7 @@ class DarAlFajrTheme {
   static const Color background = Color(0xFFF8FAFC);
   static const Color surface = Colors.white;
   static const Color onSurface = Color(0xFF0F172A);
+  static const Color outline = Color(0xFF6D7A77);
   static const Color error = Color(0xFFDC2626);
 
   static ThemeData get lightTheme {
