@@ -10,6 +10,7 @@ import 'package:dar_al_fajr_portal/l10n/app_localizations.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  configureAppDateSymbols();
   try {
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,

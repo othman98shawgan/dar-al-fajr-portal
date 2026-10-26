@@ -1,4 +1,5 @@
 import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -54,6 +55,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
 
       // 1. Unauthenticated users must go to LoginScreen
       if (firebaseUser == null) {
+        if (kDebugMode && isOnFirstLoginSetup) {
+          return null;
+        }
         return isOnLogin ? null : AppRoutes.login;
       }
 
@@ -62,6 +66,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       // and prevent navigation until the role is known.
       final appUser = appUserState.asData?.value;
       if (appUserState.isLoading || appUser == null) {
+        if (kDebugMode && isOnFirstLoginSetup) {
+          return null;
+        }
         return isOnLogin ? null : null;
       }
 
@@ -71,7 +78,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       }
 
       // 3. Authenticated & setup complete: redirect away from auth screens or root
-      if (isOnLogin || isOnFirstLoginSetup || currentPath == AppRoutes.home) {
+      if (isOnLogin || (isOnFirstLoginSetup && !kDebugMode) || currentPath == AppRoutes.home) {
         switch (appUser.role) {
           case UserRole.admin:
             return AppRoutes.admin;
