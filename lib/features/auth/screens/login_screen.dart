@@ -3,6 +3,9 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+
+import '../../../core/routing/app_router.dart';
 
 import '../../../core/services/dev_seed_service.dart';
 import '../../../core/services/locale_provider.dart';
@@ -273,6 +276,52 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         },
                       ),
                     ],
+                  ),
+                  const SizedBox(height: 14),
+                  const Divider(),
+                  const SizedBox(height: 10),
+                  Text(
+                    _tr(
+                      langCode,
+                      ar: 'معاينة الشاشات (Dev Flows):',
+                      he: 'תצוגה מקדימה של מסכים:',
+                      en: 'Screen Previews (Dev Flows):',
+                    ),
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: Colors.grey.shade700,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  OutlinedButton.icon(
+                    onPressed: () {
+                      Navigator.of(ctx).pop();
+                      context.push(AppRoutes.firstLoginSetup);
+                    },
+                    icon: const Icon(Icons.password_rounded, size: 18),
+                    label: Text(
+                      _tr(
+                        langCode,
+                        ar: 'شاشة إعداد الدخول الأول (First Login Setup)',
+                        he: 'מסך הגדרת כניסה ראשונה',
+                        en: 'First-Login Setup Screen',
+                      ),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: DarAlFajrTheme.primary,
+                      side: BorderSide(
+                        color: DarAlFajrTheme.primary.withValues(alpha: 0.4),
+                      ),
+                      alignment: AlignmentDirectional.centerStart,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 12,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
                   ),
                 ],
               ),
