@@ -404,16 +404,27 @@ class _FirstLoginSetupScreenState extends ConsumerState<FirstLoginSetupScreen> {
                                     // Header Icon & Title
                                     Center(
                                       child: Container(
-                                        width: 52,
-                                        height: 52,
+                                        width: 56,
+                                        height: 56,
                                         decoration: BoxDecoration(
-                                          color: DarAlFajrTheme.primary.withValues(alpha: 0.1),
-                                          borderRadius: BorderRadius.circular(14),
+                                          color: Colors.white,
+                                          shape: BoxShape.circle,
+                                          border: Border.all(
+                                            color: DarAlFajrTheme.primary.withValues(alpha: 0.15),
+                                            width: 1.5,
+                                          ),
+                                          boxShadow: [
+                                            BoxShadow(
+                                              color: Colors.black.withValues(alpha: 0.04),
+                                              blurRadius: 6,
+                                              offset: const Offset(0, 2),
+                                            ),
+                                          ],
                                         ),
-                                        child: const Icon(
-                                          Icons.lock_reset_rounded,
-                                          size: 28,
-                                          color: DarAlFajrTheme.primary,
+                                        padding: const EdgeInsets.all(7),
+                                        child: Image.asset(
+                                          'assets/logo.png',
+                                          fit: BoxFit.contain,
                                         ),
                                       ),
                                     ),

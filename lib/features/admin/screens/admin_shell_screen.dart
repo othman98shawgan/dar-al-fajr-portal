@@ -602,10 +602,14 @@ class _AdminShellScreenState extends ConsumerState<AdminShellScreen> {
                                     width: 40,
                                     height: 40,
                                     decoration: BoxDecoration(
-                                      color: DarAlFajrTheme.primaryDark,
-                                      borderRadius: BorderRadius.circular(12),
+                                      color: Colors.white,
+                                      borderRadius: BorderRadius.circular(10),
                                     ),
-                                    child: const Icon(Icons.auto_stories_rounded, color: Colors.white, size: 24),
+                                    padding: const EdgeInsets.all(4),
+                                    child: Image.asset(
+                                      'assets/logo.png',
+                                      fit: BoxFit.contain,
+                                    ),
                                   ),
                                   const SizedBox(width: 12),
                                   Expanded(

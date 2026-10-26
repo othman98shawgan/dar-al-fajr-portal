@@ -475,25 +475,25 @@ class _TeacherHomeScreenState extends ConsumerState<TeacherHomeScreen> {
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                // Start: Avatar + Title + Subtitle
+                                // Start: Brand Logo + Title + Subtitle
                                 Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    InkWell(
-                                      onTap: () => context.push(AppRoutes.account),
-                                      borderRadius: BorderRadius.circular(16),
-                                      child: Container(
-                                        width: 32,
-                                        height: 32,
-                                        decoration: const BoxDecoration(
-                                          color: _primary,
-                                          shape: BoxShape.circle,
+                                    Container(
+                                      width: 36,
+                                      height: 36,
+                                      decoration: BoxDecoration(
+                                        color: Colors.white,
+                                        shape: BoxShape.circle,
+                                        border: Border.all(
+                                          color: _primary.withValues(alpha: 0.15),
+                                          width: 1.5,
                                         ),
-                                        child: const Icon(
-                                          Icons.person_rounded,
-                                          color: Colors.white,
-                                          size: 18,
-                                        ),
+                                      ),
+                                      padding: const EdgeInsets.all(4),
+                                      child: Image.asset(
+                                        'assets/logo.png',
+                                        fit: BoxFit.contain,
                                       ),
                                     ),
                                     const SizedBox(width: 8),
@@ -506,15 +506,15 @@ class _TeacherHomeScreenState extends ConsumerState<TeacherHomeScreen> {
                                         Text(
                                           _tr(
                                             langCode,
-                                            ar: 'Teacher Home Screen',
-                                            he: 'מסך הבית למורה',
-                                            en: 'Teacher Home Screen',
+                                            ar: 'بوابة المعلم',
+                                            he: 'פורטל מורה',
+                                            en: 'Teacher Portal',
                                           ),
                                           style: Theme.of(context)
                                               .textTheme
                                               .titleMedium
                                               ?.copyWith(
-                                                color: _onSurface,
+                                                color: _primary,
                                                 fontWeight: FontWeight.w600,
                                                 height: 1.2,
                                               ),
@@ -540,39 +540,67 @@ class _TeacherHomeScreenState extends ConsumerState<TeacherHomeScreen> {
                                   ],
                                 ),
 
-                                // End: Language Switcher + Notifications + Logout
+                                // End: Notifications + Account Avatar
                                 Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-
-                                    IconButton(
-                                      onPressed: () {
-                                        ScaffoldMessenger.of(context)
-                                            .showSnackBar(
-                                          SnackBar(
-                                            content: Text(
-                                              _tr(
-                                                langCode,
-                                                ar: 'لديك ٤ جلسات تسميع فردية مجدولة اليوم',
-                                                he: 'יש לך 4 מפגשים פרטניים מתוכננים להיום',
-                                                en: 'You have 4 individual 1-on-1 slots scheduled today',
+                                    Material(
+                                      color: _surfaceContainer,
+                                      shape: const CircleBorder(),
+                                      child: InkWell(
+                                        customBorder: const CircleBorder(),
+                                        onTap: () {
+                                          ScaffoldMessenger.of(context)
+                                              .showSnackBar(
+                                            SnackBar(
+                                              content: Text(
+                                                _tr(
+                                                  langCode,
+                                                  ar: 'لديك ٤ جلسات تسميع فردية مجدولة اليوم',
+                                                  he: 'יש לך 4 מפגשים פרטניים מתוכננים להיום',
+                                                  en: 'You have 4 individual 1-on-1 slots scheduled today',
+                                                ),
                                               ),
+                                              backgroundColor: _primary,
+                                              behavior: SnackBarBehavior.floating,
                                             ),
-                                            backgroundColor: _primary,
-                                            behavior: SnackBarBehavior.floating,
+                                          );
+                                        },
+                                        child: const SizedBox(
+                                          width: 36,
+                                          height: 36,
+                                          child: Icon(
+                                            Icons.notifications_none_rounded,
+                                            color: _onSurface,
+                                            size: 20,
                                           ),
-                                        );
-                                      },
-                                      tooltip: _tr(
-                                        langCode,
-                                        ar: 'التنبيهات',
-                                        he: 'התראות',
-                                        en: 'Notifications',
+                                        ),
                                       ),
-                                      icon: const Icon(
-                                        Icons.notifications_none_rounded,
-                                        color: _onSurfaceVariant,
-                                        size: 22,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    InkWell(
+                                      onTap: () => context.push(AppRoutes.account),
+                                      customBorder: const CircleBorder(),
+                                      child: Tooltip(
+                                        message: _tr(
+                                          langCode,
+                                          ar: 'حسابي الشخصي واللغة',
+                                          he: 'החשבון שלי ושפה',
+                                          en: 'My Account & Language',
+                                        ),
+                                        child: Container(
+                                          width: 34,
+                                          height: 34,
+                                          decoration: const BoxDecoration(
+                                            color: _primary,
+                                            shape: BoxShape.circle,
+                                          ),
+                                          child: const Icon(
+                                            Icons.person_rounded,
+                                            color: Colors.white,
+                                            size: 18,
+                                          ),
+                                        ),
                                       ),
                                     ),
                                   ],

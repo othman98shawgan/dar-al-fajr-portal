@@ -966,13 +966,17 @@ class _AdminMobileScreenState extends ConsumerState<AdminMobileScreen> {
                           width: 40,
                           height: 40,
                           decoration: BoxDecoration(
-                            color: DarAlFajrTheme.primary.withValues(alpha: 0.12),
+                            color: Colors.white,
                             borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: DarAlFajrTheme.primary.withValues(alpha: 0.15),
+                              width: 1.5,
+                            ),
                           ),
-                          child: const Icon(
-                            Icons.mosque_rounded,
-                            color: DarAlFajrTheme.primary,
-                            size: 22,
+                          padding: const EdgeInsets.all(4),
+                          child: Image.asset(
+                            'assets/logo.png',
+                            fit: BoxFit.contain,
                           ),
                         ),
                         const SizedBox(width: 10),

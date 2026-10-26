@@ -1,5 +1,7 @@
 import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:wakelock_plus/wakelock_plus.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:dar_al_fajr_portal/core/routing/app_router.dart';
@@ -11,10 +13,16 @@ import 'package:dar_al_fajr_portal/l10n/app_localizations.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   configureAppDateSymbols();
+  if (kDebugMode) {
+    try {
+      await WakelockPlus.enable();
+      debugPrint('WakelockPlus enabled');
+    } catch (e) {
+      debugPrint('WakelockPlus note: $e');
+    }
+  }
   try {
-    await Firebase.initializeApp(
-      options: DefaultFirebaseOptions.currentPlatform,
-    );
+    await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   } catch (e) {
     debugPrint('Firebase initialization warning: $e');
   }

@@ -816,14 +816,18 @@ class _ParentStudentHomeScreenState
                                             Container(
                                               width: 36,
                                               height: 36,
-                                              decoration: const BoxDecoration(
-                                                color: _primaryFixed,
+                                              decoration: BoxDecoration(
+                                                color: Colors.white,
                                                 shape: BoxShape.circle,
+                                                border: Border.all(
+                                                  color: _primary.withValues(alpha: 0.15),
+                                                  width: 1.5,
+                                                ),
                                               ),
-                                              child: const Icon(
-                                                Icons.auto_stories_rounded,
-                                                color: _primary,
-                                                size: 20,
+                                              padding: const EdgeInsets.all(4),
+                                              child: Image.asset(
+                                                'assets/logo.png',
+                                                fit: BoxFit.contain,
                                               ),
                                             ),
                                             const SizedBox(width: 8),
