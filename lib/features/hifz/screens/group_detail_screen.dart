@@ -4,11 +4,20 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/models/surah_page_map.dart';
 import '../../../core/routing/app_router.dart';
 import '../../../core/services/locale_provider.dart';
+import '../../admin/models/admin_models.dart';
 import '../models/teacher_models.dart';
 import '../providers/teacher_providers.dart';
+import '../repositories/teacher_repository.dart';
 import 'student_hifz_modal.dart';
+
+enum _GroupModuleTab {
+  assignments,
+  weeklyRevision,
+  monthlyAttendance,
+}
 
 enum _AssignmentFilterTab {
   all,
@@ -30,8 +39,12 @@ class _AssignmentCardItem {
   final String surahName;
   final int fromAyah;
   final int toAyah;
+  final int? targetPage;
+  final int? juzNumber;
   final String rangeTitle;
   final EvaluationGrade grade;
+  final int? score;
+  final bool isPartialRead;
   final String gradeBadgeLabel;
   final double progressFactor;
   final String feedbackText;
@@ -51,8 +64,12 @@ class _AssignmentCardItem {
     required this.surahName,
     required this.fromAyah,
     required this.toAyah,
+    this.targetPage,
+    this.juzNumber,
     required this.rangeTitle,
     required this.grade,
+    this.score,
+    this.isPartialRead = false,
     required this.gradeBadgeLabel,
     required this.progressFactor,
     required this.feedbackText,
@@ -74,13 +91,23 @@ class GroupDetailScreen extends ConsumerStatefulWidget {
 }
 
 class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
+  _GroupModuleTab _activeModuleTab = _GroupModuleTab.assignments;
   bool _orderByDate = false;
   _AssignmentFilterTab _activeFilter = _AssignmentFilterTab.all;
   bool _showSearchField = false;
   String _searchQuery = '';
   final TextEditingController _searchController = TextEditingController();
 
-  // Design tokens from Stitch
+  // Weekly Revision Tab State
+  String _selectedRevisionStudentId = 'st-1042';
+  List<DailyRevisionTask> _draftRevisionTasks = [];
+  bool _revisionTasksInitialized = false;
+  bool _isSavingRevisionPlan = false;
+
+  // Monthly Attendance Tab State
+  DateTime _selectedMonth = DateTime(DateTime.now().year, DateTime.now().month);
+
+  // Design tokens
   static const Color _surface = Color(0xFFF7F9FB);
   static const Color _surfaceContainerLowest = Color(0xFFFFFFFF);
   static const Color _surfaceContainerLow = Color(0xFFF2F4F6);
@@ -89,12 +116,14 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
   static const Color _onSurface = Color(0xFF191C1E);
   static const Color _onSurfaceVariant = Color(0xFF3D4947);
   static const Color _primary = Color(0xFF00685F);
+  static const Color _primaryFixed = Color(0xFF89F5E7);
+  static const Color _onPrimaryFixed = Color(0xFF00201D);
   static const Color _secondary = Color(0xFF904D00);
   static const Color _secondaryContainer = Color(0xFFFE932C);
   static const Color _secondaryFixed = Color(0xFFFFDCC3);
   static const Color _onSecondaryFixed = Color(0xFF2F1500);
   static const Color _onSecondaryFixedVariant = Color(0xFF6E3900);
-  static const Color _onSecondaryContainer = Color(0xFF663500);
+  static const Color _tertiary = Color(0xFF1E6661);
 
   static const List<_AssignmentCardItem> _seedCards = [
     _AssignmentCardItem(
@@ -102,63 +131,94 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
       studentId: 'st-1042',
       studentName: 'إبراهيم طه عثمان',
       initial: 'إ',
-      timeSubtitle: 'اليوم • ٤:١٥ م',
+      timeSubtitle: 'تم التسميع اليوم • ٤:١٥ م',
       assignmentType: AssignmentType.newHifz,
-      assignmentBadgeLabel: 'مقرر الحفظ الجديد كاملاً',
-      surahId: 16,
-      surahName: 'النحل',
+      assignmentBadgeLabel: 'صفحة كاملة (ص ٢٨٢)',
+      surahId: 17,
+      surahName: 'الإسراء',
       fromAyah: 1,
-      toAyah: 128,
-      rangeTitle: 'سورة النحل: الآية 1 إلى 128',
+      toAyah: 15,
+      targetPage: 282,
+      juzNumber: 15,
+      rangeTitle: 'سورة الإسراء • صفحة ٢٨٢',
       grade: EvaluationGrade.excellent,
-      gradeBadgeLabel: 'ممتاز (٩٨٪)',
-      progressFactor: 1.0,
+      score: 97,
+      gradeBadgeLabel: '٩٧ / ١٠٠ • ممتاز',
+      progressFactor: 0.97,
       feedbackText:
-          'ما شاء الله، إتقان متين لأحكام النون الساكنة والمد المتصل، قراءة خاشعة وحضور ذهني متميز.',
-      audioDurationLabel: 'تسجيل صوتي (٨ د)',
+          'ما شاء الله، إتقان متين لأحكام النون الساكنة والمد المتصل، خطأ لفظي واحد فقط.',
+      audioDurationLabel: 'تم الرصد اليوم',
     ),
     _AssignmentCardItem(
       id: 'seed-assign-2',
       studentId: 'st-1088',
       studentName: 'عبد الرحمن يوسف الشريف',
       initial: 'ع',
-      timeSubtitle: 'اليوم • ٤:٤٠ م',
+      timeSubtitle: 'تم التسميع اليوم • ٤:٤٠ م',
       assignmentType: AssignmentType.revision,
-      assignmentBadgeLabel: 'مراجعة صغرى',
-      surahId: 15,
-      surahName: 'الحجر',
+      assignmentBadgeLabel: 'اختبار جزء كامل',
+      surahId: 78,
+      surahName: 'النبأ',
       fromAyah: 1,
-      toAyah: 48,
-      rangeTitle: 'سورة الحجر: من الآية 1 إلى 48',
+      toAyah: 40,
+      juzNumber: 30,
+      rangeTitle: 'مراجعة واختبار الجزء ٣٠ كاملاً',
       grade: EvaluationGrade.good,
-      gradeBadgeLabel: 'جيد جداً (٨٥٪)',
-      progressFactor: 0.85,
+      score: 88,
+      gradeBadgeLabel: '٨٨ / ١٠٠ • مجتاز الجزء',
+      progressFactor: 0.88,
       feedbackText:
-          'تنبيه لموضع القلقلة في آية ٢٣ والانتباه لترقيق الراء الساكنة المسبوقة بكسر. المراجعة العامة طيبة.',
-      audioDurationLabel: 'تسجيل صوتي (٥ د)',
+          'تنبيه لموضع القلقلة في سورة البروج والانتباه لترقيق الراء. اجتاز اختبار الجزء بنجاح (الحد الأدنى ٧٩).',
+      audioDurationLabel: 'اجتاز اختبار الجزء',
     ),
     _AssignmentCardItem(
       id: 'seed-assign-3',
       studentId: 'st-1102',
       studentName: 'زياد المنصور',
       initial: 'ز',
-      timeSubtitle: 'موعد التسميع اليوم ٥:٣٠ م',
+      timeSubtitle: 'في الانتظار • موعده ٥:٣٠ م',
       isPendingTimeAlert: true,
       assignmentType: AssignmentType.newHifz,
-      assignmentBadgeLabel: 'حفظ جديد',
+      assignmentBadgeLabel: 'حفظ جديد (صفحة ٢٦٧)',
       surahId: 16,
       surahName: 'النحل',
       fromAyah: 1,
       toAyah: 35,
-      rangeTitle: 'سورة النحل: الآية 1 إلى 35',
+      targetPage: 267,
+      juzNumber: 14,
+      rangeTitle: 'سورة النحل • صفحة ٢٦٧ (آية ١ - ٣٥)',
       grade: EvaluationGrade.pending,
-      gradeBadgeLabel: 'بانتظار التقييم',
+      gradeBadgeLabel: 'في الانتظار',
       progressFactor: 0.20,
       feedbackText:
-          'لم يتم التسميع بعد - مقرر اليوم ٥:٣٠ م، جاهز للاستماع والرصد المباشر.',
-      audioDurationLabel: 'تم تذكير الطالب',
+          'لم يتم التسميع بعد - مقرر اليوم جاهز للاستماع والرصد المباشر.',
+      audioDurationLabel: 'بانتظار التسميع',
     ),
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    _initDefaultDraftRevisionTasks();
+  }
+
+  void _initDefaultDraftRevisionTasks() {
+    _draftRevisionTasks = List<DailyRevisionTask>.generate(7, (dayIndex) {
+      // Friday (5) and Saturday (6) default to rest days as an example
+      if (dayIndex == 5 || dayIndex == 6) {
+        return DailyRevisionTask(dayIndex: dayIndex, isRestDay: true);
+      }
+      return DailyRevisionTask(
+        dayIndex: dayIndex,
+        isRestDay: false,
+        targetType: RevisionTargetType.juz,
+        juzNumber: (30 - dayIndex).clamp(1, 30),
+        status: dayIndex < 2
+            ? RevisionTaskStatus.doneOnTime
+            : RevisionTaskStatus.pending,
+      );
+    });
+  }
 
   @override
   void dispose() {
@@ -183,6 +243,20 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
     }
   }
 
+  String _toArabicDigits(int number) {
+    const western = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
+    const eastern = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
+    var result = number.toString();
+    for (var i = 0; i < western.length; i++) {
+      result = result.replaceAll(western[i], eastern[i]);
+    }
+    return result;
+  }
+
+  String _formatNum(int number, String langCode) {
+    return langCode == 'ar' ? _toArabicDigits(number) : '$number';
+  }
+
   List<_AssignmentCardItem> _buildAssignmentCards(
     List<HifzAssignment> firestoreAssignments,
     String langCode,
@@ -190,43 +264,77 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
     final mappedFirestore = firestoreAssignments.map((item) {
       final trimmed = item.studentName.trim();
       final initial = trimmed.isNotEmpty ? trimmed.characters.first : 'ط';
-      final isPending = item.grade == EvaluationGrade.pending;
+      final isPending = item.grade == EvaluationGrade.pending && !item.isPartialRead;
       final isExcellent = item.grade == EvaluationGrade.excellent;
       final isGood = item.grade == EvaluationGrade.good;
 
-      final gradeBadge = switch (item.grade) {
-        EvaluationGrade.excellent => _tr(
-            langCode,
-            ar: 'ممتاز (٩٨٪)',
-            he: 'מצוין (98%)',
-            en: 'Excellent (98%)',
-          ),
-        EvaluationGrade.good => _tr(
-            langCode,
-            ar: 'جيد جداً (٨٥٪)',
-            he: 'טוב מאוד (85%)',
-            en: 'Very Good (85%)',
-          ),
-        EvaluationGrade.needsRepeat => _tr(
-            langCode,
-            ar: 'يحتاج إعادة',
-            he: 'דורש חזרה',
-            en: 'Needs Repeat',
-          ),
-        EvaluationGrade.pending => _tr(
-            langCode,
-            ar: 'بانتظار التقييم',
-            he: 'ממתין להערכה',
-            en: 'Pending Evaluation',
-          ),
-      };
+      String gradeBadge;
+      if (item.isPartialRead) {
+        gradeBadge = _tr(
+          langCode,
+          ar: 'قراءة جزئية (ملاحظة فقط)',
+          he: 'קריאה חלקית (הערה)',
+          en: 'Partial Read (Note Only)',
+        );
+      } else if (item.score != null && !isPending) {
+        final sText = _formatNum(item.score!, langCode);
+        final gText = item.grade.localizedName(langCode);
+        gradeBadge = '$sText / ${_formatNum(100, langCode)} • $gText';
+      } else {
+        gradeBadge = switch (item.grade) {
+          EvaluationGrade.excellent => _tr(
+              langCode,
+              ar: 'ممتاز (٩٨ / ١٠٠)',
+              he: 'מצוין (98/100)',
+              en: 'Excellent (98/100)',
+            ),
+          EvaluationGrade.good => _tr(
+              langCode,
+              ar: 'جيد جداً (٨٥ / ١٠٠)',
+              he: 'טוב מאוד (85/100)',
+              en: 'Very Good (85/100)',
+            ),
+          EvaluationGrade.needsRepeat => _tr(
+              langCode,
+              ar: 'يحتاج إعادة',
+              he: 'דורש חזרה',
+              en: 'Needs Repeat',
+            ),
+          EvaluationGrade.pending => _tr(
+              langCode,
+              ar: 'في الانتظار',
+              he: 'ממתין',
+              en: 'Pending',
+            ),
+        };
+      }
+
+      final pageLabel = item.targetPage != null
+          ? ' • ص ${_formatNum(item.targetPage!, langCode)}'
+          : '';
+      final rangeTitle = item.isJuzExam && item.juzNumber != null
+          ? 'اختبار ومراجعة الجزء ${_formatNum(item.juzNumber!, langCode)} كاملاً'
+          : 'سورة ${item.surahName}$pageLabel (الآية ${item.fromAyah} إلى ${item.toAyah})';
 
       return _AssignmentCardItem(
         id: item.id,
         studentId: item.studentId,
-        studentName: item.studentName.isNotEmpty ? item.studentName : 'طالب الحلقة',
+        studentName:
+            item.studentName.isNotEmpty ? item.studentName : 'طالب الحلقة',
         initial: initial,
-        timeSubtitle: isPending ? 'موعد التسميع اليوم ٥:٣٠ م' : 'اليوم • تم الرصد',
+        timeSubtitle: isPending
+            ? _tr(
+                langCode,
+                ar: 'في الانتظار • جاهز للتسميع',
+                he: 'ממתין לשינון',
+                en: 'Pending Recitation',
+              )
+            : _tr(
+                langCode,
+                ar: 'تم التسميع اليوم ✓',
+                he: 'נבחן היום ✓',
+                en: 'Evaluated Today ✓',
+              ),
         isPendingTimeAlert: isPending,
         assignmentType: item.type,
         assignmentBadgeLabel: item.type.localizedName(langCode),
@@ -234,19 +342,26 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
         surahName: item.surahName,
         fromAyah: item.fromAyah,
         toAyah: item.toAyah,
-        rangeTitle:
-            'سورة ${item.surahName}: الآية ${item.fromAyah} إلى ${item.toAyah}',
+        targetPage: item.targetPage,
+        juzNumber: item.juzNumber,
+        rangeTitle: rangeTitle,
         grade: item.grade,
+        score: item.score,
+        isPartialRead: item.isPartialRead,
         gradeBadgeLabel: gradeBadge,
-        progressFactor: isExcellent
-            ? 1.0
-            : (isGood ? 0.85 : (isPending ? 0.20 : 0.45)),
+        progressFactor: item.score != null
+            ? (item.score! / 100.0).clamp(0.1, 1.0)
+            : (isExcellent
+                ? 1.0
+                : (isGood ? 0.85 : (isPending ? 0.20 : 0.45))),
         feedbackText: item.teacherNotes.isNotEmpty
             ? item.teacherNotes
             : (isPending
                 ? 'لم يتم التسميع بعد - جاهز للاستماع والرصد المباشر.'
                 : 'تم تسميع المقرر بنجاح وتحديث سجل الإنجاز القرآني.'),
-        audioDurationLabel: isPending ? 'تم تذكير الطالب' : 'تسجيل صوتي (٦ د)',
+        audioDurationLabel: item.recitationUnits.length > 1
+            ? 'تم تسميع ${item.recitationUnits.length} مقاطع بالجلسة'
+            : (isPending ? 'بانتظار التسميع' : 'تم الرصد'),
         isFromFirestore: true,
       );
     }).toList();
@@ -291,6 +406,7 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
     required String langCode,
     required String effectiveGroupId,
     _AssignmentCardItem? existingCard,
+    bool assignOnlyMode = false,
   }) {
     final teacherGroups =
         ref.read(teacherGroupsProvider).asData?.value ?? const [];
@@ -303,6 +419,8 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
 
     return StudentHifzModal.show(
       context,
+      existingAssignmentId:
+          existingCard?.isFromFirestore == true ? existingCard!.id : null,
       groupId: effectiveGroupId,
       groupTitle: groupTitle,
       studentId: existingCard?.studentId ?? 'st-1042',
@@ -312,11 +430,276 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
       currentSurahName: existingCard?.surahName ?? 'النحل',
       currentFromAyah: existingCard?.fromAyah ?? 1,
       currentToAyah: existingCard?.toAyah ?? 128,
+      currentTargetPage: existingCard?.targetPage,
+      currentJuzNumber: existingCard?.juzNumber,
       initialGrade: existingCard?.grade ?? EvaluationGrade.excellent,
       initialNotes: existingCard != null &&
               existingCard.grade != EvaluationGrade.pending
           ? existingCard.feedbackText
           : '',
+      assignOnlyMode: assignOnlyMode,
+    );
+  }
+
+  void _showStudentStatsBottomSheet({
+    required BuildContext context,
+    required String langCode,
+    required String studentId,
+    required String studentName,
+    required List<AttendanceLog> groupAttendanceLogs,
+  }) {
+    final studentsMap =
+        ref.read(allStudentsMapProvider).asData?.value ?? const {};
+    final profile = studentsMap[studentId] ??
+        StudentProfile(
+          id: studentId,
+          fullName: studentName,
+          parentId: 'parent-1',
+          memorizedPages: const [1, 2, 3, 4, 5, 582, 583, 584, 585, 586, 587],
+          completedSurahs: List.generate(37, (i) => 78 + i),
+          completedJuz: const [30, 29],
+          juzStatuses: const {
+            30: 'passed_exam',
+            29: 'ready_for_exam',
+            28: 'in_progress',
+          },
+        );
+
+    final studentLogs = groupAttendanceLogs
+        .where((l) => l.studentId == studentId)
+        .toList();
+    final totalSessions = studentLogs.isNotEmpty ? studentLogs.length : 12;
+    final attendedSessions = studentLogs.isNotEmpty
+        ? studentLogs
+            .where((l) =>
+                l.status == AttendanceStatus.present ||
+                l.status == AttendanceStatus.late)
+            .length
+        : 11;
+    final attendancePercent =
+        totalSessions > 0 ? ((attendedSessions / totalSessions) * 100).round() : 92;
+
+    final centerPagesCount = profile.memorizedCenterPagesCount;
+    final totalCenterPages = CenterQuranMap.totalCenterPages; // 657
+
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: _surfaceContainerLowest,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        return DraggableScrollableSheet(
+          expand: false,
+          initialChildSize: 0.72,
+          maxChildSize: 0.92,
+          minChildSize: 0.5,
+          builder: (_, scrollController) {
+            return ListView(
+              controller: scrollController,
+              padding: const EdgeInsets.all(20),
+              children: [
+                Center(
+                  child: Container(
+                    width: 44,
+                    height: 5,
+                    decoration: BoxDecoration(
+                      color: _surfaceContainerHigh,
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    CircleAvatar(
+                      radius: 24,
+                      backgroundColor: _primaryFixed,
+                      child: Text(
+                        studentName.characters.first,
+                        style: const TextStyle(
+                          color: _onPrimaryFixed,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 18,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            studentName,
+                            style: Theme.of(context)
+                                .textTheme
+                                .titleMedium
+                                ?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                ),
+                          ),
+                          Text(
+                            _tr(
+                              langCode,
+                              ar: 'سجل الإحصائيات المتكامل (الحفظ، اختبارات الأجزاء، والحضور)',
+                              he: 'סטטיסטיקת תלמיד (שינון, מבחני ג׳וז ונוכחות)',
+                              en: 'Student Hifz, Juz Exams & Attendance Stats',
+                            ),
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: _onSurfaceVariant,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+
+                // Top 3 KPI Cards
+                Row(
+                  children: [
+                    Expanded(
+                      child: _StatKpiBox(
+                        label: _tr(
+                          langCode,
+                          ar: 'صفحات المركز',
+                          he: 'עמודי מרכז',
+                          en: 'Center Pages',
+                        ),
+                        value:
+                            '${_formatNum(centerPagesCount, langCode)} / ${_formatNum(totalCenterPages, langCode)}',
+                        color: _primary,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: _StatKpiBox(
+                        label: _tr(
+                          langCode,
+                          ar: 'السور المنجزة',
+                          he: 'סורות שהושלמו',
+                          en: 'Surahs Done',
+                        ),
+                        value:
+                            '${_formatNum(profile.completedSurahs.length, langCode)} / ${_formatNum(114, langCode)}',
+                        color: _tertiary,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: _StatKpiBox(
+                        label: _tr(
+                          langCode,
+                          ar: 'نسبة الحضور',
+                          he: 'אחוז נוכחות',
+                          en: 'Attendance',
+                        ),
+                        value: '${_formatNum(attendancePercent, langCode)}%',
+                        color: _secondary,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+
+                Text(
+                  _tr(
+                    langCode,
+                    ar: 'حالة الأجزاء واختبارات الأجزاء (علامة النجاح: ٧٩ فأعلى)',
+                    he: 'סטטוס ג׳וזים ומבחני ג׳וז (ציון מעבר: 79)',
+                    en: 'Juz Progression & Whole-Juz Exam Status (Pass >= 79)',
+                  ),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                  ),
+                ),
+                const SizedBox(height: 10),
+
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: List.generate(30, (idx) {
+                    final juz = 30 - idx;
+                    final rawStatus = profile.juzStatuses[juz] ??
+                        (profile.completedJuz.contains(juz)
+                            ? 'passed_exam'
+                            : null);
+                    final status = rawStatus != null
+                        ? JuzProgressStatus.fromString(rawStatus)
+                        : null;
+
+                    final bgColor = switch (status) {
+                      JuzProgressStatus.passedExam => _primaryFixed,
+                      JuzProgressStatus.readyForExam => _secondaryFixed,
+                      JuzProgressStatus.inProgress =>
+                        _primary.withValues(alpha: 0.08),
+                      null => _surfaceContainerLow,
+                    };
+                    final textColor = switch (status) {
+                      JuzProgressStatus.passedExam => _onPrimaryFixed,
+                      JuzProgressStatus.readyForExam => _onSecondaryFixed,
+                      JuzProgressStatus.inProgress => _primary,
+                      null => _onSurfaceVariant,
+                    };
+
+                    return Container(
+                      width: 100,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 8,
+                      ),
+                      decoration: BoxDecoration(
+                        color: bgColor,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Column(
+                        children: [
+                          Text(
+                            _tr(
+                              langCode,
+                              ar: 'الجزء ${_formatNum(juz, langCode)}',
+                              he: 'ג׳וז $juz',
+                              en: 'Juz $juz',
+                            ),
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 12.5,
+                              color: textColor,
+                            ),
+                          ),
+                          const SizedBox(height: 3),
+                          Text(
+                            status != null
+                                ? status.localizedName(langCode)
+                                : _tr(
+                                    langCode,
+                                    ar: 'لم يبدأ',
+                                    he: 'טרם התחיל',
+                                    en: 'Not Started',
+                                  ),
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w600,
+                              color: textColor,
+                            ),
+                            textAlign: TextAlign.center,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ),
+                    );
+                  }),
+                ),
+              ],
+            );
+          },
+        );
+      },
     );
   }
 
@@ -337,6 +720,16 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
         .where((g) => g.id == effectiveGroupId)
         .firstOrNull;
 
+    // Check if group is a Hifz group (defaults to true for seed Hifz groups)
+    final isHifzGroup = matchedGroup == null
+        ? !effectiveGroupId.contains('qaidah') &&
+            !effectiveGroupId.contains('tajweed') &&
+            !effectiveGroupId.contains('tarbawi')
+        : matchedGroup.track == CenterTrack.hifz;
+
+    final effectiveTab =
+        !isHifzGroup ? _GroupModuleTab.monthlyAttendance : _activeModuleTab;
+
     final groupTitle = matchedGroup?.name.isNotEmpty == true
         ? matchedGroup!.name
         : _tr(
@@ -350,9 +743,9 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
         ? matchedGroup.track.localizedName(langCode)
         : _tr(
             langCode,
-            ar: 'المستوى الثالث • المسار المتقدم',
-            he: 'רמה 3 • מסלול מתקדם',
-            en: 'Level 3 • Advanced Track',
+            ar: 'مسار الحفظ والتسميع • المستوى المتقدم',
+            he: 'מסלול חיפז ושינון • רמה מתקדמת',
+            en: 'Hifz & Memorization Track',
           );
 
     final firestoreAssignments = ref
@@ -360,31 +753,27 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
             .asData
             ?.value ??
         const [];
+    final groupAttendanceLogs = ref
+            .watch(groupAttendanceProvider(effectiveGroupId))
+            .asData
+            ?.value ??
+        const [];
 
     final cards = _buildAssignmentCards(firestoreAssignments, langCode);
 
-    // Counts for filter pills
-    final totalCount = firestoreAssignments.isNotEmpty
-        ? firestoreAssignments.length + _seedCards.length
-        : 8;
-    final newHifzCount = firestoreAssignments.isNotEmpty
-        ? firestoreAssignments
-                .where((a) => a.type == AssignmentType.newHifz)
-                .length +
-            2
-        : 5;
-    final revisionCount = firestoreAssignments.isNotEmpty
-        ? firestoreAssignments
-                .where((a) => a.type == AssignmentType.revision)
-                .length +
-            1
-        : 3;
-    final pendingCount = firestoreAssignments.isNotEmpty
-        ? firestoreAssignments
-                .where((a) => a.grade == EvaluationGrade.pending)
-                .length +
-            1
-        : 2;
+    final totalCount = firestoreAssignments.length + _seedCards.length;
+    final newHifzCount = firestoreAssignments
+            .where((a) => a.type == AssignmentType.newHifz)
+            .length +
+        2;
+    final revisionCount = firestoreAssignments
+            .where((a) => a.type == AssignmentType.revision)
+            .length +
+        1;
+    final pendingCount = firestoreAssignments
+            .where((a) => a.grade == EvaluationGrade.pending)
+            .length +
+        1;
 
     final topPadding = MediaQuery.paddingOf(context).top + 64 + 8;
     final bottomPadding = MediaQuery.paddingOf(context).bottom + 96;
@@ -395,7 +784,6 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
         backgroundColor: _surface,
         body: Stack(
           children: [
-            // Main Scrollable Body
             Positioned.fill(
               child: Center(
                 child: ConstrainedBox(
@@ -408,67 +796,83 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
                       right: 16,
                     ),
                     children: [
-                      // 1. Group Summary & Navigation Header Block
+                      // 1. Group Summary & Track-Aware Module Switcher
                       _buildGroupSummaryHeader(
                         context: context,
                         langCode: langCode,
                         groupTitle: groupTitle,
                         groupTrackSubtitle: groupTrackSubtitle,
                         effectiveGroupId: effectiveGroupId,
+                        isHifzGroup: isHifzGroup,
+                        effectiveTab: effectiveTab,
                       ),
                       const SizedBox(height: 16),
 
-                      // Optional expandable search input when filter button tapped
-                      if (_showSearchField) ...[
-                        TextField(
-                          controller: _searchController,
-                          onChanged: (val) =>
-                              setState(() => _searchQuery = val),
-                          decoration: InputDecoration(
-                            hintText: _tr(
-                              langCode,
-                              ar: 'ابحث باسم الطالب أو السورة...',
-                              he: 'חפש לפי שם תלמיד או סורה...',
-                              en: 'Search by student or Surah...',
+                      if (effectiveTab == _GroupModuleTab.assignments) ...[
+                        if (_showSearchField) ...[
+                          TextField(
+                            controller: _searchController,
+                            onChanged: (val) =>
+                                setState(() => _searchQuery = val),
+                            decoration: InputDecoration(
+                              hintText: _tr(
+                                langCode,
+                                ar: 'ابحث باسم الطالب أو السورة...',
+                                he: 'חפש לפי שם תלמיד או סורה...',
+                                en: 'Search by student or Surah...',
+                              ),
+                              prefixIcon: const Icon(Icons.search_rounded),
+                              suffixIcon: _searchQuery.isNotEmpty
+                                  ? IconButton(
+                                      onPressed: () {
+                                        _searchController.clear();
+                                        setState(() => _searchQuery = '');
+                                      },
+                                      icon: const Icon(Icons.clear_rounded),
+                                    )
+                                  : null,
                             ),
-                            prefixIcon: const Icon(Icons.search_rounded),
-                            suffixIcon: _searchQuery.isNotEmpty
-                                ? IconButton(
-                                    onPressed: () {
-                                      _searchController.clear();
-                                      setState(() => _searchQuery = '');
-                                    },
-                                    icon: const Icon(Icons.clear_rounded),
-                                  )
-                                : null,
                           ),
+                          const SizedBox(height: 16),
+                        ],
+                        _buildFilterAndOrderingControls(
+                          context: context,
+                          langCode: langCode,
+                          totalCount: totalCount,
+                          newHifzCount: newHifzCount,
+                          revisionCount: revisionCount,
+                          pendingCount: pendingCount,
                         ),
                         const SizedBox(height: 16),
-                      ],
-
-                      // 2. Filter & Ordering Controls
-                      _buildFilterAndOrderingControls(
-                        context: context,
-                        langCode: langCode,
-                        totalCount: totalCount,
-                        newHifzCount: newHifzCount,
-                        revisionCount: revisionCount,
-                        pendingCount: pendingCount,
-                      ),
-                      const SizedBox(height: 16),
-
-                      // 3. Student Assignment Cards Stack
-                      ...cards.map(
-                        (card) => Padding(
-                          padding: const EdgeInsets.only(bottom: 16),
-                          child: _buildStudentAssignmentCard(
-                            context: context,
-                            langCode: langCode,
-                            card: card,
-                            effectiveGroupId: effectiveGroupId,
+                        ...cards.map(
+                          (card) => Padding(
+                            padding: const EdgeInsets.only(bottom: 16),
+                            child: _buildStudentAssignmentCard(
+                              context: context,
+                              langCode: langCode,
+                              card: card,
+                              effectiveGroupId: effectiveGroupId,
+                              groupAttendanceLogs: groupAttendanceLogs,
+                            ),
                           ),
                         ),
-                      ),
+                      ] else if (effectiveTab ==
+                          _GroupModuleTab.weeklyRevision) ...[
+                        _buildWeeklyRevisionPlanSection(
+                          context: context,
+                          langCode: langCode,
+                          effectiveGroupId: effectiveGroupId,
+                          cards: cards,
+                        ),
+                      ] else ...[
+                        _buildMonthlyAttendanceSection(
+                          context: context,
+                          langCode: langCode,
+                          effectiveGroupId: effectiveGroupId,
+                          groupAttendanceLogs: groupAttendanceLogs,
+                          cards: cards,
+                        ),
+                      ],
                     ],
                   ),
                 ),
@@ -530,12 +934,7 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
                                     ),
                                     const SizedBox(width: 4),
                                     Text(
-                                      _tr(
-                                        langCode,
-                                        ar: 'Group Assignments View',
-                                        he: 'מטלות הקבוצה',
-                                        en: 'Group Assignments View',
-                                      ),
+                                      groupTitle,
                                       style: Theme.of(context)
                                           .textTheme
                                           .titleMedium
@@ -546,17 +945,24 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
                                     ),
                                   ],
                                 ),
-                                Container(
-                                  width: 32,
-                                  height: 32,
-                                  decoration: const BoxDecoration(
-                                    color: _primary,
-                                    shape: BoxShape.circle,
+                                OutlinedButton.icon(
+                                  onPressed: () =>
+                                      _openAttendanceView(effectiveGroupId),
+                                  icon: const Icon(
+                                    Icons.how_to_reg_rounded,
+                                    size: 16,
                                   ),
-                                  child: const Icon(
-                                    Icons.person_rounded,
-                                    color: Colors.white,
-                                    size: 18,
+                                  label: Text(
+                                    _tr(
+                                      langCode,
+                                      ar: 'تحضير اليوم',
+                                      he: 'נוכחות היום',
+                                      en: 'Log Today',
+                                    ),
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                    ),
                                   ),
                                 ),
                               ],
@@ -570,51 +976,54 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
               ),
             ),
 
-            // Bottom Floating / Sticky Primary Action
-            Positioned(
-              left: 16,
-              right: 16,
-              bottom: MediaQuery.paddingOf(context).bottom + 16,
-              child: Center(
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 390),
-                  child: SizedBox(
-                    width: double.infinity,
-                    height: 54,
-                    child: ElevatedButton.icon(
-                      onPressed: () => _showAssignmentEvaluationModal(
-                        context: context,
-                        langCode: langCode,
-                        effectiveGroupId: effectiveGroupId,
-                      ),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: _primary,
-                        foregroundColor: Colors.white,
-                        elevation: 6,
-                        shadowColor: _primary.withValues(alpha: 0.35),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
+            // Bottom Floating Action (Only on Assignments tab for Hifz groups)
+            if (effectiveTab == _GroupModuleTab.assignments)
+              Positioned(
+                left: 16,
+                right: 16,
+                bottom: MediaQuery.paddingOf(context).bottom + 16,
+                child: Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 390),
+                    child: SizedBox(
+                      width: double.infinity,
+                      height: 52,
+                      child: ElevatedButton.icon(
+                        onPressed: () => _showAssignmentEvaluationModal(
+                          context: context,
+                          langCode: langCode,
+                          effectiveGroupId: effectiveGroupId,
+                          assignOnlyMode: true,
                         ),
-                      ),
-                      icon: const Icon(Icons.add_circle_rounded, size: 24),
-                      label: Text(
-                        _tr(
-                          langCode,
-                          ar: 'إضافة واجب جديد للحلقة',
-                          he: 'הוסף מטלה חדשה לקבוצה',
-                          en: 'Add New Group Assignment',
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: _primary,
+                          foregroundColor: Colors.white,
+                          elevation: 6,
+                          shadowColor: _primary.withValues(alpha: 0.35),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
                         ),
-                        style:
-                            Theme.of(context).textTheme.titleMedium?.copyWith(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
-                                ),
+                        icon: const Icon(Icons.person_add_alt_1_rounded, size: 22),
+                        label: Text(
+                          _tr(
+                            langCode,
+                            ar: 'تحديد واجب فردي لطالب',
+                            he: 'קבע מטלה אישית לתלמיד',
+                            en: 'Assign Individual Student Homework',
+                          ),
+                          style:
+                              Theme.of(context).textTheme.titleMedium?.copyWith(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 14,
+                                  ),
+                        ),
                       ),
                     ),
                   ),
                 ),
               ),
-            ),
           ],
         ),
       ),
@@ -627,6 +1036,8 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
     required String groupTitle,
     required String groupTrackSubtitle,
     required String effectiveGroupId,
+    required bool isHifzGroup,
+    required _GroupModuleTab effectiveTab,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -655,32 +1066,15 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Row(
-                          children: [
-                            Container(
-                              width: 6,
-                              height: 6,
-                              decoration: const BoxDecoration(
-                                color: _primary,
-                                shape: BoxShape.circle,
-                              ),
-                            ),
-                            const SizedBox(width: 6),
-                            Flexible(
-                              child: Text(
-                                groupTrackSubtitle,
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .labelSmall
-                                    ?.copyWith(
-                                      color: _onSurfaceVariant,
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                          ],
+                        Text(
+                          groupTrackSubtitle,
+                          style:
+                              Theme.of(context).textTheme.labelSmall?.copyWith(
+                                    color: _onSurfaceVariant,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                          overflow: TextOverflow.ellipsis,
                         ),
                         const SizedBox(height: 2),
                         Text(
@@ -689,7 +1083,6 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
                               Theme.of(context).textTheme.titleMedium?.copyWith(
                                     color: _onSurface,
                                     fontWeight: FontWeight.w600,
-                                    height: 1.2,
                                   ),
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -699,124 +1092,949 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
                 ],
               ),
             ),
-            Material(
-              color: _surfaceContainer,
-              shape: const CircleBorder(),
-              child: InkWell(
-                onTap: () =>
-                    setState(() => _showSearchField = !_showSearchField),
-                customBorder: const CircleBorder(),
-                child: const SizedBox(
-                  width: 40,
-                  height: 40,
-                  child: Icon(
-                    Icons.filter_list_rounded,
-                    color: _onSurfaceVariant,
-                    size: 20,
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-
-        // Main Module Segmented Tabs (Attendance vs Assignments)
-        Container(
-          padding: const EdgeInsets.all(4),
-          decoration: BoxDecoration(
-            color: _surfaceContainer,
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Row(
-            children: [
-              // Tab 1: Attendance & Absence (Navigates to AttendanceLoggingView)
-              Expanded(
+            if (isHifzGroup && effectiveTab == _GroupModuleTab.assignments)
+              Material(
+                color: _surfaceContainer,
+                shape: const CircleBorder(),
                 child: InkWell(
-                  onTap: () => _openAttendanceView(effectiveGroupId),
-                  borderRadius: BorderRadius.circular(8),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 10),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(
-                          Icons.how_to_reg_rounded,
-                          size: 18,
-                          color: _onSurfaceVariant,
-                        ),
-                        const SizedBox(width: 6),
-                        Text(
-                          _tr(
-                            langCode,
-                            ar: 'الحضور والغياب',
-                            he: 'נוכחות והיעדרות',
-                            en: 'Attendance',
-                          ),
-                          style:
-                              Theme.of(context).textTheme.labelLarge?.copyWith(
-                                    color: _onSurfaceVariant,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                        ),
-                      ],
+                  onTap: () =>
+                      setState(() => _showSearchField = !_showSearchField),
+                  customBorder: const CircleBorder(),
+                  child: const SizedBox(
+                    width: 40,
+                    height: 40,
+                    child: Icon(
+                      Icons.search_rounded,
+                      color: _onSurfaceVariant,
+                      size: 20,
                     ),
                   ),
                 ),
               ),
+          ],
+        ),
+        const SizedBox(height: 12),
 
-              // Tab 2: Assignments (Active)
-              Expanded(
-                child: Container(
-                  padding: const EdgeInsets.symmetric(vertical: 10),
-                  decoration: BoxDecoration(
-                    color: _surfaceContainerLowest,
-                    borderRadius: BorderRadius.circular(8),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.04),
-                        blurRadius: 4,
-                        offset: const Offset(0, 1),
-                      ),
-                    ],
+        // Track-Aware Module Segmented Tabs
+        if (isHifzGroup)
+          Container(
+            padding: const EdgeInsets.all(4),
+            decoration: BoxDecoration(
+              color: _surfaceContainer,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              children: [
+                _buildModuleTabButton(
+                  label: _tr(
+                    langCode,
+                    ar: 'الواجبات والتسميع',
+                    he: 'מטלות ושינון',
+                    en: 'Assignments',
                   ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(
-                        Icons.menu_book_rounded,
-                        size: 18,
-                        color: _primary,
-                      ),
-                      const SizedBox(width: 6),
-                      Text(
-                        _tr(
-                          langCode,
-                          ar: 'الواجبات',
-                          he: 'מטלות',
-                          en: 'Assignments',
-                        ),
-                        style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                              color: _primary,
-                              fontWeight: FontWeight.w600,
-                            ),
-                      ),
-                      const SizedBox(width: 6),
-                      Container(
-                        width: 8,
-                        height: 8,
-                        decoration: const BoxDecoration(
-                          color: _secondaryContainer,
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                    ],
+                  icon: Icons.menu_book_rounded,
+                  isSelected: effectiveTab == _GroupModuleTab.assignments,
+                  onTap: () => setState(
+                    () => _activeModuleTab = _GroupModuleTab.assignments,
                   ),
+                ),
+                _buildModuleTabButton(
+                  label: _tr(
+                    langCode,
+                    ar: 'خطة المراجعة',
+                    he: 'תוכנית חזרה',
+                    en: 'Revision Plan',
+                  ),
+                  icon: Icons.calendar_view_week_rounded,
+                  isSelected: effectiveTab == _GroupModuleTab.weeklyRevision,
+                  onTap: () => setState(
+                    () => _activeModuleTab = _GroupModuleTab.weeklyRevision,
+                  ),
+                ),
+                _buildModuleTabButton(
+                  label: _tr(
+                    langCode,
+                    ar: 'الحضور الشهري',
+                    he: 'נוכחות חודשית',
+                    en: 'Monthly Attendance',
+                  ),
+                  icon: Icons.fact_check_rounded,
+                  isSelected: effectiveTab == _GroupModuleTab.monthlyAttendance,
+                  onTap: () => setState(
+                    () => _activeModuleTab = _GroupModuleTab.monthlyAttendance,
+                  ),
+                ),
+              ],
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildModuleTabButton({
+    required String label,
+    required IconData icon,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
+    return Expanded(
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 9, horizontal: 4),
+          decoration: BoxDecoration(
+            color: isSelected ? _surfaceContainerLowest : Colors.transparent,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                icon,
+                size: 16,
+                color: isSelected ? _primary : _onSurfaceVariant,
+              ),
+              const SizedBox(width: 4),
+              Flexible(
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 11.5,
+                    fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+                    color: isSelected ? _primary : _onSurfaceVariant,
+                  ),
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  // ===========================================================================
+  // TAB 2: Weekly Revision Plan & LRU Priority Queue
+  // ===========================================================================
+  Widget _buildWeeklyRevisionPlanSection({
+    required BuildContext context,
+    required String langCode,
+    required String effectiveGroupId,
+    required List<_AssignmentCardItem> cards,
+  }) {
+    final uniqueStudents = <String, String>{
+      'st-1042': 'إبراهيم طه عثمان',
+      'st-1088': 'عبد الرحمن يوسف الشريف',
+      'st-1102': 'زياد المنصور',
+    };
+    for (final c in cards) {
+      uniqueStudents[c.studentId] = c.studentName;
+    }
+    if (!uniqueStudents.containsKey(_selectedRevisionStudentId)) {
+      _selectedRevisionStudentId = uniqueStudents.keys.first;
+    }
+    final selectedStudentName =
+        uniqueStudents[_selectedRevisionStudentId] ?? 'إبراهيم طه عثمان';
+
+    final studentsMap =
+        ref.watch(allStudentsMapProvider).asData?.value ?? const {};
+    final studentProfile = studentsMap[_selectedRevisionStudentId] ??
+        StudentProfile(
+          id: _selectedRevisionStudentId,
+          fullName: selectedStudentName,
+          parentId: 'parent-1',
+          completedJuz: const [30, 29, 28, 27],
+          juzStatuses: const {
+            30: 'passed_exam',
+            29: 'passed_exam',
+            28: 'ready_for_exam',
+            27: 'in_progress',
+          },
+          lastRevisedJuzDates: {
+            30: DateTime.now().subtract(const Duration(days: 3)),
+            29: DateTime.now().subtract(const Duration(days: 19)),
+            28: DateTime.now().subtract(const Duration(days: 12)),
+          },
+        );
+
+    final lruQueue =
+        TeacherRepository.computeRevisionPriorityQueueForStudent(studentProfile);
+
+    // Watch existing Firestore weekly plan for this student
+    final studentPlans = ref
+            .watch(studentWeeklyPlansProvider(_selectedRevisionStudentId))
+            .asData
+            ?.value ??
+        const [];
+    if (!_revisionTasksInitialized && studentPlans.isNotEmpty) {
+      _draftRevisionTasks = List<DailyRevisionTask>.from(
+        studentPlans.first.dailyTasks,
+      );
+      _revisionTasksInitialized = true;
+    }
+
+    const dayNamesAr = [
+      'الأحد',
+      'الاثنين',
+      'الثلاثاء',
+      'الأربعاء',
+      'الخميس',
+      'الجمعة',
+      'السبت',
+    ];
+    const dayNamesEn = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const dayNamesHe = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
+
+    String getDayName(int idx) {
+      if (langCode == 'he') return dayNamesHe[idx % 7];
+      if (langCode == 'en') return dayNamesEn[idx % 7];
+      return dayNamesAr[idx % 7];
+    }
+
+    void autoSuggestFromLruQueue() {
+      if (lruQueue.isEmpty) return;
+      setState(() {
+        _draftRevisionTasks = List<DailyRevisionTask>.generate(7, (dayIndex) {
+          // Leave Friday (5) and Saturday (6) as rest days by default
+          if (dayIndex == 5 || dayIndex == 6) {
+            return DailyRevisionTask(dayIndex: dayIndex, isRestDay: true);
+          }
+          final item = lruQueue[dayIndex % lruQueue.length];
+          return DailyRevisionTask(
+            dayIndex: dayIndex,
+            isRestDay: false,
+            targetType: RevisionTargetType.juz,
+            juzNumber: item.juzNumber,
+            status: RevisionTaskStatus.pending,
+          );
+        });
+      });
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // 1. Student Selector Card
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: _surfaceContainerLowest,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  const Icon(Icons.person_rounded, color: _primary, size: 20),
+                  const SizedBox(width: 8),
+                  Text(
+                    _tr(
+                      langCode,
+                      ar: 'الطالب:',
+                      he: 'תלמיד:',
+                      en: 'Student:',
+                    ),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                    ),
+                  ),
+                ],
+              ),
+              DropdownButton<String>(
+                value: _selectedRevisionStudentId,
+                items: uniqueStudents.entries
+                    .map(
+                      (e) => DropdownMenuItem<String>(
+                        value: e.key,
+                        child: Text(
+                          e.value,
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    )
+                    .toList(),
+                onChanged: (val) {
+                  if (val != null) {
+                    setState(() {
+                      _selectedRevisionStudentId = val;
+                      _revisionTasksInitialized = false;
+                    });
+                  }
+                },
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+
+        // 2. LRU Spaced Repetition Priority Queue Card
+        Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: _surfaceContainerLowest,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: _primary.withValues(alpha: 0.25)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          _tr(
+                            langCode,
+                            ar: 'أولوية المراجعة (الأبعد عهداً بالمراجعة)',
+                            he: 'עדיפות חזרה (הזמן הארוך ביותר ללא חזרה)',
+                            en: 'Revision Priority Queue (Least Recently Revised)',
+                          ),
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13,
+                            color: _primary,
+                          ),
+                        ),
+                        Text(
+                          _tr(
+                            langCode,
+                            ar: 'مرتبة تلقائياً من الأجزاء التي لم يراجعها الطالب منذ أطول فترة',
+                            he: 'מדורג אוטומטית מהג׳וזים שלא נחזרו הכי הרבה זמן',
+                            en: 'Sorted by longest days since last revision',
+                          ),
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: _onSurfaceVariant,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  ElevatedButton.icon(
+                    onPressed: autoSuggestFromLruQueue,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: _primaryFixed,
+                      foregroundColor: _onPrimaryFixed,
+                      elevation: 0,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
+                    ),
+                    icon: const Icon(Icons.auto_awesome_rounded, size: 15),
+                    label: Text(
+                      _tr(
+                        langCode,
+                        ar: 'توليد تلقائي',
+                        he: 'מילוי אוטומטי',
+                        en: 'Auto-Fill',
+                      ),
+                      style: const TextStyle(
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: lruQueue.map((item) {
+                    final isUrgent = item.daysSinceLastRevision >= 14;
+                    return Container(
+                      margin: const EdgeInsetsDirectional.only(end: 8),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 8,
+                      ),
+                      decoration: BoxDecoration(
+                        color: isUrgent
+                            ? _secondaryFixed.withValues(alpha: 0.7)
+                            : _surfaceContainerLow,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Text(
+                                _tr(
+                                  langCode,
+                                  ar: 'الجزء ${_formatNum(item.juzNumber, langCode)}',
+                                  he: 'ג׳וז ${item.juzNumber}',
+                                  en: 'Juz ${item.juzNumber}',
+                                ),
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 12.5,
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 6,
+                                  vertical: 1,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(999),
+                                ),
+                                child: Text(
+                                  item.juzStatus.localizedName(langCode),
+                                  style: const TextStyle(
+                                    fontSize: 9.5,
+                                    fontWeight: FontWeight.bold,
+                                    color: _primary,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 3),
+                          Text(
+                            item.daysSinceLastRevision >= 900
+                                ? _tr(
+                                    langCode,
+                                    ar: 'لم يُراجع بعد',
+                                    he: 'טרם נערך סבב חזרה',
+                                    en: 'Never revised yet',
+                                  )
+                                : _tr(
+                                    langCode,
+                                    ar: 'منذ ${_formatNum(item.daysSinceLastRevision, langCode)} يوم',
+                                    he: 'לפני ${item.daysSinceLastRevision} ימים',
+                                    en: '${item.daysSinceLastRevision} days ago',
+                                  ),
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: isUrgent ? _secondary : _onSurfaceVariant,
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 14),
+
+        // 3. 7-Day Revision Plan Builder (Allows Empty Rest Days)
+        ...List.generate(_draftRevisionTasks.length, (idx) {
+          final task = _draftRevisionTasks[idx];
+          return Container(
+            margin: const EdgeInsets.only(bottom: 10),
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: task.isRestDay
+                  ? _surfaceContainerLow
+                  : _surfaceContainerLowest,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: task.isRestDay
+                    ? _surfaceContainerHigh
+                    : _primary.withValues(alpha: 0.2),
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: task.isRestDay
+                                ? _surfaceContainerHigh
+                                : _primaryFixed,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            getDayName(task.dayIndex),
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 12,
+                              color: task.isRestDay
+                                  ? _onSurfaceVariant
+                                  : _onPrimaryFixed,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        if (!task.isRestDay)
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: task.status ==
+                                      RevisionTaskStatus.doneOnTime
+                                  ? _primary.withValues(alpha: 0.12)
+                                  : (task.status == RevisionTaskStatus.doneLate
+                                      ? _secondaryFixed
+                                      : _surfaceContainerLow),
+                              borderRadius: BorderRadius.circular(999),
+                            ),
+                            child: Text(
+                              task.status.localizedName(langCode),
+                              style: TextStyle(
+                                fontSize: 10.5,
+                                fontWeight: FontWeight.bold,
+                                color: task.status ==
+                                        RevisionTaskStatus.doneOnTime
+                                    ? _primary
+                                    : (task.status ==
+                                            RevisionTaskStatus.doneLate
+                                        ? _secondary
+                                        : _onSurfaceVariant),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                    // Rest Day Toggle (يمكن للمعلم ترك أيام فارغة)
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          _tr(
+                            langCode,
+                            ar: 'يوم فارغ / راحة',
+                            he: 'יום מנוחה',
+                            en: 'Empty / Rest Day',
+                          ),
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: _onSurfaceVariant,
+                          ),
+                        ),
+                        Switch(
+                          value: task.isRestDay,
+                          activeThumbColor: _secondary,
+                          onChanged: (val) {
+                            setState(() {
+                              _draftRevisionTasks[idx] =
+                                  task.copyWith(isRestDay: val);
+                            });
+                          },
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+                if (!task.isRestDay) ...[
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      DropdownButton<RevisionTargetType>(
+                        value: task.targetType,
+                        items: [
+                          DropdownMenuItem(
+                            value: RevisionTargetType.juz,
+                            child: Text(
+                              _tr(
+                                langCode,
+                                ar: 'جزء كامل',
+                                he: 'ג׳וז מלא',
+                                en: 'Whole Juz',
+                              ),
+                              style: const TextStyle(fontSize: 12.5),
+                            ),
+                          ),
+                          DropdownMenuItem(
+                            value: RevisionTargetType.surah,
+                            child: Text(
+                              _tr(
+                                langCode,
+                                ar: 'سورة',
+                                he: 'סורה',
+                                en: 'Surah',
+                              ),
+                              style: const TextStyle(fontSize: 12.5),
+                            ),
+                          ),
+                        ],
+                        onChanged: (t) {
+                          if (t != null) {
+                            setState(() {
+                              _draftRevisionTasks[idx] = task.copyWith(
+                                targetType: t,
+                                juzNumber: task.juzNumber ?? 30,
+                                surahId: task.surahId ?? 67,
+                                surahName: task.surahName ?? 'الملك',
+                              );
+                            });
+                          }
+                        },
+                      ),
+                      const SizedBox(width: 12),
+                      if (task.targetType == RevisionTargetType.juz)
+                        DropdownButton<int>(
+                          value: (task.juzNumber ?? 30).clamp(1, 30),
+                          items: List.generate(30, (i) => 30 - i)
+                              .map(
+                                (j) => DropdownMenuItem<int>(
+                                  value: j,
+                                  child: Text(
+                                    _tr(
+                                      langCode,
+                                      ar: 'الجزء ${_formatNum(j, langCode)}',
+                                      he: 'ג׳וז $j',
+                                      en: 'Juz $j',
+                                    ),
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                ),
+                              )
+                              .toList(),
+                          onChanged: (j) {
+                            if (j != null) {
+                              setState(() {
+                                _draftRevisionTasks[idx] =
+                                    task.copyWith(juzNumber: j);
+                              });
+                            }
+                          },
+                        )
+                      else
+                        Expanded(
+                          child: DropdownButton<int>(
+                            isExpanded: true,
+                            value: (task.surahId ?? 67).clamp(1, 114),
+                            items: CenterQuranMap.surahs
+                                .map(
+                                  (s) => DropdownMenuItem<int>(
+                                    value: s.id,
+                                    child: Text(
+                                      'سورة ${s.localizedName(langCode)}',
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 12.5,
+                                      ),
+                                    ),
+                                  ),
+                                )
+                                .toList(),
+                            onChanged: (sId) {
+                              if (sId != null) {
+                                final s = CenterQuranMap.getSurahById(sId);
+                                setState(() {
+                                  _draftRevisionTasks[idx] = task.copyWith(
+                                    surahId: s.id,
+                                    surahName: s.nameAr,
+                                  );
+                                });
+                              }
+                            },
+                          ),
+                        ),
+                    ],
+                  ),
+                ],
+              ],
+            ),
+          );
+        }),
+
+        const SizedBox(height: 8),
+        SizedBox(
+          height: 48,
+          child: ElevatedButton.icon(
+            onPressed: _isSavingRevisionPlan
+                ? null
+                : () async {
+                    setState(() => _isSavingRevisionPlan = true);
+                    final now = DateTime.now();
+                    final weekStart =
+                        now.subtract(Duration(days: now.weekday % 7));
+                    await ref
+                        .read(teacherControllerProvider.notifier)
+                        .saveWeeklyRevisionPlan(
+                          existingPlanId: studentPlans.firstOrNull?.id,
+                          studentId: _selectedRevisionStudentId,
+                          studentName: selectedStudentName,
+                          groupId: effectiveGroupId,
+                          weekStartDate: DateTime(
+                            weekStart.year,
+                            weekStart.month,
+                            weekStart.day,
+                          ),
+                          dailyTasks: _draftRevisionTasks,
+                        );
+                    if (!context.mounted) return;
+                    setState(() => _isSavingRevisionPlan = false);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          _tr(
+                            langCode,
+                            ar: 'تم حفظ خطة المراجعة الأسبوعية للطالب ($selectedStudentName) بنجاح!',
+                            he: 'תוכנית החזרה השבועית נשמרה בהצלחה!',
+                            en: 'Weekly revision plan saved successfully!',
+                          ),
+                        ),
+                        backgroundColor: _tertiary,
+                        behavior: SnackBarBehavior.floating,
+                      ),
+                    );
+                  },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: _primary,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            icon: const Icon(Icons.save_rounded),
+            label: Text(
+              _tr(
+                langCode,
+                ar: 'حفظ خطة المراجعة الأسبوعية',
+                he: 'שמור תוכנית חזרה שבועית',
+                en: 'Save Weekly Revision Plan',
+              ),
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ===========================================================================
+  // TAB 3: Monthly Group Attendance Record (Each Month Alone)
+  // ===========================================================================
+  Widget _buildMonthlyAttendanceSection({
+    required BuildContext context,
+    required String langCode,
+    required String effectiveGroupId,
+    required List<AttendanceLog> groupAttendanceLogs,
+    required List<_AssignmentCardItem> cards,
+  }) {
+    const monthsAr = [
+      'يناير',
+      'فبراير',
+      'مارس',
+      'أبريل',
+      'مايو',
+      'يونيو',
+      'يوليو',
+      'أغسطس',
+      'سبتمبر',
+      'أكتوبر',
+      'نوفمبر',
+      'ديسمبر',
+    ];
+    const monthsEn = [
+      'January',
+      'February',
+      'March',
+      'April',
+      'May',
+      'June',
+      'July',
+      'August',
+      'September',
+      'October',
+      'November',
+      'December',
+    ];
+
+    final monthName = langCode == 'en'
+        ? monthsEn[(_selectedMonth.month - 1) % 12]
+        : monthsAr[(_selectedMonth.month - 1) % 12];
+    final monthLabel =
+        '$monthName ${_formatNum(_selectedMonth.year, langCode)}';
+
+    // Filter logs for the selected month alone
+    final monthLogs = groupAttendanceLogs
+        .where(
+          (l) =>
+              l.sessionDate.year == _selectedMonth.year &&
+              l.sessionDate.month == _selectedMonth.month,
+        )
+        .toList();
+
+    final roster = <String, String>{
+      'st-1042': 'إبراهيم طه عثمان',
+      'st-1088': 'عبد الرحمن يوسف الشريف',
+      'st-1102': 'زياد المنصور',
+      'st-1115': 'حمزة كمال الدين',
+    };
+    for (final c in cards) {
+      roster[c.studentId] = c.studentName;
+    }
+    for (final l in monthLogs) {
+      if (l.studentName.trim().isNotEmpty) {
+        roster[l.studentId] = l.studentName;
+      }
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // Month Picker Bar (Each Month Alone)
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: _surfaceContainerLowest,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              IconButton(
+                onPressed: () {
+                  setState(() {
+                    _selectedMonth = DateTime(
+                      _selectedMonth.year,
+                      _selectedMonth.month - 1,
+                    );
+                  });
+                },
+                icon: const Icon(Icons.chevron_left_rounded),
+              ),
+              Row(
+                children: [
+                  const Icon(
+                    Icons.calendar_month_rounded,
+                    color: _primary,
+                    size: 20,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    monthLabel,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 15,
+                    ),
+                  ),
+                ],
+              ),
+              IconButton(
+                onPressed: () {
+                  setState(() {
+                    _selectedMonth = DateTime(
+                      _selectedMonth.year,
+                      _selectedMonth.month + 1,
+                    );
+                  });
+                },
+                icon: const Icon(Icons.chevron_right_rounded),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+
+        // Per-Student Monthly Attendance Breakdown
+        ...roster.entries.map((entry) {
+          final stId = entry.key;
+          final stName = entry.value;
+          final stLogs =
+              monthLogs.where((l) => l.studentId == stId).toList();
+
+          final present = stLogs.isNotEmpty
+              ? stLogs
+                  .where((l) => l.status == AttendanceStatus.present)
+                  .length
+              : (stId == 'st-1115' ? 6 : 8);
+          final lateCount = stLogs.isNotEmpty
+              ? stLogs.where((l) => l.status == AttendanceStatus.late).length
+              : (stId == 'st-1102' ? 1 : 0);
+          final absent = stLogs.isNotEmpty
+              ? stLogs
+                  .where((l) =>
+                      l.status == AttendanceStatus.absent ||
+                      l.status == AttendanceStatus.excused)
+                  .length
+              : (stId == 'st-1115' ? 2 : 0);
+          final total = (present + lateCount + absent).clamp(1, 999);
+          final rate = (((present + lateCount) / total) * 100).round();
+
+          return Container(
+            margin: const EdgeInsets.only(bottom: 10),
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: _surfaceContainerLowest,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        stName,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        _tr(
+                          langCode,
+                          ar: 'حاضر: ${_formatNum(present, langCode)} • متأخر: ${_formatNum(lateCount, langCode)} • غائب/معذور: ${_formatNum(absent, langCode)}',
+                          he: 'נוכח: $present • איחור: $lateCount • חיסור: $absent',
+                          en: 'Present: $present • Late: $lateCount • Absent: $absent',
+                        ),
+                        style: const TextStyle(
+                          fontSize: 11.5,
+                          color: _onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: rate >= 85
+                        ? _primaryFixed
+                        : _secondaryFixed,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    '${_formatNum(rate, langCode)}%',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color:
+                          rate >= 85 ? _onPrimaryFixed : _onSecondaryFixed,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+        }),
       ],
     );
   }
@@ -832,22 +2050,25 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // Split Toggle: By Student / By Date
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(
-              _tr(
-                langCode,
-                ar: 'عرض الواجبات',
-                he: 'תצוגת מטלות',
-                en: 'View Assignments',
+            Expanded(
+              child: Text(
+                _tr(
+                  langCode,
+                  ar: 'قائمة الطلاب والواجبات المقررة',
+                  he: 'רשימת תלמידים ומטלות',
+                  en: 'Students & Assigned Homework',
+                ),
+                style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                      color: _onSurfaceVariant,
+                      fontWeight: FontWeight.w600,
+                    ),
+                overflow: TextOverflow.ellipsis,
               ),
-              style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                    color: _onSurfaceVariant,
-                    fontWeight: FontWeight.w500,
-                  ),
             ),
+            const SizedBox(width: 8),
             Container(
               padding: const EdgeInsets.all(2),
               decoration: BoxDecoration(
@@ -862,8 +2083,8 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
                     borderRadius: BorderRadius.circular(6),
                     child: Container(
                       padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 6,
+                        horizontal: 10,
+                        vertical: 5,
                       ),
                       decoration: BoxDecoration(
                         color: !_orderByDate
@@ -878,15 +2099,12 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
                           he: 'לפי תלמיד',
                           en: 'By Student',
                         ),
-                        style:
-                            Theme.of(context).textTheme.labelMedium?.copyWith(
-                                  color: !_orderByDate
-                                      ? _primary
-                                      : _onSurfaceVariant,
-                                  fontWeight: !_orderByDate
-                                      ? FontWeight.w600
-                                      : FontWeight.w500,
-                                ),
+                        style: TextStyle(
+                          fontSize: 11.5,
+                          color:
+                              !_orderByDate ? _primary : _onSurfaceVariant,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ),
                   ),
@@ -895,8 +2113,8 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
                     borderRadius: BorderRadius.circular(6),
                     child: Container(
                       padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 6,
+                        horizontal: 10,
+                        vertical: 5,
                       ),
                       decoration: BoxDecoration(
                         color: _orderByDate
@@ -911,15 +2129,11 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
                           he: 'לפי תאריך',
                           en: 'By Date',
                         ),
-                        style:
-                            Theme.of(context).textTheme.labelMedium?.copyWith(
-                                  color: _orderByDate
-                                      ? _primary
-                                      : _onSurfaceVariant,
-                                  fontWeight: _orderByDate
-                                      ? FontWeight.w600
-                                      : FontWeight.w500,
-                                ),
+                        style: TextStyle(
+                          fontSize: 11.5,
+                          color: _orderByDate ? _primary : _onSurfaceVariant,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ),
                   ),
@@ -929,13 +2143,10 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
           ],
         ),
         const SizedBox(height: 10),
-
-        // Horizontal Pill Filter Carousel
         SingleChildScrollView(
           scrollDirection: Axis.horizontal,
           child: Row(
             children: [
-              // 1. All (الكل)
               _FilterPillButton(
                 label: _tr(langCode, ar: 'الكل', he: 'הכל', en: 'All'),
                 countLabel: '$totalCount',
@@ -944,8 +2155,22 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
                     setState(() => _activeFilter = _AssignmentFilterTab.all),
               ),
               const SizedBox(width: 8),
-
-              // 2. New Hifz (حفظ جديد)
+              _FilterPillButton(
+                label: _tr(
+                  langCode,
+                  ar: 'من تبقى فقط (في الانتظار)',
+                  he: 'ממתינים בלבד',
+                  en: 'Pending Only',
+                ),
+                countLabel: '$pendingCount',
+                dotColor: _secondaryContainer,
+                isWarningAccent: true,
+                isSelected: _activeFilter == _AssignmentFilterTab.pending,
+                onTap: () => setState(
+                  () => _activeFilter = _AssignmentFilterTab.pending,
+                ),
+              ),
+              const SizedBox(width: 8),
               _FilterPillButton(
                 label: _tr(
                   langCode,
@@ -961,38 +2186,18 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
                 ),
               ),
               const SizedBox(width: 8),
-
-              // 3. Revision (مراجعة)
               _FilterPillButton(
                 label: _tr(
                   langCode,
-                  ar: 'مراجعة',
-                  he: 'חזרה',
-                  en: 'Revision',
+                  ar: 'مراجعة واختبار جزء',
+                  he: 'חזרה ומבחן ג׳וז',
+                  en: 'Juz Revision',
                 ),
                 countLabel: '$revisionCount',
                 dotColor: _secondary,
                 isSelected: _activeFilter == _AssignmentFilterTab.revision,
                 onTap: () => setState(
                   () => _activeFilter = _AssignmentFilterTab.revision,
-                ),
-              ),
-              const SizedBox(width: 8),
-
-              // 4. Pending Evaluation (بانتظار التقييم)
-              _FilterPillButton(
-                label: _tr(
-                  langCode,
-                  ar: 'بانتظار التقييم',
-                  he: 'ממתין להערכה',
-                  en: 'Pending',
-                ),
-                countLabel: '$pendingCount',
-                dotColor: _secondaryContainer,
-                isWarningAccent: true,
-                isSelected: _activeFilter == _AssignmentFilterTab.pending,
-                onTap: () => setState(
-                  () => _activeFilter = _AssignmentFilterTab.pending,
                 ),
               ),
             ],
@@ -1007,34 +2212,23 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
     required String langCode,
     required _AssignmentCardItem card,
     required String effectiveGroupId,
+    required List<AttendanceLog> groupAttendanceLogs,
   }) {
-    final isPending = card.grade == EvaluationGrade.pending;
+    final isPending = card.grade == EvaluationGrade.pending && !card.isPartialRead;
     final isRevision = card.assignmentType == AssignmentType.revision;
 
     final sideBarColor = isPending
         ? _secondaryContainer
         : (isRevision ? _secondary : _primary);
 
-    final badgeSubIcon = isPending
-        ? Icons.hourglass_top_rounded
-        : (isRevision ? Icons.replay_rounded : Icons.verified_rounded);
-
     return Container(
       decoration: BoxDecoration(
         color: _surfaceContainerLowest,
         borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
-            blurRadius: 6,
-            offset: const Offset(0, 2),
-          ),
-        ],
       ),
       clipBehavior: Clip.antiAlias,
       child: Stack(
         children: [
-          // Start vertical accent bar (Right in RTL)
           PositionedDirectional(
             top: 0,
             bottom: 0,
@@ -1047,7 +2241,7 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // 1. Header: Avatar, Name, Status & Grade
+                // 1. Header: Avatar, Name, Live Queue Status & Grade/Score Badge
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1055,49 +2249,24 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
                     Expanded(
                       child: Row(
                         children: [
-                          // Student Avatar + Mini Status Badge
-                          Stack(
-                            clipBehavior: Clip.none,
-                            children: [
-                              Container(
-                                width: 44,
-                                height: 44,
-                                decoration: BoxDecoration(
-                                  color: sideBarColor.withValues(alpha: 0.14),
-                                  shape: BoxShape.circle,
-                                ),
-                                alignment: Alignment.center,
-                                child: Text(
-                                  card.initial,
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .titleMedium
-                                      ?.copyWith(
-                                        color: sideBarColor,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                ),
+                          Container(
+                            width: 42,
+                            height: 42,
+                            decoration: BoxDecoration(
+                              color: sideBarColor.withValues(alpha: 0.14),
+                              shape: BoxShape.circle,
+                            ),
+                            alignment: Alignment.center,
+                            child: Text(
+                              card.initial,
+                              style: TextStyle(
+                                color: sideBarColor,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
                               ),
-                              Positioned(
-                                bottom: -2,
-                                right: -2,
-                                child: Container(
-                                  width: 16,
-                                  height: 16,
-                                  decoration: BoxDecoration(
-                                    color: sideBarColor,
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: Icon(
-                                    badgeSubIcon,
-                                    size: 11,
-                                    color: Colors.white,
-                                  ),
-                                ),
-                              ),
-                            ],
+                            ),
                           ),
-                          const SizedBox(width: 12),
+                          const SizedBox(width: 10),
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1110,41 +2279,18 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
                                       ?.copyWith(
                                         color: _onSurface,
                                         fontWeight: FontWeight.w600,
-                                        height: 1.25,
                                       ),
                                 ),
                                 const SizedBox(height: 2),
-                                Row(
-                                  children: [
-                                    Icon(
-                                      card.isPendingTimeAlert
-                                          ? Icons.alarm_rounded
-                                          : Icons.schedule_rounded,
-                                      size: 13,
-                                      color: card.isPendingTimeAlert
-                                          ? _secondary
-                                          : _primary,
-                                    ),
-                                    const SizedBox(width: 4),
-                                    Flexible(
-                                      child: Text(
-                                        card.timeSubtitle,
-                                        style: Theme.of(context)
-                                            .textTheme
-                                            .labelSmall
-                                            ?.copyWith(
-                                              color: card.isPendingTimeAlert
-                                                  ? _secondary
-                                                  : _onSurfaceVariant,
-                                              fontSize: 11,
-                                              fontWeight: card.isPendingTimeAlert
-                                                  ? FontWeight.w600
-                                                  : FontWeight.w500,
-                                            ),
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ),
-                                  ],
+                                Text(
+                                  card.timeSubtitle,
+                                  style: TextStyle(
+                                    color: card.isPendingTimeAlert
+                                        ? _secondary
+                                        : _primary,
+                                    fontSize: 11.5,
+                                    fontWeight: FontWeight.w600,
+                                  ),
                                 ),
                               ],
                             ),
@@ -1152,120 +2298,32 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
                         ],
                       ),
                     ),
-                    const SizedBox(width: 8),
-
-                    // Status & Grade Pills
-                    if (isPending)
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: _secondaryFixed,
-                          borderRadius: BorderRadius.circular(999),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Container(
-                              width: 6,
-                              height: 6,
-                              decoration: const BoxDecoration(
-                                color: _secondary,
-                                shape: BoxShape.circle,
-                              ),
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              card.gradeBadgeLabel,
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .labelSmall
-                                  ?.copyWith(
-                                    color: _onSecondaryFixedVariant,
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                            ),
-                          ],
-                        ),
-                      )
-                    else
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 4,
-                            ),
-                            decoration: BoxDecoration(
-                              color: _primary.withValues(alpha: 0.10),
-                              borderRadius: BorderRadius.circular(999),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const Icon(
-                                  Icons.check_circle_rounded,
-                                  size: 13,
-                                  color: _primary,
-                                ),
-                                const SizedBox(width: 4),
-                                Text(
-                                  _tr(
-                                    langCode,
-                                    ar: 'تم التقييم',
-                                    he: 'הוערך',
-                                    en: 'Evaluated',
-                                  ),
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .labelSmall
-                                      ?.copyWith(
-                                        color: _primary,
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 2,
-                            ),
-                            decoration: BoxDecoration(
-                              color: card.grade == EvaluationGrade.excellent
-                                  ? _secondaryFixed
-                                  : _secondaryContainer.withValues(alpha: 0.20),
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: Text(
-                              card.gradeBadgeLabel,
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .labelSmall
-                                  ?.copyWith(
-                                    color:
-                                        card.grade == EvaluationGrade.excellent
-                                            ? _onSecondaryFixed
-                                            : _onSecondaryContainer,
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                            ),
-                          ),
-                        ],
+                    // Score / Status Pill
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 4,
                       ),
+                      decoration: BoxDecoration(
+                        color: isPending ? _secondaryFixed : _primaryFixed,
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: Text(
+                        card.gradeBadgeLabel,
+                        style: TextStyle(
+                          color: isPending
+                              ? _onSecondaryFixedVariant
+                              : _onPrimaryFixed,
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
                   ],
                 ),
                 const SizedBox(height: 12),
 
-                // 2. Task Details Box
+                // 2. Assigned Range Box
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
@@ -1279,52 +2337,20 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Expanded(
-                            child: Row(
-                              children: [
-                                Icon(
-                                  isRevision
-                                      ? Icons.sync_rounded
-                                      : Icons.menu_book_rounded,
-                                  size: 16,
-                                  color: isRevision ? _secondary : _primary,
-                                ),
-                                const SizedBox(width: 6),
-                                Flexible(
-                                  child: Text(
-                                    card.rangeTitle,
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .labelMedium
-                                        ?.copyWith(
-                                          color: isRevision
-                                              ? _secondary
-                                              : _primary,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                  ),
-                                ),
-                              ],
+                            child: Text(
+                              card.rangeTitle,
+                              style: TextStyle(
+                                color: isRevision ? _secondary : _primary,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13,
+                              ),
                             ),
                           ),
-                          const SizedBox(width: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 2,
-                            ),
-                            decoration: BoxDecoration(
-                              color: _surfaceContainer,
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: Text(
-                              card.assignmentBadgeLabel,
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .labelSmall
-                                  ?.copyWith(
-                                    color: _onSurfaceVariant,
-                                    fontSize: 11,
-                                  ),
+                          Text(
+                            card.assignmentBadgeLabel,
+                            style: const TextStyle(
+                              color: _onSurfaceVariant,
+                              fontSize: 11,
                             ),
                           ),
                         ],
@@ -1343,163 +2369,161 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
                     ],
                   ),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 10),
 
-                // 3. Teacher Feedback or Pending Note Box
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: isPending
-                        ? _surfaceContainerLow
-                        : _surfaceContainerLowest,
-                    borderRadius: BorderRadius.circular(8),
-                    boxShadow: isPending
-                        ? null
-                        : [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.03),
-                              blurRadius: 2,
-                              offset: const Offset(0, 1),
-                            ),
-                          ],
-                  ),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Icon(
-                        isPending
-                            ? Icons.pending_outlined
-                            : (isRevision
-                                ? Icons.error_rounded
-                                : Icons.format_quote_rounded),
-                        size: 18,
-                        color: _secondary,
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          card.feedbackText,
-                          style:
-                              Theme.of(context).textTheme.bodySmall?.copyWith(
-                                    color: _onSurfaceVariant,
-                                    height: 1.45,
-                                  ),
-                        ),
-                      ),
-                    ],
+                // 3. Teacher Notes
+                Text(
+                  card.feedbackText,
+                  style: const TextStyle(
+                    color: _onSurfaceVariant,
+                    fontSize: 12,
                   ),
                 ),
                 const SizedBox(height: 12),
 
-                // 4. Footer Action Row
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                // 4. Footer Actions: Student Stats + Edit Homework + Tasmee' Now
+                Wrap(
+                  alignment: WrapAlignment.spaceBetween,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  spacing: 8,
+                  runSpacing: 8,
                   children: [
+                    TextButton.icon(
+                      onPressed: () => _showStudentStatsBottomSheet(
+                        context: context,
+                        langCode: langCode,
+                        studentId: card.studentId,
+                        studentName: card.studentName,
+                        groupAttendanceLogs: groupAttendanceLogs,
+                      ),
+                      icon: const Icon(Icons.insights_rounded, size: 16),
+                      label: Text(
+                        _tr(
+                          langCode,
+                          ar: 'إحصائيات الطالب والأجزاء',
+                          he: 'סטטיסטיקת תלמיד',
+                          en: 'Student Stats',
+                        ),
+                        style: const TextStyle(
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
                     Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(
-                          isPending
-                              ? Icons.notifications_active_outlined
-                              : Icons.mic_none_rounded,
-                          size: 16,
-                          color: _onSurfaceVariant,
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          card.audioDurationLabel,
-                          style:
-                              Theme.of(context).textTheme.labelSmall?.copyWith(
-                                    color: _onSurfaceVariant,
-                                    fontSize: 11,
-                                  ),
-                        ),
-                      ],
-                    ),
-                    if (isPending)
-                      ElevatedButton.icon(
-                        onPressed: () => _showAssignmentEvaluationModal(
-                          context: context,
-                          langCode: langCode,
-                          effectiveGroupId: effectiveGroupId,
-                          existingCard: card,
-                        ),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: _primary,
-                          foregroundColor: Colors.white,
-                          elevation: 1,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 18,
-                            vertical: 8,
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                        ),
-                        icon: const Icon(Icons.rate_review_rounded, size: 18),
-                        label: Text(
-                          _tr(
-                            langCode,
-                            ar: 'تقييم الآن',
-                            he: 'הערך עכשיו',
-                            en: 'Evaluate Now',
-                          ),
-                          style: const TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      )
-                    else
-                      Material(
-                        color: _surfaceContainer,
-                        borderRadius: BorderRadius.circular(8),
-                        child: InkWell(
-                          onTap: () => _showAssignmentEvaluationModal(
+                        OutlinedButton.icon(
+                          onPressed: () => _showAssignmentEvaluationModal(
                             context: context,
                             langCode: langCode,
                             effectiveGroupId: effectiveGroupId,
                             existingCard: card,
+                            assignOnlyMode: true,
                           ),
-                          borderRadius: BorderRadius.circular(8),
-                          child: Padding(
+                          icon: const Icon(Icons.edit_calendar_rounded, size: 15),
+                          label: Text(
+                            _tr(
+                              langCode,
+                              ar: 'تعديل الواجب',
+                              he: 'ערוך מטלה',
+                              en: 'Edit Homework',
+                            ),
+                            style: const TextStyle(fontSize: 11.5),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        ElevatedButton.icon(
+                          onPressed: () => _showAssignmentEvaluationModal(
+                            context: context,
+                            langCode: langCode,
+                            effectiveGroupId: effectiveGroupId,
+                            existingCard: card,
+                            assignOnlyMode: false,
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: _primary,
+                            foregroundColor: Colors.white,
                             padding: const EdgeInsets.symmetric(
                               horizontal: 14,
                               vertical: 8,
                             ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const Icon(
-                                  Icons.edit_note_rounded,
-                                  size: 16,
-                                  color: _primary,
-                                ),
-                                const SizedBox(width: 6),
-                                Text(
-                                  _tr(
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                          icon: const Icon(Icons.mic_rounded, size: 16),
+                          label: Text(
+                            isPending
+                                ? _tr(
                                     langCode,
-                                    ar: 'تعديل التقييم',
+                                    ar: 'تسميع الآن',
+                                    he: 'שינון עכשיו',
+                                    en: 'Tasmee Now',
+                                  )
+                                : _tr(
+                                    langCode,
+                                    ar: 'تعديل التسميع',
                                     he: 'ערוך הערכה',
                                     en: 'Edit Evaluation',
                                   ),
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .labelMedium
-                                      ?.copyWith(
-                                        color: _onSurface,
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                ),
-                              ],
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
                             ),
                           ),
                         ),
-                      ),
+                      ],
+                    ),
                   ],
                 ),
               ],
             ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StatKpiBox extends StatelessWidget {
+  final String label;
+  final String value;
+  final Color color;
+
+  const _StatKpiBox({
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        children: [
+          Text(
+            value,
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 15,
+              color: color,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 11,
+              color: Color(0xFF3D4947),
+              fontWeight: FontWeight.w600,
+            ),
+            textAlign: TextAlign.center,
           ),
         ],
       ),

@@ -100,7 +100,7 @@ class _AttendanceLoggingViewState extends ConsumerState<AttendanceLoggingView> {
       initial: 'ح',
       subtitle: 'سورة الكهف • الحزب الثلاثون',
       absentExcuseSubtitle: 'غائب بعذر مسبق (طبي)',
-      defaultStatus: AttendanceStatus.absent,
+      defaultStatus: AttendanceStatus.excused,
     ),
     _StudentAttendanceRowItem(
       studentId: 'st-1120',
@@ -309,7 +309,6 @@ class _AttendanceLoggingViewState extends ConsumerState<AttendanceLoggingView> {
             ?.value ??
         const [];
 
-    // Merge any additional enrolled students from Firestore with our Stitch roster
     final students = <_StudentAttendanceRowItem>[..._seedStudents];
     for (final enrollment in enrollments) {
       final exists =
@@ -335,6 +334,7 @@ class _AttendanceLoggingViewState extends ConsumerState<AttendanceLoggingView> {
     int presentCount = 0;
     int lateCount = 0;
     int absentCount = 0;
+    int excusedCount = 0;
     for (final s in students) {
       final st = _studentStatuses[s.studentId] ?? s.defaultStatus;
       switch (st) {
@@ -346,6 +346,9 @@ class _AttendanceLoggingViewState extends ConsumerState<AttendanceLoggingView> {
           break;
         case AttendanceStatus.absent:
           absentCount++;
+          break;
+        case AttendanceStatus.excused:
+          excusedCount++;
           break;
       }
     }
@@ -359,7 +362,6 @@ class _AttendanceLoggingViewState extends ConsumerState<AttendanceLoggingView> {
         backgroundColor: _surface,
         body: Stack(
           children: [
-            // Main Scrollable Content
             Positioned.fill(
               child: Center(
                 child: ConstrainedBox(
@@ -372,41 +374,32 @@ class _AttendanceLoggingViewState extends ConsumerState<AttendanceLoggingView> {
                       right: 16,
                     ),
                     children: [
-                      // 1. Session Header Details
                       _buildSessionHeader(
                         context: context,
                         langCode: langCode,
                         groupTitle: groupTitle,
                       ),
                       const SizedBox(height: 8),
-
-                      // 2. Segmented Tab Bar (Attendance vs Assignments)
                       _buildSegmentedTabs(
                         context: context,
                         langCode: langCode,
                         effectiveGroupId: effectiveGroupId,
                       ),
                       const SizedBox(height: 16),
-
-                      // 3. Filter & Mode Row (Date Picker Pill + Session Type Toggle)
                       _buildFilterAndModeRow(
                         context: context,
                         langCode: langCode,
                       ),
                       const SizedBox(height: 16),
-
-                      // 4. Quick Action & Stats Card
                       _buildQuickActionAndStatsCard(
                         context: context,
                         langCode: langCode,
                         students: students,
                         presentCount: presentCount,
                         lateCount: lateCount,
-                        absentCount: absentCount,
+                        absentCount: absentCount + excusedCount,
                       ),
                       const SizedBox(height: 16),
-
-                      // 5. Student List Section Header
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 4),
                         child: Row(
@@ -427,39 +420,10 @@ class _AttendanceLoggingViewState extends ConsumerState<AttendanceLoggingView> {
                                     fontWeight: FontWeight.w600,
                                   ),
                             ),
-                            Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const Icon(
-                                  Icons.auto_awesome_rounded,
-                                  size: 14,
-                                  color: _tertiary,
-                                ),
-                                const SizedBox(width: 4),
-                                Text(
-                                  _tr(
-                                    langCode,
-                                    ar: 'حفظ تلقائي للمسودة',
-                                    he: 'שמירה אוטומטית של טיוטה',
-                                    en: 'Auto-saving draft',
-                                  ),
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .labelSmall
-                                      ?.copyWith(
-                                        color: _tertiary,
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                ),
-                              ],
-                            ),
                           ],
                         ),
                       ),
                       const SizedBox(height: 8),
-
-                      // 6. Student Roster Cards
                       ...students.map(
                         (student) => Padding(
                           padding: const EdgeInsets.only(bottom: 10),
@@ -538,8 +502,8 @@ class _AttendanceLoggingViewState extends ConsumerState<AttendanceLoggingView> {
                                     Text(
                                       _tr(
                                         langCode,
-                                        ar: 'Attendance Logging View',
-                                        he: 'רישום נוכחות',
+                                        ar: 'رصد الحضور اليومي',
+                                        he: 'רישום נוכחות יומי',
                                         en: 'Attendance Logging View',
                                       ),
                                       style: Theme.of(context)
@@ -609,65 +573,6 @@ class _AttendanceLoggingViewState extends ConsumerState<AttendanceLoggingView> {
                               mainAxisSize: MainAxisSize.min,
                               crossAxisAlignment: CrossAxisAlignment.stretch,
                               children: [
-                                Row(
-                                  mainAxisAlignment:
-                                      MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Text(
-                                      _tr(
-                                        langCode,
-                                        ar: 'تم تسجيل الحضور لـ ${_formatNum(students.length, langCode)} من ${_formatNum(students.length, langCode)} طلاب',
-                                        he: 'נרשמה נוכחות ל-${students.length} מתוך ${students.length} תלמידים',
-                                        en: 'Logged attendance for ${students.length} of ${students.length} students',
-                                      ),
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .bodySmall
-                                          ?.copyWith(
-                                            color: _onSurfaceVariant,
-                                          ),
-                                    ),
-                                    Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        const Icon(
-                                          Icons.verified_rounded,
-                                          size: 16,
-                                          color: _primary,
-                                        ),
-                                        const SizedBox(width: 4),
-                                        Text(
-                                          _tr(
-                                            langCode,
-                                            ar: '١٠٠٪ مكتمل',
-                                            he: '100% הושלם',
-                                            en: '100% Complete',
-                                          ),
-                                          style: Theme.of(context)
-                                              .textTheme
-                                              .labelLarge
-                                              ?.copyWith(
-                                                color: _primary,
-                                                fontWeight: FontWeight.w600,
-                                              ),
-                                        ),
-                                      ],
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 8),
-                                ClipRRect(
-                                  borderRadius: BorderRadius.circular(999),
-                                  child: const LinearProgressIndicator(
-                                    value: 1.0,
-                                    minHeight: 6,
-                                    backgroundColor: _surfaceContainerHigh,
-                                    valueColor: AlwaysStoppedAnimation<Color>(
-                                      _primary,
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(height: 10),
                                 SizedBox(
                                   height: 48,
                                   child: ElevatedButton.icon(
@@ -764,37 +669,20 @@ class _AttendanceLoggingViewState extends ConsumerState<AttendanceLoggingView> {
                   overflow: TextOverflow.ellipsis,
                 ),
                 const SizedBox(height: 2),
-                Row(
-                  children: [
-                    Container(
-                      width: 8,
-                      height: 8,
-                      decoration: const BoxDecoration(
-                        color: _primary,
-                        shape: BoxShape.circle,
+                Text(
+                  _tr(
+                    langCode,
+                    ar: 'رصد الحضور اليومي السريع',
+                    he: 'רישום נוכחות יומי מהיר',
+                    en: 'Fast Daily Attendance Logging',
+                  ),
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: _onSurfaceVariant,
                       ),
-                    ),
-                    const SizedBox(width: 6),
-                    Flexible(
-                      child: Text(
-                        _tr(
-                          langCode,
-                          ar: 'رصد الحضور اليومي • ١٢ طالباً مسجلاً',
-                          he: 'רישום נוכחות יומי • 12 תלמידים רשומים',
-                          en: 'Daily Attendance • 12 enrolled students',
-                        ),
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: _onSurfaceVariant,
-                            ),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ],
                 ),
               ],
             ),
           ),
-          const SizedBox(width: 12),
           Container(
             width: 40,
             height: 40,
@@ -826,20 +714,12 @@ class _AttendanceLoggingViewState extends ConsumerState<AttendanceLoggingView> {
       ),
       child: Row(
         children: [
-          // Tab 1: Attendance (Active)
           Expanded(
             child: Container(
               padding: const EdgeInsets.symmetric(vertical: 8),
               decoration: BoxDecoration(
                 color: _surfaceContainerLowest,
                 borderRadius: BorderRadius.circular(8),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.04),
-                    blurRadius: 4,
-                    offset: const Offset(0, 1),
-                  ),
-                ],
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -866,8 +746,6 @@ class _AttendanceLoggingViewState extends ConsumerState<AttendanceLoggingView> {
               ),
             ),
           ),
-
-          // Tab 2: Assignments (Navigates to GroupDetailScreen)
           Expanded(
             child: InkWell(
               onTap: () {
@@ -894,23 +772,14 @@ class _AttendanceLoggingViewState extends ConsumerState<AttendanceLoggingView> {
                     Text(
                       _tr(
                         langCode,
-                        ar: 'الواجبات',
-                        he: 'מטלות',
-                        en: 'Assignments',
+                        ar: 'الواجبات والخطة',
+                        he: 'מטלות ותוכנית',
+                        en: 'Assignments & Plan',
                       ),
                       style: Theme.of(context).textTheme.labelLarge?.copyWith(
                             color: _onSurfaceVariant,
                             fontWeight: FontWeight.w600,
                           ),
-                    ),
-                    const SizedBox(width: 6),
-                    Container(
-                      width: 6,
-                      height: 6,
-                      decoration: const BoxDecoration(
-                        color: _secondary,
-                        shape: BoxShape.circle,
-                      ),
                     ),
                   ],
                 ),
@@ -929,7 +798,6 @@ class _AttendanceLoggingViewState extends ConsumerState<AttendanceLoggingView> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        // Date Picker Pill
         Material(
           color: _surfaceContainerLowest,
           borderRadius: BorderRadius.circular(12),
@@ -966,8 +834,6 @@ class _AttendanceLoggingViewState extends ConsumerState<AttendanceLoggingView> {
             ),
           ),
         ),
-
-        // Session Type Toggle (Group vs 1-on-1)
         Container(
           padding: const EdgeInsets.all(4),
           decoration: BoxDecoration(
@@ -992,12 +858,7 @@ class _AttendanceLoggingViewState extends ConsumerState<AttendanceLoggingView> {
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
-                    _tr(
-                      langCode,
-                      ar: 'جماعي',
-                      he: 'קבוצתי',
-                      en: 'Group',
-                    ),
+                    _tr(langCode, ar: 'جماعي', he: 'קבוצתי', en: 'Group'),
                     style: Theme.of(context).textTheme.labelMedium?.copyWith(
                           color: _sessionMode == SessionMode.group
                               ? Colors.white
@@ -1023,12 +884,7 @@ class _AttendanceLoggingViewState extends ConsumerState<AttendanceLoggingView> {
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
-                    _tr(
-                      langCode,
-                      ar: 'فردي',
-                      he: 'פרטני',
-                      en: '1-on-1',
-                    ),
+                    _tr(langCode, ar: 'فردي', he: 'פרטני', en: '1-on-1'),
                     style: Theme.of(context).textTheme.labelMedium?.copyWith(
                           color: _sessionMode == SessionMode.oneOnOne
                               ? Colors.white
@@ -1058,13 +914,6 @@ class _AttendanceLoggingViewState extends ConsumerState<AttendanceLoggingView> {
       decoration: BoxDecoration(
         color: _surfaceContainerLowest,
         borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
-            blurRadius: 6,
-            offset: const Offset(0, 2),
-          ),
-        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1117,7 +966,7 @@ class _AttendanceLoggingViewState extends ConsumerState<AttendanceLoggingView> {
                         Text(
                           _tr(
                             langCode,
-                            ar: 'تحديد الكل كحاضر',
+                            ar: 'تحضير الكل حاضر',
                             he: 'סמן הכל כנוכח',
                             en: 'Mark All Present',
                           ),
@@ -1135,19 +984,12 @@ class _AttendanceLoggingViewState extends ConsumerState<AttendanceLoggingView> {
             ],
           ),
           const SizedBox(height: 12),
-
-          // Attendance Live Metrics Strip (3-column grid)
           Row(
             children: [
               Expanded(
                 child: _MetricStatPill(
                   dotColor: _primary,
-                  label: _tr(
-                    langCode,
-                    ar: 'حاضر',
-                    he: 'נוכח',
-                    en: 'Present',
-                  ),
+                  label: _tr(langCode, ar: 'حاضر', he: 'נוכח', en: 'Present'),
                   valueText: _formatNum(presentCount, langCode),
                   valueColor: _primary,
                 ),
@@ -1156,12 +998,7 @@ class _AttendanceLoggingViewState extends ConsumerState<AttendanceLoggingView> {
               Expanded(
                 child: _MetricStatPill(
                   dotColor: _secondary,
-                  label: _tr(
-                    langCode,
-                    ar: 'متأخر',
-                    he: 'איחור',
-                    en: 'Late',
-                  ),
+                  label: _tr(langCode, ar: 'متأخر', he: 'איחור', en: 'Late'),
                   valueText: _formatNum(lateCount, langCode),
                   valueColor: _secondary,
                 ),
@@ -1170,12 +1007,7 @@ class _AttendanceLoggingViewState extends ConsumerState<AttendanceLoggingView> {
               Expanded(
                 child: _MetricStatPill(
                   dotColor: _error,
-                  label: _tr(
-                    langCode,
-                    ar: 'غائب',
-                    he: 'חיסור',
-                    en: 'Absent',
-                  ),
+                  label: _tr(langCode, ar: 'غائب/معذور', he: 'חיסור', en: 'Absent'),
                   valueText: _formatNum(absentCount, langCode),
                   valueColor: _error,
                 ),
@@ -1196,6 +1028,7 @@ class _AttendanceLoggingViewState extends ConsumerState<AttendanceLoggingView> {
     final isPresent = currentStatus == AttendanceStatus.present;
     final isLate = currentStatus == AttendanceStatus.late;
     final isAbsent = currentStatus == AttendanceStatus.absent;
+    final isExcused = currentStatus == AttendanceStatus.excused;
 
     final avatarBg = isPresent
         ? _primary.withValues(alpha: 0.10)
@@ -1209,18 +1042,10 @@ class _AttendanceLoggingViewState extends ConsumerState<AttendanceLoggingView> {
       decoration: BoxDecoration(
         color: _surfaceContainerLowest,
         borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
-            blurRadius: 4,
-            offset: const Offset(0, 1),
-          ),
-        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Top Student Info Row
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -1260,115 +1085,28 @@ class _AttendanceLoggingViewState extends ConsumerState<AttendanceLoggingView> {
                             overflow: TextOverflow.ellipsis,
                           ),
                           const SizedBox(height: 2),
-                          if (isLate && student.lateExcuseSubtitle != null)
-                            Row(
-                              children: [
-                                const Icon(
-                                  Icons.schedule_rounded,
-                                  size: 13,
-                                  color: _secondary,
+                          Text(
+                            student.subtitle,
+                            style: Theme.of(context)
+                                .textTheme
+                                .labelSmall
+                                ?.copyWith(
+                                  color: _onSurfaceVariant,
+                                  fontSize: 11,
                                 ),
-                                const SizedBox(width: 4),
-                                Flexible(
-                                  child: Text(
-                                    student.lateExcuseSubtitle!,
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .labelSmall
-                                        ?.copyWith(
-                                          color: _secondary,
-                                          fontSize: 11,
-                                        ),
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                              ],
-                            )
-                          else if (isAbsent &&
-                              student.absentExcuseSubtitle != null)
-                            Row(
-                              children: [
-                                const Icon(
-                                  Icons.event_busy_rounded,
-                                  size: 13,
-                                  color: _error,
-                                ),
-                                const SizedBox(width: 4),
-                                Flexible(
-                                  child: Text(
-                                    student.absentExcuseSubtitle!,
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .labelSmall
-                                        ?.copyWith(
-                                          color: _error,
-                                          fontSize: 11,
-                                        ),
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                              ],
-                            )
-                          else
-                            Text(
-                              student.subtitle,
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .labelSmall
-                                  ?.copyWith(
-                                    color: _onSurfaceVariant,
-                                    fontSize: 11,
-                                  ),
-                              overflow: TextOverflow.ellipsis,
-                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         ],
                       ),
                     ),
                   ],
                 ),
               ),
-              if (student.isStarred) ...[
-                const SizedBox(width: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 2,
-                  ),
-                  decoration: BoxDecoration(
-                    color: _surfaceContainer,
-                    borderRadius: BorderRadius.circular(999),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(
-                        Icons.star_rounded,
-                        size: 13,
-                        color: _primary,
-                      ),
-                      const SizedBox(width: 3),
-                      Text(
-                        _tr(
-                          langCode,
-                          ar: 'متفوق',
-                          he: 'מצטיין',
-                          en: 'Top Student',
-                        ),
-                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                              color: _primary,
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
-                            ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
             ],
           ),
           const SizedBox(height: 10),
 
-          // 3-Button Attendance Status Selector
+          // 4-Button Attendance Status Selector (حاضر / متأخر / غائب / معذور)
           Container(
             padding: const EdgeInsets.all(4),
             decoration: BoxDecoration(
@@ -1377,15 +1115,9 @@ class _AttendanceLoggingViewState extends ConsumerState<AttendanceLoggingView> {
             ),
             child: Row(
               children: [
-                // 1. Present (حاضر)
                 Expanded(
                   child: _StatusSegmentButton(
-                    label: _tr(
-                      langCode,
-                      ar: 'حاضر',
-                      he: 'נוכח',
-                      en: 'Present',
-                    ),
+                    label: _tr(langCode, ar: 'حاضر', he: 'נוכח', en: 'Present'),
                     icon: Icons.check_rounded,
                     isActive: isPresent,
                     activeColor: _primary,
@@ -1395,17 +1127,10 @@ class _AttendanceLoggingViewState extends ConsumerState<AttendanceLoggingView> {
                     }),
                   ),
                 ),
-                const SizedBox(width: 6),
-
-                // 2. Late (متأخر)
+                const SizedBox(width: 4),
                 Expanded(
                   child: _StatusSegmentButton(
-                    label: _tr(
-                      langCode,
-                      ar: 'متأخر',
-                      he: 'איחור',
-                      en: 'Late',
-                    ),
+                    label: _tr(langCode, ar: 'متأخر', he: 'איחור', en: 'Late'),
                     icon: Icons.schedule_rounded,
                     isActive: isLate,
                     activeColor: _secondary,
@@ -1415,23 +1140,29 @@ class _AttendanceLoggingViewState extends ConsumerState<AttendanceLoggingView> {
                     }),
                   ),
                 ),
-                const SizedBox(width: 6),
-
-                // 3. Absent (غائب)
+                const SizedBox(width: 4),
                 Expanded(
                   child: _StatusSegmentButton(
-                    label: _tr(
-                      langCode,
-                      ar: 'غائب',
-                      he: 'חיסור',
-                      en: 'Absent',
-                    ),
+                    label: _tr(langCode, ar: 'غائب', he: 'חיסור', en: 'Absent'),
                     icon: Icons.close_rounded,
                     isActive: isAbsent,
                     activeColor: _error,
                     onTap: () => setState(() {
                       _studentStatuses[student.studentId] =
                           AttendanceStatus.absent;
+                    }),
+                  ),
+                ),
+                const SizedBox(width: 4),
+                Expanded(
+                  child: _StatusSegmentButton(
+                    label: _tr(langCode, ar: 'معذور', he: 'מוצדק', en: 'Excused'),
+                    icon: Icons.verified_user_outlined,
+                    isActive: isExcused,
+                    activeColor: _tertiary,
+                    onTap: () => setState(() {
+                      _studentStatuses[student.studentId] =
+                          AttendanceStatus.excused;
                     }),
                   ),
                 ),
@@ -1534,10 +1265,10 @@ class _StatusSegmentButton extends StatelessWidget {
               if (isActive) ...[
                 Icon(
                   icon,
-                  size: 16,
+                  size: 14,
                   color: Colors.white,
                 ),
-                const SizedBox(width: 4),
+                const SizedBox(width: 3),
               ],
               Flexible(
                 child: Text(
@@ -1548,6 +1279,7 @@ class _StatusSegmentButton extends StatelessWidget {
                             : const Color(0xFF3D4947),
                         fontWeight:
                             isActive ? FontWeight.bold : FontWeight.w500,
+                        fontSize: 11.5,
                       ),
                   overflow: TextOverflow.ellipsis,
                 ),

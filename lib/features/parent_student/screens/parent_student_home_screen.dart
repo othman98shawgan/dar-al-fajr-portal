@@ -12,6 +12,7 @@ import '../../admin/models/admin_models.dart';
 import '../../auth/models/app_user.dart';
 import '../../auth/providers/auth_providers.dart';
 import '../../hifz/models/teacher_models.dart';
+import '../../hifz/providers/teacher_providers.dart';
 import '../models/parent_student_models.dart';
 import '../providers/parent_student_providers.dart';
 
@@ -58,6 +59,7 @@ class _ParentStudentHomeScreenState
   bool _isPlayingLastRecitation = false;
   bool _showAllCompletedSurahs = false;
   bool _isReminderEnabled = false;
+  final Map<int, RevisionTaskStatus> _localRevisionStatusOverrides = {};
 
   static const List<String> _base38Surahs = [
     'الفاتحة',
@@ -2097,7 +2099,299 @@ class _ParentStudentHomeScreenState
             ],
           ),
         ),
+        const SizedBox(height: 16),
+
+        // 4. Card 3: Weekly Revision Plan & Student Self-Check (خطة المراجعة الأسبوعية)
+        _buildStudentWeeklyRevisionCard(
+          context: context,
+          langCode: langCode,
+          child: child,
+        ),
       ],
+    );
+  }
+
+  Widget _buildStudentWeeklyRevisionCard({
+    required BuildContext context,
+    required String langCode,
+    required ChildPortalProfile child,
+  }) {
+    final plans = ref
+            .watch(studentWeeklyPlansProvider(child.id))
+            .asData
+            ?.value ??
+        const [];
+    final activePlan = plans.firstOrNull;
+
+    final tasks = activePlan?.dailyTasks ??
+        List<DailyRevisionTask>.generate(7, (idx) {
+          if (idx == 5 || idx == 6) {
+            return DailyRevisionTask(dayIndex: idx, isRestDay: true);
+          }
+          return DailyRevisionTask(
+            dayIndex: idx,
+            isRestDay: false,
+            targetType: RevisionTargetType.juz,
+            juzNumber: 30 - (idx % 2),
+            status: idx < 2
+                ? RevisionTaskStatus.doneOnTime
+                : RevisionTaskStatus.pending,
+          );
+        });
+
+    const dayNamesAr = [
+      'الأحد',
+      'الاثنين',
+      'الثلاثاء',
+      'الأربعاء',
+      'الخميس',
+      'الجمعة',
+      'السبت',
+    ];
+    const dayNamesEn = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const dayNamesHe = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
+
+    String getDayName(int idx) {
+      if (langCode == 'he') return dayNamesHe[idx % 7];
+      if (langCode == 'en') return dayNamesEn[idx % 7];
+      return dayNamesAr[idx % 7];
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: _surfaceContainerLowest,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: _primaryContainer.withValues(alpha: 0.10),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(
+                  Icons.checklist_rtl_rounded,
+                  color: _primary,
+                  size: 22,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      _tr(
+                        langCode,
+                        ar: 'خطة المراجعة الأسبوعية اليومية',
+                        he: 'תוכנית חזרה שבועית יומית',
+                        en: 'Weekly Daily Revision Plan',
+                      ),
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: _onSurface,
+                      ),
+                    ),
+                    Text(
+                      _tr(
+                        langCode,
+                        ar: 'اضغط لتحديد إنجاز ورد المراجعة اليومي (تم بالوقت / تم متأخراً)',
+                        he: 'סמן ביצוע משימת חזרה יומית (בזמן / באיחור)',
+                        en: 'Mark daily revision tasks as Done on Time or Done Late',
+                      ),
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: _onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          ...tasks.map((task) {
+            final effectiveStatus =
+                _localRevisionStatusOverrides[task.dayIndex] ?? task.status;
+            return Container(
+              margin: const EdgeInsets.only(bottom: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              decoration: BoxDecoration(
+                color: task.isRestDay
+                    ? _surfaceContainerLow
+                    : _surfaceContainerLowest,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: _surfaceContainerHigh),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 58,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: task.isRestDay
+                                ? _surfaceContainerHigh
+                                : _primaryFixed,
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          alignment: Alignment.center,
+                          child: Text(
+                            getDayName(task.dayIndex),
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              color: task.isRestDay
+                                  ? _onSurfaceVariant
+                                  : _onPrimaryFixed,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            task.displaySummary(langCode),
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: task.isRestDay
+                                  ? FontWeight.normal
+                                  : FontWeight.bold,
+                              color: task.isRestDay
+                                  ? _outline
+                                  : _onSurface,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (!task.isRestDay)
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        InkWell(
+                          onTap: () {
+                            setState(() {
+                              _localRevisionStatusOverrides[task.dayIndex] =
+                                  RevisionTaskStatus.doneOnTime;
+                            });
+                            if (activePlan != null) {
+                              ref
+                                  .read(teacherControllerProvider.notifier)
+                                  .updateDailyRevisionTaskStatus(
+                                    plan: activePlan,
+                                    dayIndex: task.dayIndex,
+                                    status: RevisionTaskStatus.doneOnTime,
+                                  );
+                            }
+                          },
+                          borderRadius: BorderRadius.circular(8),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 5,
+                            ),
+                            decoration: BoxDecoration(
+                              color: effectiveStatus ==
+                                      RevisionTaskStatus.doneOnTime
+                                  ? _primary
+                                  : _surfaceContainerLow,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              _tr(
+                                langCode,
+                                ar: 'تم بالوقت',
+                                he: 'בזמן',
+                                en: 'Done',
+                              ),
+                              style: TextStyle(
+                                fontSize: 10.5,
+                                fontWeight: FontWeight.bold,
+                                color: effectiveStatus ==
+                                        RevisionTaskStatus.doneOnTime
+                                    ? Colors.white
+                                    : _onSurfaceVariant,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        InkWell(
+                          onTap: () {
+                            setState(() {
+                              _localRevisionStatusOverrides[task.dayIndex] =
+                                  RevisionTaskStatus.doneLate;
+                            });
+                            if (activePlan != null) {
+                              ref
+                                  .read(teacherControllerProvider.notifier)
+                                  .updateDailyRevisionTaskStatus(
+                                    plan: activePlan,
+                                    dayIndex: task.dayIndex,
+                                    status: RevisionTaskStatus.doneLate,
+                                  );
+                            }
+                          },
+                          borderRadius: BorderRadius.circular(8),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 5,
+                            ),
+                            decoration: BoxDecoration(
+                              color: effectiveStatus ==
+                                      RevisionTaskStatus.doneLate
+                                  ? _secondary
+                                  : _surfaceContainerLow,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              _tr(
+                                langCode,
+                                ar: 'تم متأخراً',
+                                he: 'באיחור',
+                                en: 'Late',
+                              ),
+                              style: TextStyle(
+                                fontSize: 10.5,
+                                fontWeight: FontWeight.bold,
+                                color: effectiveStatus ==
+                                        RevisionTaskStatus.doneLate
+                                    ? Colors.white
+                                    : _onSurfaceVariant,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                ],
+              ),
+            );
+          }),
+        ],
+      ),
     );
   }
 

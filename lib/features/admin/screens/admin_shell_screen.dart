@@ -9,6 +9,8 @@ import '../../auth/models/app_user.dart';
 import '../../auth/providers/auth_providers.dart';
 import '../models/admin_models.dart';
 import '../providers/admin_providers.dart';
+import '../../hifz/models/teacher_models.dart';
+import '../../hifz/providers/teacher_providers.dart';
 import 'admin_mobile_screen.dart';
 
 class _AdminRosterRowData {
@@ -240,6 +242,148 @@ class _AdminShellScreenState extends ConsumerState<AdminShellScreen> {
         backgroundColor: DarAlFajrTheme.primary,
         behavior: SnackBarBehavior.floating,
       ),
+    );
+  }
+
+  Future<void> _showGradingSettingsDialog(String langCode) async {
+    final currentConfig = ref.read(gradingPenaltyConfigProvider).asData?.value ??
+        const GradingPenaltyConfig();
+    final lafziCtrl = TextEditingController(text: '${currentConfig.lafziPenalty}');
+    final fathCtrl = TextEditingController(text: '${currentConfig.fathPenalty}');
+    final tataaCtrl = TextEditingController(text: '${currentConfig.tataaPenalty}');
+    final pageThresholdCtrl =
+        TextEditingController(text: '${currentConfig.pagePassingThreshold}');
+    final juzThresholdCtrl =
+        TextEditingController(text: '${currentConfig.juzExamPassingThreshold}');
+    final priorJuzCtrl = TextEditingController(text: '30, 29');
+
+    await showDialog<void>(
+      context: context,
+      builder: (dialogCtx) {
+        return AlertDialog(
+          title: Text(
+            _tr(
+              langCode,
+              ar: 'إعدادات التقييم وحدود النجاح والرصيد السابق',
+              he: 'הגדרות ציונים, סף מעבר ויתרה קודמת',
+              en: 'Grading Penalties, Passing Thresholds & Prior Balance',
+            ),
+          ),
+          content: SizedBox(
+            width: 440,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  TextField(
+                    controller: lafziCtrl,
+                    keyboardType: TextInputType.number,
+                    decoration: InputDecoration(
+                      labelText: _tr(
+                        langCode,
+                        ar: 'خصم الخطأ اللفظي (الافتراضي: 3 درجات)',
+                        he: 'ניכוי טעות הגייה (ברירת מחדל: 3)',
+                        en: 'Verbal Mistake Deduction (Default: 3)',
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  TextField(
+                    controller: fathCtrl,
+                    keyboardType: TextInputType.number,
+                    decoration: InputDecoration(
+                      labelText: _tr(
+                        langCode,
+                        ar: 'خصم الفتح / التوقف (الافتراضي: 3 درجات)',
+                        he: 'ניכוי פתיחה / עצירה (ברירת מחדל: 3)',
+                        en: 'Prompt / Fath Deduction (Default: 3)',
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  TextField(
+                    controller: tataaCtrl,
+                    keyboardType: TextInputType.number,
+                    decoration: InputDecoration(
+                      labelText: _tr(
+                        langCode,
+                        ar: 'خصم التعتعة / الاستدراك (الافتراضي: 0)',
+                        he: 'ניכוי תיקון עצמי (ברירת מחדל: 0)',
+                        en: 'Hesitation / Self-Correction Deduction (Default: 0)',
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  TextField(
+                    controller: pageThresholdCtrl,
+                    keyboardType: TextInputType.number,
+                    decoration: InputDecoration(
+                      labelText: _tr(
+                        langCode,
+                        ar: 'الحد الأدنى لاجتياز الصفحة / السورة (الافتراضي: 94)',
+                        he: 'ציון מעבר מינימלי לעמוד / סורה (ברירת מחדל: 94)',
+                        en: 'Page / Surah Minimum Passing Score (Default: 94)',
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  TextField(
+                    controller: juzThresholdCtrl,
+                    keyboardType: TextInputType.number,
+                    decoration: InputDecoration(
+                      labelText: _tr(
+                        langCode,
+                        ar: 'الحد الأدنى لاجتياز اختبار الجزء الكامل (الافتراضي: 79)',
+                        he: 'ציון מעבר מינימלי למבחן ג׳וז (ברירת מחדל: 79)',
+                        en: 'Whole Juz Exam Minimum Passing Score (Default: 79)',
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  TextField(
+                    controller: priorJuzCtrl,
+                    decoration: InputDecoration(
+                      labelText: _tr(
+                        langCode,
+                        ar: 'الرصيد السابق للأجزاء المحفوظة (مثال: 30, 29)',
+                        he: 'יתרה קודמת של ג׳וזים (למשל: 30, 29)',
+                        en: 'Student Prior Completed Juz Balance (e.g. 30, 29)',
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogCtx).pop(),
+              child: Text(_tr(langCode, ar: 'إلغاء', he: 'ביטול', en: 'Cancel')),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                final updated = GradingPenaltyConfig(
+                  lafziPenalty: int.tryParse(lafziCtrl.text.trim()) ?? 3,
+                  fathPenalty: int.tryParse(fathCtrl.text.trim()) ?? 3,
+                  tataaPenalty: int.tryParse(tataaCtrl.text.trim()) ?? 0,
+                  pagePassingThreshold:
+                      int.tryParse(pageThresholdCtrl.text.trim()) ?? 94,
+                  juzExamPassingThreshold:
+                      int.tryParse(juzThresholdCtrl.text.trim()) ?? 79,
+                );
+                await ref
+                    .read(teacherControllerProvider.notifier)
+                    .saveGradingPenaltyConfig(updated);
+                if (dialogCtx.mounted) {
+                  Navigator.of(dialogCtx).pop();
+                }
+              },
+              child: Text(_tr(langCode, ar: 'حفظ الإعدادات', he: 'שמור', en: 'Save')),
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -848,6 +992,17 @@ class _AdminShellScreenState extends ConsumerState<AdminShellScreen> {
                               Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
+                                  IconButton(
+                                    onPressed: () => _showGradingSettingsDialog(langCode),
+                                    tooltip: _tr(
+                                      langCode,
+                                      ar: 'إعدادات التقييم والرصيد السابق',
+                                      he: 'הגדרות ציונים ויתרה קודמת',
+                                      en: 'Grading Thresholds & Prior Balance',
+                                    ),
+                                    icon: const Icon(Icons.tune_rounded, color: DarAlFajrTheme.primary),
+                                  ),
+                                  const SizedBox(width: 6),
                                   OutlinedButton.icon(
                                     onPressed: () {
                                       setState(() {
