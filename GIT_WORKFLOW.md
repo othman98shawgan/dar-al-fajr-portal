@@ -23,6 +23,7 @@ git checkout -b <type>/<branch-name>
 *(If the user asks to start a new task while an older feature branch is still unmerged, STOP and remind the user to merge the current branch on GitHub first).*
 
 **Step 2: Write Code & Commit**
+- **Mandatory Pre-Commit Summary:** Always summarize all changes you made to the user in chat before committing. Never commit silently or without summarizing.
 - Commit changes to the current branch as you work.
 - Always keep `pubspec.lock` tracked and committed so historical tags reproduce exact dependency versions.
 - Never mix package/Gradle upgrades with feature code on the same branch.
@@ -31,7 +32,8 @@ git checkout -b <type>/<branch-name>
 When the task is finished:
 1. Run `flutter analyze` and `flutter test`. Fix all issues until both pass with zero errors.
 2. Mark the task as `[x]` in `AGENTS.MD` on this branch so the roadmap update is included in the PR.
-3. Commit and push the branch to GitHub:
+3. Summarize all changes to the user in chat before creating the final commit.
+4. Commit and push the branch to GitHub:
 ```bash
 git add .
 git commit -m "<type>: <short summary>"
