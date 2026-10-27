@@ -75,6 +75,37 @@ class AuthRepository {
     return AppUser.fromFirestore(doc);
   }
 
+  /// Updates the user's profile information (full name and phone number) in Firestore
+  /// and updates the Firebase Auth displayName.
+  Future<void> updateProfile({
+    required String uid,
+    String? fullName,
+    String? phoneNumber,
+  }) async {
+    final updates = <String, dynamic>{
+      'updatedAt': FieldValue.serverTimestamp(),
+    };
+
+    if (fullName != null && fullName.trim().isNotEmpty) {
+      updates['fullName'] = fullName.trim();
+      final user = _firebaseAuth.currentUser;
+      if (user != null && user.uid == uid) {
+        try {
+          await user.updateDisplayName(fullName.trim());
+        } catch (_) {}
+      }
+    }
+
+    if (phoneNumber != null) {
+      updates['phoneNumber'] = phoneNumber.trim();
+    }
+
+    await _firestore.collection(usersCollection).doc(uid).set(
+          updates,
+          SetOptions(merge: true),
+        );
+  }
+
   /// Completes the First-Login Setup Gate:
   /// 1. Updates the user's Firebase Auth password.
   /// 2. Updates profile fields and sets `isFirstLogin: false` in Firestore.

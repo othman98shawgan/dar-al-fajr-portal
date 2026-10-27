@@ -921,7 +921,7 @@ class _ParentStudentHomeScreenState
                                             const SizedBox(width: 8),
                                             InkWell(
                                               onTap: () => context
-                                                  .push(AppRoutes.account),
+                                                  .go(AppRoutes.account),
                                               customBorder:
                                                   const CircleBorder(),
                                               child: Tooltip(

@@ -887,7 +887,7 @@ class _AdminShellScreenState extends ConsumerState<AdminShellScreen> {
                                   ),
                                   const SizedBox(width: 12),
                                   InkWell(
-                                    onTap: () => context.push(AppRoutes.account),
+                                    onTap: () => context.go(AppRoutes.account),
                                     borderRadius: BorderRadius.circular(18),
                                     child: Tooltip(
                                       message: _tr(langCode, ar: 'حسابي', he: 'החשבון שלי', en: 'My Account'),
