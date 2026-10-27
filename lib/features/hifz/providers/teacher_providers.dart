@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/services/quran_metadata_service.dart';
 import '../../admin/models/admin_models.dart';
+import '../../auth/models/app_user.dart';
 import '../../auth/providers/auth_providers.dart';
 import '../models/teacher_models.dart';
 import '../repositories/teacher_repository.dart';
@@ -31,8 +32,19 @@ final teacherGroupsProvider = StreamProvider<List<StudyGroup>>((ref) {
     return Stream<List<StudyGroup>>.value(const []);
   }
   final appUser = ref.watch(currentAppUserProvider).asData?.value;
+  if (appUser?.role == UserRole.admin) {
+    return ref.watch(teacherRepositoryProvider).watchAllGroups();
+  }
   final teacherId = appUser?.uid ?? '';
   return ref.watch(teacherRepositoryProvider).watchTeacherGroups(teacherId);
+});
+
+/// Streams all study groups in the center.
+final allGroupsStreamProvider = StreamProvider<List<StudyGroup>>((ref) {
+  if (Firebase.apps.isEmpty) {
+    return Stream<List<StudyGroup>>.value(const []);
+  }
+  return ref.watch(teacherRepositoryProvider).watchAllGroups();
 });
 
 /// Currently selected group ID in the Teacher workflow.
