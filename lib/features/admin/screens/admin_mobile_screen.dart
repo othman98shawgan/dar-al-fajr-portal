@@ -1054,7 +1054,7 @@ class _AdminMobileScreenState extends ConsumerState<AdminMobileScreen> {
 
                         // Admin Avatar -> My Account
                         InkWell(
-                          onTap: () => context.push(AppRoutes.account),
+                          onTap: () => context.go(AppRoutes.account),
                           borderRadius: BorderRadius.circular(20),
                           child: CircleAvatar(
                             radius: 18,

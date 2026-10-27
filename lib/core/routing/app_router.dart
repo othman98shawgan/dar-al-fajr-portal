@@ -1,8 +1,9 @@
-import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_core/firebase_core.dart';
 
 import '../../features/account/screens/account_screen.dart';
 import '../../features/admin/screens/admin_shell_screen.dart';
@@ -30,12 +31,43 @@ class AppRoutes {
   static const String account = '/account';
 }
 
+/// Listens to authentication state and role changes to notify GoRouter
+/// without recreating the entire [GoRouter] instance on simple profile updates
+/// (e.g. changing language preference, full name, or phone number).
+class RouterNotifier extends ChangeNotifier {
+  final Ref _ref;
+
+  RouterNotifier(this._ref) {
+    _ref.listen<AsyncValue<User?>>(
+      authStateChangesProvider,
+      (previous, next) => notifyListeners(),
+    );
+    _ref.listen<AsyncValue<AppUser?>>(
+      currentAppUserProvider,
+      (prev, next) {
+        final prevUser = prev?.asData?.value;
+        final nextUser = next.asData?.value;
+        // Only trigger router re-evaluation if user ID, role, or setup status changes
+        if (prevUser?.uid != nextUser?.uid ||
+            prevUser?.role != nextUser?.role ||
+            prevUser?.isFirstLogin != nextUser?.isFirstLogin) {
+          notifyListeners();
+        }
+      },
+    );
+  }
+}
+
+final routerNotifierProvider = Provider<RouterNotifier>((ref) {
+  return RouterNotifier(ref);
+});
+
 final appRouterProvider = Provider<GoRouter>((ref) {
-  final authState = ref.watch(authStateChangesProvider);
-  final appUserState = ref.watch(currentAppUserProvider);
+  final notifier = ref.watch(routerNotifierProvider);
 
   return GoRouter(
     initialLocation: AppRoutes.home,
+    refreshListenable: notifier,
     redirect: (BuildContext context, GoRouterState state) {
       // If Firebase is not initialized (e.g. in unit/smoke tests without Firebase),
       // do not block navigation.
@@ -43,6 +75,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         return null;
       }
 
+      final authState = ref.read(authStateChangesProvider);
       final isAuthLoading = authState.isLoading;
       if (isAuthLoading) {
         return null;
@@ -64,6 +97,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       // If user profile is still loading from Firestore:
       // Stay on login screen while the button spinner is spinning,
       // and prevent navigation until the role is known.
+      final appUserState = ref.read(currentAppUserProvider);
       final appUser = appUserState.asData?.value;
       if (appUserState.isLoading || appUser == null) {
         if (kDebugMode && isOnFirstLoginSetup) {

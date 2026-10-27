@@ -579,7 +579,7 @@ class _TeacherHomeScreenState extends ConsumerState<TeacherHomeScreen> {
                                     ),
                                     const SizedBox(width: 8),
                                     InkWell(
-                                      onTap: () => context.push(AppRoutes.account),
+                                      onTap: () => context.go(AppRoutes.account),
                                       customBorder: const CircleBorder(),
                                       child: Tooltip(
                                         message: _tr(
@@ -679,7 +679,7 @@ class _TeacherHomeScreenState extends ConsumerState<TeacherHomeScreen> {
                                   ),
                                   isSelected: _selectedBottomTab == 2,
                                   onTap: () =>
-                                      setState(() => _selectedBottomTab = 2),
+                                      context.go(AppRoutes.account),
                                 ),
                               ],
                             ),

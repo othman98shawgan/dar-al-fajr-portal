@@ -47,7 +47,7 @@ class HomeScreen extends ConsumerWidget {
           IconButton(
             icon: const Icon(Icons.account_circle_outlined),
             tooltip: 'حسابي الشخصي',
-            onPressed: () => context.push(AppRoutes.account),
+            onPressed: () => context.go(AppRoutes.account),
           ),
           IconButton(
             icon: const Icon(Icons.logout_rounded),
