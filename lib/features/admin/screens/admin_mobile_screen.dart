@@ -1,3 +1,4 @@
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -248,8 +249,10 @@ class _AdminMobileScreenState extends ConsumerState<AdminMobileScreen> {
       );
     }).toList();
 
-    // Combine Firestore students with Stitch Seed Cards
-    final combined = [...firestoreCards, ..._seedStudentCards];
+    // Combine Firestore students with Stitch Seed Cards only in test/demo mode
+    final combined = Firebase.apps.isEmpty
+        ? [...firestoreCards, ..._seedStudentCards]
+        : firestoreCards;
 
     // Apply track filtering
     var filtered = combined.where((c) {
@@ -646,8 +649,12 @@ class _AdminMobileScreenState extends ConsumerState<AdminMobileScreen> {
     List<StudyGroup> firestoreGroups,
   ) {
     CenterTrack selectedTrack = student.primaryTrack;
-    String selectedGroupId = firestoreGroups.isNotEmpty ? firestoreGroups.first.id : 'grp-tajweed-1';
-    String selectedGroupName = firestoreGroups.isNotEmpty ? firestoreGroups.first.name : 'حلقة الإتقان والتجويد (مسار التجويد)';
+    String selectedGroupId = firestoreGroups.isNotEmpty
+        ? firestoreGroups.first.id
+        : (Firebase.apps.isEmpty ? 'grp-tajweed-1' : '');
+    String selectedGroupName = firestoreGroups.isNotEmpty
+        ? firestoreGroups.first.name
+        : (Firebase.apps.isEmpty ? 'حلقة الإتقان والتجويد (مسار التجويد)' : '');
     bool hasOneOnOne = true;
     String oneOnOneDay = 'الخميس';
     String oneOnOneTime = '17:15';
@@ -779,26 +786,29 @@ class _AdminMobileScreenState extends ConsumerState<AdminMobileScreen> {
                         ),
                         const SizedBox(height: 6),
                         DropdownButtonFormField<String>(
-                          initialValue: selectedGroupId,
+                          initialValue: selectedGroupId.isEmpty ? null : selectedGroupId,
+                          hint: Text(_tr(langCode, ar: 'اختر الحلقة', he: 'בחר קבוצה', en: 'Select group')),
                           decoration: const InputDecoration(contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8)),
                           items: firestoreGroups.isNotEmpty
                               ? firestoreGroups
                                   .map((g) => DropdownMenuItem(value: g.id, child: Text('${g.name} (${g.scheduleDays.join("، ")} ${g.startTime})')))
                                   .toList()
-                              : const [
-                                  DropdownMenuItem(
-                                    value: 'grp-tajweed-1',
-                                    child: Text('حلقة الإتقان والتجويد (الأحد والثلاثاء 16:30)'),
-                                  ),
-                                  DropdownMenuItem(
-                                    value: 'grp-hifz-1',
-                                    child: Text('حلقة الحفظ المكثف (السبت والاثنين 17:00)'),
-                                  ),
-                                  DropdownMenuItem(
-                                    value: 'grp-nouraniah-1',
-                                    child: Text('حلقة البراعم النورانية (الخميس 15:30)'),
-                                  ),
-                                ],
+                              : (Firebase.apps.isEmpty
+                                  ? const [
+                                      DropdownMenuItem(
+                                        value: 'grp-tajweed-1',
+                                        child: Text('حلقة الإتقان والتجويد (الأحد والثلاثاء 16:30)'),
+                                      ),
+                                      DropdownMenuItem(
+                                        value: 'grp-hifz-1',
+                                        child: Text('حلقة الحفظ المكثف (السبت والاثنين 17:00)'),
+                                      ),
+                                      DropdownMenuItem(
+                                        value: 'grp-nouraniah-1',
+                                        child: Text('حلقة البراعم النورانية (الخميس 15:30)'),
+                                      ),
+                                    ]
+                                  : const []),
                           onChanged: (val) {
                             if (val != null) {
                               setSheetState(() {
@@ -868,30 +878,39 @@ class _AdminMobileScreenState extends ConsumerState<AdminMobileScreen> {
 
                         // Submit Button
                         ElevatedButton.icon(
-                          onPressed: () async {
-                            Navigator.of(sheetCtx).pop();
+                          onPressed: selectedGroupId.isEmpty
+                              ? null
+                              : () async {
+                                  Navigator.of(sheetCtx).pop();
 
-                            try {
-                              final repo = ref.read(adminRepositoryProvider);
-                              await repo.assignStudentToGroup(
-                                studentId: student.id,
-                                studentName: student.fullName,
-                                groupId: selectedGroupId,
-                                groupName: selectedGroupName,
-                                track: selectedTrack,
-                                groupArrivalTime: 'الأحد والثلاثاء والخميس 16:30',
-                                oneOnOneSlotTime: hasOneOnOne ? '$oneOnOneDay $oneOnOneTime (فردي)' : null,
-                              );
-                            } catch (_) {}
+                                  final matchedGroup = firestoreGroups
+                                      .where((g) => g.id == selectedGroupId)
+                                      .firstOrNull;
+                                  final arrivalTime = matchedGroup != null
+                                      ? '${matchedGroup.scheduleDays.join("، ")} ${matchedGroup.startTime}'.trim()
+                                      : (Firebase.apps.isEmpty ? 'الأحد والثلاثاء والخميس 16:30' : '');
 
-                            if (!mounted) return;
-                            ScaffoldMessenger.of(this.context).showSnackBar(
-                              SnackBar(
-                                content: Text(_tr(langCode, ar: 'تم تثبيت التسجيل بنجاح!', he: 'הרישום נשמר בהצלחה!', en: 'Enrollment confirmed!')),
-                                backgroundColor: DarAlFajrTheme.primary,
-                              ),
-                            );
-                          },
+                                  try {
+                                    final repo = ref.read(adminRepositoryProvider);
+                                    await repo.assignStudentToGroup(
+                                      studentId: student.id,
+                                      studentName: student.fullName,
+                                      groupId: selectedGroupId,
+                                      groupName: selectedGroupName,
+                                      track: selectedTrack,
+                                      groupArrivalTime: arrivalTime,
+                                      oneOnOneSlotTime: hasOneOnOne ? '$oneOnOneDay $oneOnOneTime (فردي)' : null,
+                                    );
+                                  } catch (_) {}
+
+                                  if (!mounted) return;
+                                  ScaffoldMessenger.of(this.context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(_tr(langCode, ar: 'تم تثبيت التسجيل بنجاح!', he: 'הרישום נשמר בהצלחה!', en: 'Enrollment confirmed!')),
+                                      backgroundColor: DarAlFajrTheme.primary,
+                                    ),
+                                  );
+                                },
                           icon: const Icon(Icons.check_circle_rounded),
                           label: Text(_tr(langCode, ar: 'حفظ وتثبيت التسجيل', he: 'שמור רישום', en: 'Confirm Enrollment')),
                           style: ElevatedButton.styleFrom(
@@ -1833,6 +1852,7 @@ class _AdminMobileScreenState extends ConsumerState<AdminMobileScreen> {
   // TAB 2: GROUPS VIEW (الحلقات والمجموعات)
   // ===========================================================================
   Widget _buildGroupsTab(BuildContext context, String langCode, List<StudyGroup> firestoreGroups) {
+    final firestoreEnrollments = ref.watch(adminEnrollmentsProvider).value ?? [];
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
       children: [
@@ -1858,9 +1878,9 @@ class _AdminMobileScreenState extends ConsumerState<AdminMobileScreen> {
                 teacher: g.teacherName,
                 trackName: g.track.localizedName(langCode),
                 schedule: '${g.scheduleDays.join("، ")} • ${g.startTime}',
-                studentsCount: 12,
+                studentsCount: firestoreEnrollments.where((e) => e.groupId == g.id).length,
               ))
-        else ...[
+        else if (Firebase.apps.isEmpty) ...[
           _buildGroupCard(
             name: 'حلقة أبي بكر الصديق (حفظ مكثف)',
             teacher: 'الشيخ عبد الرحمن',
@@ -1882,7 +1902,16 @@ class _AdminMobileScreenState extends ConsumerState<AdminMobileScreen> {
             schedule: 'الخميس • 15:30',
             studentsCount: 10,
           ),
-        ],
+        ] else
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 24),
+            child: Center(
+              child: Text(
+                _tr(langCode, ar: 'لا توجد حلقات مسجلة بعد', he: 'אין קבוצות רשומות עדיין', en: 'No study groups registered yet'),
+                style: const TextStyle(color: Color(0xFF6D7A77), fontSize: 13),
+              ),
+            ),
+          ),
       ],
     );
   }
@@ -1994,13 +2023,22 @@ class _AdminMobileScreenState extends ConsumerState<AdminMobileScreen> {
                 role: u.role.displayName,
                 isPendingFirstLogin: u.isFirstLogin,
               ))
-        else ...[
+        else if (Firebase.apps.isEmpty) ...[
           _buildUserCard(name: 'الشيخ عبد الرحمن', email: 'abdulrahman@daralfajr.org', role: 'معلم', isPendingFirstLogin: false),
           _buildUserCard(name: 'الأستاذ طارق', email: 'tariq@daralfajr.org', role: 'معلم', isPendingFirstLogin: false),
           _buildUserCard(name: 'طه عثمان', email: 'taha.osman@email.com', role: 'ولي أمر', isPendingFirstLogin: false),
           _buildUserCard(name: 'يوسف الشريف', email: 'y.shareef@domain.org', role: 'ولي أمر', isPendingFirstLogin: false),
           _buildUserCard(name: 'إبراهيم طه عثمان', email: 'st_1042@daralfajr.org', role: 'طالب', isPendingFirstLogin: false),
-        ],
+        ] else
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 24),
+            child: Center(
+              child: Text(
+                _tr(langCode, ar: 'لا يوجد مستخدمون مسجلون بعد', he: 'אין משתמשים רשומים עדיין', en: 'No users registered yet'),
+                style: const TextStyle(color: Color(0xFF6D7A77), fontSize: 13),
+              ),
+            ),
+          ),
       ],
     );
   }

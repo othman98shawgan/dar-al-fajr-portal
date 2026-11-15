@@ -1,5 +1,6 @@
 import 'dart:ui';
 
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -12,6 +13,7 @@ import '../../admin/models/admin_models.dart';
 import '../../auth/models/app_user.dart';
 import '../../auth/providers/auth_providers.dart';
 import '../../hifz/models/teacher_models.dart';
+import '../../hifz/providers/teacher_providers.dart';
 import '../models/parent_student_models.dart';
 import '../providers/parent_student_providers.dart';
 
@@ -58,6 +60,7 @@ class _ParentStudentHomeScreenState
   bool _isPlayingLastRecitation = false;
   bool _showAllCompletedSurahs = false;
   bool _isReminderEnabled = false;
+  final Map<int, RevisionTaskStatus> _localRevisionStatusOverrides = {};
 
   static const List<String> _base38Surahs = [
     'الفاتحة',
@@ -130,8 +133,9 @@ class _ParentStudentHomeScreenState
     }
   }
 
-  /// Builds the list of ChildPortalProfile items, merging live Firestore student profiles,
-  /// enrollments, attendance logs, and Hifz assignments with the 3 Stitch sibling profiles.
+  /// Builds the list of ChildPortalProfile items from Firestore student profiles,
+  /// enrollments, attendance logs, and Hifz assignments (falling back to the 3
+  /// Stitch sibling demo profiles only when Firebase is not initialized, e.g. widget tests).
   List<ChildPortalProfile> _buildChildProfiles({
     required List<StudentProfile> firestoreChildren,
     required String activeChildId,
@@ -139,23 +143,29 @@ class _ParentStudentHomeScreenState
     required List<AttendanceLog> activeAttendance,
     required List<HifzAssignment> activeAssignments,
     required QuranMetadataService quranService,
+    required String langCode,
   }) {
-    // 1. Default Stitch Seed Child 1: إبراهيم (st-1042)
-    final ibrahimFirestore =
-        firestoreChildren.where((s) => s.id == 'st-1042').firstOrNull;
-    final ibrahimProfile = _applyFirestoreOverrides(
-      base: ChildPortalProfile(
-        id: 'st-1042',
-        shortName: 'إبراهيم',
-        fullName: ibrahimFirestore?.fullName ?? 'إبراهيم طه عثمان',
-        groupName: 'حلقة أبي بكر الصديق',
-        teacherName: 'المعلم: أ. طارق العمري',
-        periodLabel: 'الفترة المسائية (عصرًا)',
-        attendancePercent: 98,
-        streakBannerTitle: 'إبراهيم متميز هذا الأسبوع!',
-        streakDaysLabel: '٥ أيام متتالية ⭐',
-        memorizedPagesCount: 68,
-        completedSurahsCount: 48,
+    final isDemoMode = Firebase.apps.isEmpty;
+    final list = <ChildPortalProfile>[];
+    ChildScheduleSlot? demoTemplateSlot;
+
+    if (isDemoMode) {
+      // 1. Default Stitch Seed Child 1: إبراهيم (st-1042)
+      final ibrahimFirestore =
+          firestoreChildren.where((s) => s.id == 'st-1042').firstOrNull;
+      final ibrahimProfile = _applyFirestoreOverrides(
+        base: ChildPortalProfile(
+          id: 'st-1042',
+          shortName: 'إبراهيم',
+          fullName: ibrahimFirestore?.fullName ?? 'إبراهيم طه عثمان',
+          groupName: 'حلقة أبي بكر الصديق',
+          teacherName: 'المعلم: أ. طارق العمري',
+          periodLabel: 'الفترة المسائية (عصرًا)',
+          attendancePercent: 98,
+          streakBannerTitle: 'إبراهيم متميز هذا الأسبوع!',
+          streakDaysLabel: '٥ أيام متتالية ⭐',
+          memorizedPagesCount: 68,
+          completedSurahsCount: 48,
         completedJuzCount: 1,
         completedJuzSubtitle: 'الجزء ٣٠ كاملًا ومُثبت',
         motivationalBannerHighlight: '48 سورة',
@@ -463,86 +473,109 @@ class _ParentStudentHomeScreenState
       attendance: activeAttendance,
       assignments: activeAssignments,
       quranService: quranService,
+      langCode: langCode,
     );
 
-    final list = <ChildPortalProfile>[
-      ibrahimProfile,
-      yousefProfile,
-      maryamProfile,
-    ];
+      demoTemplateSlot = ibrahimProfile.weeklySchedule.firstOrNull;
+      list.addAll([
+        ibrahimProfile,
+        yousefProfile,
+        maryamProfile,
+      ]);
+    }
 
-    // Also append any additional newly-created Firestore students not in the 3 seed IDs
+    // Append real Firestore students (all students in live mode, or non-seed IDs in demo mode)
     for (final s in firestoreChildren) {
-      if (s.id != 'st-1042' && s.id != 'st-1088' && s.id != 'st-1102') {
-        final firstName = s.fullName.trim().split(' ').first;
+      final isSeedId =
+          s.id == 'st-1042' || s.id == 'st-1088' || s.id == 'st-1102';
+      if (!isDemoMode || !isSeedId) {
+        final nameParts = s.fullName.trim().split(RegExp(r'\s+'));
+        final firstName =
+            nameParts.isNotEmpty && nameParts.first.isNotEmpty
+                ? nameParts.first
+                : s.fullName;
+        final completedNames = s.completedSurahs
+            .map((id) => quranService.getSurahById(id)?.name)
+            .whereType<String>()
+            .toList();
+
         list.add(
           _applyFirestoreOverrides(
             base: ChildPortalProfile(
               id: s.id,
               shortName: firstName.isNotEmpty ? firstName : s.fullName,
               fullName: s.fullName,
-              groupName: 'حلقة دار الفجر التعليمية',
-              teacherName: 'المعلم: الشيخ عبد الرحمن',
-              periodLabel: 'الفترة المسائية (عصرًا)',
-              attendancePercent: 96,
-              streakBannerTitle: '$firstName متميز هذا الأسبوع!',
-              streakDaysLabel: '٥ أيام متتالية ⭐',
-              memorizedPagesCount: s.memorizedPages.isNotEmpty
-                  ? s.memorizedPages.length
-                  : 15,
-              completedSurahsCount: s.completedSurahs.isNotEmpty
-                  ? s.completedSurahs.length
-                  : 12,
-              completedJuzCount:
-                  s.completedJuz.isNotEmpty ? s.completedJuz.length : 1,
-              completedJuzSubtitle: 'الجزء ٣٠ كاملًا ومُثبت',
+              groupName: _tr(
+                langCode,
+                ar: 'بانتظار التسجيل في حلقة',
+                he: 'ממתין לשיבוץ בקבוצה',
+                en: 'Not enrolled in a group yet',
+              ),
+              teacherName: '',
+              periodLabel: '',
+              attendancePercent: 0,
+              streakBannerTitle: s.fullName,
+              streakDaysLabel: '—',
+              memorizedPagesCount: s.memorizedPages.length,
+              completedSurahsCount: s.completedSurahs.length,
+              completedJuzCount: s.completedJuz.length,
+              completedJuzSubtitle: '${s.completedJuz.length} / 30',
               motivationalBannerHighlight:
-                  '${s.completedSurahs.isNotEmpty ? s.completedSurahs.length : 12} سورة',
-              motivationalBannerBody:
-                  'يسير بخطى واثقة ومباركة نحو إتمام خطته الشهرية بإذن الله.',
-              lastRecitationTitle: 'سورة النبأ • الآيات (1 - 30)',
-              lastRecitationNote: 'تقييم الشيخ: التزام ممتاز بأحكام التجويد',
-              lastRecitationScore: 'ممتاز ٩٥٪',
-              lastRecitationDuration: '02:20 د',
-              lastRecitationWhen: 'هذا الأسبوع',
-              inProgressSurahs: const [
-                InProgressSurahData(
-                  surahNumber: 78,
-                  surahName: 'سورة النبأ',
-                  fromAyah: 1,
-                  toAyah: 30,
-                  totalVerses: 40,
-                  expectedCompletionLabel: 'هذا الأسبوع',
-                ),
-              ],
-              inProgressAjzaa: const [
-                InProgressJuzData(
-                  juzNumber: 30,
-                  juzTitle: 'الجزء الثلاثون (جزء عمّ)',
-                  completedPages: 15,
-                  totalPages: 20,
-                  startedDateLabel: 'بدأ هذا الشهر',
-                  isActive: true,
-                ),
-              ],
-              completedSurahNames: _base38Surahs.take(12).toList(),
-              weeklySchedule: ibrahimProfile.weeklySchedule,
-              newHifzSurah: 'سورة النبأ',
-              newHifzAyahRange: 'الآيات (١ - ٣٠)',
-              newHifzPagesLabel: 'الصفحات ٥٨٢ - ٥٨٣',
-              newHifzProgress: 0.75,
-              newHifzStatusLeft: 'إنجاز ٧٥٪ من المقرر',
-              newHifzStatusRight: 'متبقي ١٠ آيات للتثبيت',
-              revisionSurah: 'سورة النازعات',
-              revisionAyahRange: 'من الآية ١ إلى ٤٦',
-              revisionHizbLabel: 'الجزء الثلاثون',
-              revisionProgress: 1.0,
-              revisionStatusLeft: 'مكتمل بنجاح تام',
-              revisionStatusRight: '٤٦ آية',
-              weeklyGradeLabel: 'ممتاز (٩٥٪)',
-              teacherNoteAuthor: 'الشيخ عبد الرحمن',
-              teacherNoteText: '"بارك الله في همته وحرصه المستمر على الحضور."',
-              teacherVoiceDuration: '٠:٣٠ دقيقة',
+                  '${s.completedSurahs.length} ${_tr(langCode, ar: 'سورة', he: 'סורות', en: 'Surahs')}',
+              motivationalBannerBody: _tr(
+                langCode,
+                ar: 'بيانات التقدم محدّثة تلقائيًا من جلسات التسميع.',
+                he: 'נתוני ההתקדמות מתעדכנים אוטומטית ממפגשי השינון.',
+                en: 'Progress is updated automatically from Tasmee\' sessions.',
+              ),
+              lastRecitationTitle: '—',
+              lastRecitationNote: _tr(
+                langCode,
+                ar: 'لا توجد جلسة تسميع مقيمة بعد',
+                he: 'אין עדיין הערכת שינון',
+                en: 'No evaluated recitation yet',
+              ),
+              lastRecitationScore: '—',
+              lastRecitationDuration: '',
+              lastRecitationWhen: '—',
+              inProgressSurahs: const [],
+              inProgressAjzaa: const [],
+              completedSurahNames: completedNames,
+              weeklySchedule: demoTemplateSlot != null
+                  ? [demoTemplateSlot]
+                  : const [],
+              newHifzSurah: '—',
+              newHifzAyahRange: '',
+              newHifzPagesLabel: '',
+              newHifzProgress: 0.0,
+              newHifzStatusLeft: _tr(
+                langCode,
+                ar: 'لا يوجد واجب جديد مسجّل',
+                he: 'לא הוקצתה מטלה חדשה',
+                en: 'No active homework assigned',
+              ),
+              newHifzStatusRight: '',
+              revisionSurah: '—',
+              revisionAyahRange: '',
+              revisionHizbLabel: '',
+              revisionProgress: 0.0,
+              revisionStatusLeft: _tr(
+                langCode,
+                ar: 'لا توجد مراجعة مسجّلة',
+                he: 'לא הוקצתה חזרה',
+                en: 'No revision assigned',
+              ),
+              revisionStatusRight: '',
+              weeklyGradeLabel: '—',
+              weeklyStarsCount: 0,
+              teacherNoteAuthor: '',
+              teacherNoteText: _tr(
+                langCode,
+                ar: 'لا توجد ملاحظات معلم بعد.',
+                he: 'אין הערות מורה עדיין.',
+                en: 'No teacher notes yet.',
+              ),
+              teacherVoiceDuration: '',
               firestoreStudent: s,
             ),
             isSelected: activeChildId == s.id,
@@ -550,6 +583,7 @@ class _ParentStudentHomeScreenState
             attendance: activeAttendance,
             assignments: activeAssignments,
             quranService: quranService,
+            langCode: langCode,
           ),
         );
       }
@@ -558,8 +592,8 @@ class _ParentStudentHomeScreenState
     return list;
   }
 
-  /// Applies live Firestore `HifzAssignment` & `Enrollment` updates onto the child profile
-  /// when a teacher assigns or grades new Hifz/Revision in Milestone 4!
+  /// Applies live Firestore `HifzAssignment`, `AttendanceLog`, & `Enrollment` updates
+  /// onto the child profile.
   ChildPortalProfile _applyFirestoreOverrides({
     required ChildPortalProfile base,
     required bool isSelected,
@@ -567,9 +601,11 @@ class _ParentStudentHomeScreenState
     required List<AttendanceLog> attendance,
     required List<HifzAssignment> assignments,
     required QuranMetadataService quranService,
+    String langCode = 'ar',
   }) {
     if (!isSelected) return base;
 
+    final isDemoMode = Firebase.apps.isEmpty;
     final primaryEnr = enrollments.firstOrNull;
     final latestNewHifz = assignments
         .where((a) => a.type == AssignmentType.newHifz)
@@ -577,17 +613,27 @@ class _ParentStudentHomeScreenState
     final latestRevision = assignments
         .where((a) => a.type == AssignmentType.revision)
         .firstOrNull;
+    final latestGraded = assignments
+        .where((a) => a.grade != EvaluationGrade.pending)
+        .firstOrNull;
 
     String newHifzSurah = base.newHifzSurah;
     String newHifzAyahRange = base.newHifzAyahRange;
     String newHifzPagesLabel = base.newHifzPagesLabel;
+    double newHifzProgress = base.newHifzProgress;
+    String newHifzStatusLeft = base.newHifzStatusLeft;
+    String newHifzStatusRight = base.newHifzStatusRight;
     String teacherNoteText = base.teacherNoteText;
     String weeklyGradeLabel = base.weeklyGradeLabel;
+    List<InProgressSurahData> inProgressSurahs = base.inProgressSurahs;
 
     if (latestNewHifz != null) {
-      newHifzSurah = latestNewHifz.surahName.isNotEmpty
-          ? 'سورة ${latestNewHifz.surahName}'
-          : base.newHifzSurah;
+      final surahInfo = quranService.getSurahById(latestNewHifz.surahId);
+      final resolvedName = latestNewHifz.surahName.isNotEmpty
+          ? latestNewHifz.surahName
+          : (surahInfo?.name ?? '');
+      newHifzSurah =
+          resolvedName.isNotEmpty ? 'سورة $resolvedName' : base.newHifzSurah;
       newHifzAyahRange =
           'الآيات (${latestNewHifz.fromAyah} - ${latestNewHifz.toAyah})';
       final pages = latestNewHifz.touchedPages.isNotEmpty
@@ -602,38 +648,165 @@ class _ParentStudentHomeScreenState
             ? 'الصفحة ${pages.first}'
             : 'الصفحات ${pages.first} - ${pages.last}';
       }
+      final totalVerses = surahInfo?.totalVerses ?? latestNewHifz.toAyah;
+      if (totalVerses > 0) {
+        newHifzProgress = (latestNewHifz.toAyah / totalVerses).clamp(0.0, 1.0);
+        final pct = (newHifzProgress * 100).round();
+        final remaining = (totalVerses - latestNewHifz.toAyah).clamp(0, totalVerses);
+        newHifzStatusLeft = 'إنجاز $pct%';
+        newHifzStatusRight = remaining > 0 ? 'متبقي $remaining آية' : 'مكتمل';
+        if (!isDemoMode) {
+          inProgressSurahs = [
+            InProgressSurahData(
+              surahNumber: latestNewHifz.surahId,
+              surahName: newHifzSurah,
+              fromAyah: latestNewHifz.fromAyah,
+              toAyah: latestNewHifz.toAyah,
+              totalVerses: totalVerses,
+              expectedCompletionLabel: latestNewHifz.grade.localizedName(langCode),
+            ),
+          ];
+        }
+      }
       if (latestNewHifz.teacherNotes.trim().isNotEmpty) {
         teacherNoteText = '"${latestNewHifz.teacherNotes.trim()}"';
       }
       if (latestNewHifz.grade != EvaluationGrade.pending) {
-        weeklyGradeLabel = '${latestNewHifz.grade.localizedName("ar")} (٩٨٪)';
+        weeklyGradeLabel = latestNewHifz.score != null
+            ? '${latestNewHifz.grade.localizedName(langCode)} (${latestNewHifz.score}%)'
+            : latestNewHifz.grade.localizedName(langCode);
       }
     }
 
     String revisionSurah = base.revisionSurah;
     String revisionAyahRange = base.revisionAyahRange;
+    String revisionHizbLabel = base.revisionHizbLabel;
+    double revisionProgress = base.revisionProgress;
+    String revisionStatusLeft = base.revisionStatusLeft;
+    String revisionStatusRight = base.revisionStatusRight;
     if (latestRevision != null) {
-      revisionSurah = latestRevision.surahName.isNotEmpty
-          ? 'سورة ${latestRevision.surahName}'
-          : base.revisionSurah;
+      final surahInfo = quranService.getSurahById(latestRevision.surahId);
+      final resolvedName = latestRevision.surahName.isNotEmpty
+          ? latestRevision.surahName
+          : (surahInfo?.name ?? '');
+      revisionSurah =
+          resolvedName.isNotEmpty ? 'سورة $resolvedName' : base.revisionSurah;
       revisionAyahRange =
           'من الآية ${latestRevision.fromAyah} إلى ${latestRevision.toAyah}';
+      if (latestRevision.juzNumber != null) {
+        revisionHizbLabel = 'الجزء ${latestRevision.juzNumber}';
+      }
+      final ayahSpan =
+          (latestRevision.toAyah - latestRevision.fromAyah + 1).clamp(0, 300);
+      revisionProgress =
+          latestRevision.grade != EvaluationGrade.pending ? 1.0 : 0.0;
+      revisionStatusLeft = latestRevision.grade.localizedName(langCode);
+      revisionStatusRight = '$ayahSpan آية';
     }
 
-    // Calculate live memorized pages if Firestore student has more than seed
+    final liveSchedule = <ChildScheduleSlot>[];
+    for (final enr in enrollments) {
+      final trackLabel = enr.track.localizedName(langCode);
+      if (enr.groupArrivalTime != null && enr.groupArrivalTime!.trim().isNotEmpty) {
+        liveSchedule.add(
+          ChildScheduleSlot(
+            dayAbbrev: enr.groupName.isNotEmpty ? enr.groupName.characters.first : 'ح',
+            dayName: enr.groupName,
+            dateLabel: enr.groupArrivalTime!.trim(),
+            statusLabel: trackLabel,
+            isCompleted: false,
+            trackBadgeLabel: trackLabel,
+            isTertiaryTrackBadge: false,
+            sessionModeLabel: _tr(
+              langCode,
+              ar: 'حلقة جماعية',
+              he: 'שיעור קבוצתי',
+              en: 'Group Session',
+            ),
+            isOneOnOne: false,
+            arrivalTime: enr.groupArrivalTime!.trim(),
+          ),
+        );
+      }
+      if (enr.oneOnOneSlotTime != null && enr.oneOnOneSlotTime!.trim().isNotEmpty) {
+        liveSchedule.add(
+          ChildScheduleSlot(
+            dayAbbrev: '1:1',
+            dayName: enr.groupName,
+            dateLabel: enr.oneOnOneSlotTime!.trim(),
+            statusLabel: _tr(
+              langCode,
+              ar: 'موعد فردي',
+              he: 'מועד אישי',
+              en: '1-on-1 Slot',
+            ),
+            isCompleted: false,
+            trackBadgeLabel: trackLabel,
+            isTertiaryTrackBadge: true,
+            sessionModeLabel: _tr(
+              langCode,
+              ar: 'تسميع فردي',
+              he: 'שינון אישי',
+              en: '1-on-1 Recitation',
+            ),
+            isOneOnOne: true,
+            arrivalTime: enr.oneOnOneSlotTime!.trim(),
+          ),
+        );
+      }
+    }
+
+    final int attendancePercent;
+    final String streakDaysLabel;
+    if (attendance.isNotEmpty) {
+      final attended = attendance
+          .where((a) =>
+              a.status == AttendanceStatus.present ||
+              a.status == AttendanceStatus.late)
+          .length;
+      attendancePercent = ((attended / attendance.length) * 100).round();
+      streakDaysLabel = '$attended / ${attendance.length}';
+    } else {
+      attendancePercent = base.attendancePercent;
+      streakDaysLabel = base.streakDaysLabel;
+    }
+
+    String lastRecitationTitle = base.lastRecitationTitle;
+    String lastRecitationNote = base.lastRecitationNote;
+    String lastRecitationScore = base.lastRecitationScore;
+    if (!isDemoMode && latestGraded != null) {
+      final surahLabel = latestGraded.surahName.isNotEmpty
+          ? 'سورة ${latestGraded.surahName}'
+          : (quranService.getSurahById(latestGraded.surahId)?.name ?? '');
+      lastRecitationTitle =
+          '$surahLabel • (${latestGraded.fromAyah} - ${latestGraded.toAyah})';
+      lastRecitationNote = latestGraded.teacherNotes.isNotEmpty
+          ? latestGraded.teacherNotes
+          : latestGraded.grade.localizedName(langCode);
+      lastRecitationScore = latestGraded.score != null
+          ? '${latestGraded.grade.localizedName(langCode)} ${latestGraded.score}%'
+          : latestGraded.grade.localizedName(langCode);
+    }
+
+    // Calculate memorized progress from Firestore student profile
     final fsPagesCount = base.firestoreStudent?.memorizedPages.length ?? 0;
-    final effectivePagesCount = fsPagesCount > base.memorizedPagesCount
-        ? fsPagesCount
-        : base.memorizedPagesCount;
+    final effectivePagesCount = isDemoMode
+        ? (fsPagesCount > base.memorizedPagesCount
+            ? fsPagesCount
+            : base.memorizedPagesCount)
+        : fsPagesCount;
 
     final fsSurahsCount = base.firestoreStudent?.completedSurahs.length ?? 0;
-    final effectiveSurahsCount = fsSurahsCount > base.completedSurahsCount
-        ? fsSurahsCount
-        : base.completedSurahsCount;
+    final effectiveSurahsCount = isDemoMode
+        ? (fsSurahsCount > base.completedSurahsCount
+            ? fsSurahsCount
+            : base.completedSurahsCount)
+        : fsSurahsCount;
 
     final fsJuzCount = base.firestoreStudent?.completedJuz.length ?? 0;
-    final effectiveJuzCount =
-        fsJuzCount > base.completedJuzCount ? fsJuzCount : base.completedJuzCount;
+    final effectiveJuzCount = isDemoMode
+        ? (fsJuzCount > base.completedJuzCount ? fsJuzCount : base.completedJuzCount)
+        : fsJuzCount;
 
     return ChildPortalProfile(
       id: base.id,
@@ -643,37 +816,39 @@ class _ParentStudentHomeScreenState
           ? primaryEnr!.groupName
           : base.groupName,
       teacherName: base.teacherName,
-      periodLabel: base.periodLabel,
-      attendancePercent: base.attendancePercent,
+      periodLabel: primaryEnr != null
+          ? primaryEnr.track.localizedName(langCode)
+          : base.periodLabel,
+      attendancePercent: attendancePercent,
       streakBannerTitle: base.streakBannerTitle,
-      streakDaysLabel: base.streakDaysLabel,
+      streakDaysLabel: streakDaysLabel,
       memorizedPagesCount: effectivePagesCount,
       completedSurahsCount: effectiveSurahsCount,
       completedJuzCount: effectiveJuzCount,
       completedJuzSubtitle: base.completedJuzSubtitle,
-      motivationalBannerHighlight: '$effectiveSurahsCount سورة',
+      motivationalBannerHighlight: '$effectiveSurahsCount ${_tr(langCode, ar: 'سورة', he: 'סורות', en: 'Surahs')}',
       motivationalBannerBody: base.motivationalBannerBody,
-      lastRecitationTitle: base.lastRecitationTitle,
-      lastRecitationNote: base.lastRecitationNote,
-      lastRecitationScore: base.lastRecitationScore,
+      lastRecitationTitle: lastRecitationTitle,
+      lastRecitationNote: lastRecitationNote,
+      lastRecitationScore: lastRecitationScore,
       lastRecitationDuration: base.lastRecitationDuration,
       lastRecitationWhen: base.lastRecitationWhen,
-      inProgressSurahs: base.inProgressSurahs,
+      inProgressSurahs: inProgressSurahs,
       inProgressAjzaa: base.inProgressAjzaa,
       completedSurahNames: base.completedSurahNames,
-      weeklySchedule: base.weeklySchedule,
+      weeklySchedule: liveSchedule.isNotEmpty ? liveSchedule : base.weeklySchedule,
       newHifzSurah: newHifzSurah,
       newHifzAyahRange: newHifzAyahRange,
       newHifzPagesLabel: newHifzPagesLabel,
-      newHifzProgress: base.newHifzProgress,
-      newHifzStatusLeft: base.newHifzStatusLeft,
-      newHifzStatusRight: base.newHifzStatusRight,
+      newHifzProgress: newHifzProgress,
+      newHifzStatusLeft: newHifzStatusLeft,
+      newHifzStatusRight: newHifzStatusRight,
       revisionSurah: revisionSurah,
       revisionAyahRange: revisionAyahRange,
-      revisionHizbLabel: base.revisionHizbLabel,
-      revisionProgress: base.revisionProgress,
-      revisionStatusLeft: base.revisionStatusLeft,
-      revisionStatusRight: base.revisionStatusRight,
+      revisionHizbLabel: revisionHizbLabel,
+      revisionProgress: revisionProgress,
+      revisionStatusLeft: revisionStatusLeft,
+      revisionStatusRight: revisionStatusRight,
       weeklyGradeLabel: weeklyGradeLabel,
       weeklyStarsCount: base.weeklyStarsCount,
       teacherNoteAuthor: base.teacherNoteAuthor,
@@ -700,35 +875,93 @@ class _ParentStudentHomeScreenState
     final acknowledgedSet = ref.watch(acknowledgedHomeworkProvider);
     final quranService = ref.watch(quranMetadataServiceProvider);
 
-    final firestoreChildren =
-        ref.watch(parentChildrenStreamProvider).asData?.value ?? const [];
+    final isDemoMode = Firebase.apps.isEmpty;
+    final firestoreChildrenAsync = ref.watch(parentChildrenStreamProvider);
+    final firestoreChildren = firestoreChildrenAsync.asData?.value ?? const [];
+
+    final effectiveChildId = !isDemoMode
+        ? (firestoreChildren.any((s) => s.id == selectedChildId)
+            ? selectedChildId
+            : (firestoreChildren.isNotEmpty ? firestoreChildren.first.id : ''))
+        : selectedChildId;
+
     final activeEnrollments = ref
-            .watch(childEnrollmentsStreamProvider(selectedChildId))
+            .watch(childEnrollmentsStreamProvider(effectiveChildId))
             .asData
             ?.value ??
         const [];
     final activeAttendance = ref
-            .watch(childAttendanceStreamProvider(selectedChildId))
+            .watch(childAttendanceStreamProvider(effectiveChildId))
             .asData
             ?.value ??
         const [];
     final activeAssignments = ref
-            .watch(childAssignmentsStreamProvider(selectedChildId))
+            .watch(childAssignmentsStreamProvider(effectiveChildId))
             .asData
             ?.value ??
         const [];
 
     final childrenProfiles = _buildChildProfiles(
       firestoreChildren: firestoreChildren,
-      activeChildId: selectedChildId,
+      activeChildId: effectiveChildId,
       activeEnrollments: activeEnrollments,
       activeAttendance: activeAttendance,
       activeAssignments: activeAssignments,
       quranService: quranService,
+      langCode: langCode,
     );
 
+    if (childrenProfiles.isEmpty) {
+      return Directionality(
+        textDirection: isRtl ? TextDirection.rtl : TextDirection.ltr,
+        child: Scaffold(
+          backgroundColor: _surface,
+          appBar: AppBar(
+            backgroundColor: _surface,
+            elevation: 0,
+            title: Text(
+              isStudentRole
+                  ? _tr(langCode, ar: 'بوابة الطالب', he: 'פורטל תלמיד', en: 'Student Portal')
+                  : _tr(langCode, ar: 'بوابة ولي الأمر', he: 'פורטל הורים', en: 'Parent Portal'),
+              style: const TextStyle(color: _primary, fontWeight: FontWeight.w600),
+            ),
+            actions: [
+              IconButton(
+                onPressed: () => context.go(AppRoutes.account),
+                icon: const Icon(Icons.person_rounded, color: _primary),
+              ),
+            ],
+          ),
+          body: Center(
+            child: firestoreChildrenAsync.isLoading && firestoreChildrenAsync.asData == null
+                ? const CircularProgressIndicator()
+                : Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Text(
+                      isStudentRole
+                          ? _tr(
+                              langCode,
+                              ar: 'لم يتم ربط ملف الطالب بهذا الحساب بعد.',
+                              he: 'פרופיל התלמיד טרם קושר לחשבון זה.',
+                              en: 'No student profile is linked to this account yet.',
+                            )
+                          : _tr(
+                              langCode,
+                              ar: 'لا يوجد أبناء مرتبطون بهذا الحساب بعد.',
+                              he: 'אין ילדים משויכים לחשבון זה עדיין.',
+                              en: 'No students are linked to this account yet.',
+                            ),
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(fontSize: 15, color: _onSurfaceVariant),
+                    ),
+                  ),
+          ),
+        ),
+      );
+    }
+
     final activeChild = childrenProfiles
-            .where((c) => c.id == selectedChildId)
+            .where((c) => c.id == effectiveChildId)
             .firstOrNull ??
         childrenProfiles.first;
 
@@ -1479,12 +1712,26 @@ class _ParentStudentHomeScreenState
               const SizedBox(height: 14),
 
               // Schedule List Rows
-              ...child.weeklySchedule.map(
-                (slot) => Padding(
-                  padding: const EdgeInsets.only(bottom: 10),
-                  child: _buildScheduleSlotCard(slot),
+              if (child.weeklySchedule.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  child: Text(
+                    _tr(
+                      langCode,
+                      ar: 'لا توجد مواعيد مسجّلة في الحلقات بعد.',
+                      he: 'אין מועדים רשומים בקבוצות עדיין.',
+                      en: 'No group or 1-on-1 arrival slots scheduled yet.',
+                    ),
+                    style: const TextStyle(fontSize: 13, color: _outline),
+                  ),
+                )
+              else
+                ...child.weeklySchedule.map(
+                  (slot) => Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: _buildScheduleSlotCard(slot),
+                  ),
                 ),
-              ),
             ],
           ),
         ),
@@ -2097,7 +2344,299 @@ class _ParentStudentHomeScreenState
             ],
           ),
         ),
+        const SizedBox(height: 16),
+
+        // 4. Card 3: Weekly Revision Plan & Student Self-Check (خطة المراجعة الأسبوعية)
+        _buildStudentWeeklyRevisionCard(
+          context: context,
+          langCode: langCode,
+          child: child,
+        ),
       ],
+    );
+  }
+
+  Widget _buildStudentWeeklyRevisionCard({
+    required BuildContext context,
+    required String langCode,
+    required ChildPortalProfile child,
+  }) {
+    final plans = ref
+            .watch(studentWeeklyPlansProvider(child.id))
+            .asData
+            ?.value ??
+        const [];
+    final activePlan = plans.firstOrNull;
+
+    final tasks = activePlan?.dailyTasks ??
+        List<DailyRevisionTask>.generate(7, (idx) {
+          if (idx == 5 || idx == 6) {
+            return DailyRevisionTask(dayIndex: idx, isRestDay: true);
+          }
+          return DailyRevisionTask(
+            dayIndex: idx,
+            isRestDay: false,
+            targetType: RevisionTargetType.juz,
+            juzNumber: 30 - (idx % 2),
+            status: idx < 2
+                ? RevisionTaskStatus.doneOnTime
+                : RevisionTaskStatus.pending,
+          );
+        });
+
+    const dayNamesAr = [
+      'الأحد',
+      'الاثنين',
+      'الثلاثاء',
+      'الأربعاء',
+      'الخميس',
+      'الجمعة',
+      'السبت',
+    ];
+    const dayNamesEn = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const dayNamesHe = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
+
+    String getDayName(int idx) {
+      if (langCode == 'he') return dayNamesHe[idx % 7];
+      if (langCode == 'en') return dayNamesEn[idx % 7];
+      return dayNamesAr[idx % 7];
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: _surfaceContainerLowest,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: _primaryContainer.withValues(alpha: 0.10),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(
+                  Icons.checklist_rtl_rounded,
+                  color: _primary,
+                  size: 22,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      _tr(
+                        langCode,
+                        ar: 'خطة المراجعة الأسبوعية اليومية',
+                        he: 'תוכנית חזרה שבועית יומית',
+                        en: 'Weekly Daily Revision Plan',
+                      ),
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: _onSurface,
+                      ),
+                    ),
+                    Text(
+                      _tr(
+                        langCode,
+                        ar: 'اضغط لتحديد إنجاز ورد المراجعة اليومي (تم بالوقت / تم متأخراً)',
+                        he: 'סמן ביצוע משימת חזרה יומית (בזמן / באיחור)',
+                        en: 'Mark daily revision tasks as Done on Time or Done Late',
+                      ),
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: _onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          ...tasks.map((task) {
+            final effectiveStatus =
+                _localRevisionStatusOverrides[task.dayIndex] ?? task.status;
+            return Container(
+              margin: const EdgeInsets.only(bottom: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              decoration: BoxDecoration(
+                color: task.isRestDay
+                    ? _surfaceContainerLow
+                    : _surfaceContainerLowest,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: _surfaceContainerHigh),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 58,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: task.isRestDay
+                                ? _surfaceContainerHigh
+                                : _primaryFixed,
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          alignment: Alignment.center,
+                          child: Text(
+                            getDayName(task.dayIndex),
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              color: task.isRestDay
+                                  ? _onSurfaceVariant
+                                  : _onPrimaryFixed,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            task.displaySummary(langCode),
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: task.isRestDay
+                                  ? FontWeight.normal
+                                  : FontWeight.bold,
+                              color: task.isRestDay
+                                  ? _outline
+                                  : _onSurface,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (!task.isRestDay)
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        InkWell(
+                          onTap: () {
+                            setState(() {
+                              _localRevisionStatusOverrides[task.dayIndex] =
+                                  RevisionTaskStatus.doneOnTime;
+                            });
+                            if (activePlan != null) {
+                              ref
+                                  .read(teacherControllerProvider.notifier)
+                                  .updateDailyRevisionTaskStatus(
+                                    plan: activePlan,
+                                    dayIndex: task.dayIndex,
+                                    status: RevisionTaskStatus.doneOnTime,
+                                  );
+                            }
+                          },
+                          borderRadius: BorderRadius.circular(8),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 5,
+                            ),
+                            decoration: BoxDecoration(
+                              color: effectiveStatus ==
+                                      RevisionTaskStatus.doneOnTime
+                                  ? _primary
+                                  : _surfaceContainerLow,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              _tr(
+                                langCode,
+                                ar: 'تم بالوقت',
+                                he: 'בזמן',
+                                en: 'Done',
+                              ),
+                              style: TextStyle(
+                                fontSize: 10.5,
+                                fontWeight: FontWeight.bold,
+                                color: effectiveStatus ==
+                                        RevisionTaskStatus.doneOnTime
+                                    ? Colors.white
+                                    : _onSurfaceVariant,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        InkWell(
+                          onTap: () {
+                            setState(() {
+                              _localRevisionStatusOverrides[task.dayIndex] =
+                                  RevisionTaskStatus.doneLate;
+                            });
+                            if (activePlan != null) {
+                              ref
+                                  .read(teacherControllerProvider.notifier)
+                                  .updateDailyRevisionTaskStatus(
+                                    plan: activePlan,
+                                    dayIndex: task.dayIndex,
+                                    status: RevisionTaskStatus.doneLate,
+                                  );
+                            }
+                          },
+                          borderRadius: BorderRadius.circular(8),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 5,
+                            ),
+                            decoration: BoxDecoration(
+                              color: effectiveStatus ==
+                                      RevisionTaskStatus.doneLate
+                                  ? _secondary
+                                  : _surfaceContainerLow,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              _tr(
+                                langCode,
+                                ar: 'تم متأخراً',
+                                he: 'באיחור',
+                                en: 'Late',
+                              ),
+                              style: TextStyle(
+                                fontSize: 10.5,
+                                fontWeight: FontWeight.bold,
+                                color: effectiveStatus ==
+                                        RevisionTaskStatus.doneLate
+                                    ? Colors.white
+                                    : _onSurfaceVariant,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                ],
+              ),
+            );
+          }),
+        ],
+      ),
     );
   }
 
@@ -2733,6 +3272,19 @@ class _ParentStudentHomeScreenState
                 ],
               ),
               const SizedBox(height: 12),
+              if (child.inProgressSurahs.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  child: Text(
+                    _tr(
+                      langCode,
+                      ar: 'لا توجد سور قيد الحفظ حاليًا.',
+                      he: 'אין סורות בתהליך שינון כרגע.',
+                      en: 'No Surahs currently in progress.',
+                    ),
+                    style: const TextStyle(fontSize: 13, color: _outline),
+                  ),
+                ),
               ...child.inProgressSurahs.map(
                 (surah) => Container(
                   padding: const EdgeInsets.all(14),
@@ -2904,17 +3456,32 @@ class _ParentStudentHomeScreenState
                       ],
                     ),
                   ),
-                  const SizedBox(width: 8),
-                  const Text(
-                    'مخطط الإتمام لعام 1446هـ',
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: _outline,
+                  if (Firebase.apps.isEmpty) ...[
+                    const SizedBox(width: 8),
+                    const Text(
+                      'مخطط الإتمام لعام 1446هـ',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: _outline,
+                      ),
                     ),
-                  ),
+                  ],
                 ],
               ),
               const SizedBox(height: 12),
+              if (child.inProgressAjzaa.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  child: Text(
+                    _tr(
+                      langCode,
+                      ar: 'لا توجد أجزاء قيد الحفظ حاليًا.',
+                      he: 'אין חלקים בתהליך שינון כרגע.',
+                      en: 'No Ajzaa currently in progress.',
+                    ),
+                    style: const TextStyle(fontSize: 13, color: _outline),
+                  ),
+                ),
               ...child.inProgressAjzaa.map((juz) {
                 if (juz.isActive) {
                   return Padding(
@@ -3125,14 +3692,30 @@ class _ParentStudentHomeScreenState
                   ),
                 ],
               ),
-              const SizedBox(height: 8),
-              const Text(
-                'تشمل سورة الفاتحة وجزء عمّ كاملاً بفضل الله، مع ثبوت التلاوة وأحكام التجويد:',
-                style: TextStyle(
-                  fontSize: 13,
-                  color: _outline,
+              if (Firebase.apps.isEmpty) ...[
+                const SizedBox(height: 8),
+                const Text(
+                  'تشمل سورة الفاتحة وجزء عمّ كاملاً بفضل الله، مع ثبوت التلاوة وأحكام التجويد:',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: _outline,
+                  ),
                 ),
-              ),
+              ] else if (displayedSurahs.isEmpty) ...[
+                const SizedBox(height: 8),
+                Text(
+                  _tr(
+                    langCode,
+                    ar: 'لم تُكتمل سور مسجّلة بعد.',
+                    he: 'טרם הושלמו סורות רשומות.',
+                    en: 'No completed Surahs recorded yet.',
+                  ),
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: _outline,
+                  ),
+                ),
+              ],
               const SizedBox(height: 12),
 
               // Emerald Tag Cloud

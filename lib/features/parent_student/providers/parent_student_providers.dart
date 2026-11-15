@@ -18,7 +18,7 @@ final parentStudentRepositoryProvider = Provider<ParentStudentRepository>((ref) 
 /// Currently selected child ID in the Parent Child-Switcher bar.
 class SelectedChildIdNotifier extends Notifier<String> {
   @override
-  String build() => 'st-1042';
+  String build() => Firebase.apps.isEmpty ? 'st-1042' : '';
 
   void selectChild(String childId) {
     state = childId;

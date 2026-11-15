@@ -1,3 +1,4 @@
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -9,6 +10,8 @@ import '../../auth/models/app_user.dart';
 import '../../auth/providers/auth_providers.dart';
 import '../models/admin_models.dart';
 import '../providers/admin_providers.dart';
+import '../../hifz/models/teacher_models.dart';
+import '../../hifz/providers/teacher_providers.dart';
 import 'admin_mobile_screen.dart';
 
 class _AdminRosterRowData {
@@ -64,12 +67,12 @@ class _AdminShellScreenState extends ConsumerState<AdminShellScreen> {
   String _searchQuery = '';
 
   // Enrollment Drawer State
-  String _selectedStudentName = 'إبراهيم طه عثمان';
-  String _selectedStudentCode = '#ST-1042';
-  String _selectedStudentId = 'st-1042';
+  late String _selectedStudentName = Firebase.apps.isEmpty ? 'إبراهيم طه عثمان' : '';
+  late String _selectedStudentCode = Firebase.apps.isEmpty ? '#ST-1042' : '';
+  late String _selectedStudentId = Firebase.apps.isEmpty ? 'st-1042' : '';
   CenterTrack _selectedTargetTrack = CenterTrack.readingTajweed;
-  String _selectedGroupLabel = 'حلقة الإتقان والتجويد (مسار التجويد المتقدم)';
-  String _selectedGroupId = 'grp-tajweed-1';
+  late String _selectedGroupLabel = Firebase.apps.isEmpty ? 'حلقة الإتقان والتجويد (مسار التجويد المتقدم)' : '';
+  late String _selectedGroupId = Firebase.apps.isEmpty ? 'grp-tajweed-1' : '';
   bool _hasOneOnOneSlot = true;
   String _selectedOneOnOneDay = 'الخميس';
   String _selectedOneOnOneTime = '17:15';
@@ -208,7 +211,30 @@ class _AdminShellScreenState extends ConsumerState<AdminShellScreen> {
   }
 
   Future<void> _handleSaveEnrollment(String langCode) async {
+    if (_selectedStudentId.isEmpty || _selectedGroupId.isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            _tr(
+              langCode,
+              ar: 'يرجى اختيار الطالب والحلقة أولاً',
+              he: 'אנא בחר תלמיד וקבוצה תחילה',
+              en: 'Please select a student and study group first',
+            ),
+          ),
+          backgroundColor: Colors.red.shade700,
+        ),
+      );
+      return;
+    }
+
     final slotString = _hasOneOnOneSlot ? '$_selectedOneOnOneDay $_selectedOneOnOneTime (فردي)' : null;
+    final groups = ref.read(adminGroupsProvider).value ?? [];
+    final matchedGroup = groups.where((g) => g.id == _selectedGroupId).firstOrNull;
+    final arrivalTime = matchedGroup != null
+        ? '${matchedGroup.scheduleDays.join('، ')} ${matchedGroup.startTime}'.trim()
+        : (Firebase.apps.isEmpty ? 'الأحد والثلاثاء والخميس 16:30' : '');
 
     await ref
         .read(adminControllerProvider.notifier)
@@ -219,7 +245,7 @@ class _AdminShellScreenState extends ConsumerState<AdminShellScreen> {
           groupName: _selectedGroupLabel,
           track: _selectedTargetTrack,
           oneOnOneSlotTime: slotString,
-          groupArrivalTime: 'الأحد والثلاثاء والخميس 16:30',
+          groupArrivalTime: arrivalTime,
         );
 
     if (!mounted) return;
@@ -240,6 +266,148 @@ class _AdminShellScreenState extends ConsumerState<AdminShellScreen> {
         backgroundColor: DarAlFajrTheme.primary,
         behavior: SnackBarBehavior.floating,
       ),
+    );
+  }
+
+  Future<void> _showGradingSettingsDialog(String langCode) async {
+    final currentConfig = ref.read(gradingPenaltyConfigProvider).asData?.value ??
+        const GradingPenaltyConfig();
+    final lafziCtrl = TextEditingController(text: '${currentConfig.lafziPenalty}');
+    final fathCtrl = TextEditingController(text: '${currentConfig.fathPenalty}');
+    final tataaCtrl = TextEditingController(text: '${currentConfig.tataaPenalty}');
+    final pageThresholdCtrl =
+        TextEditingController(text: '${currentConfig.pagePassingThreshold}');
+    final juzThresholdCtrl =
+        TextEditingController(text: '${currentConfig.juzExamPassingThreshold}');
+    final priorJuzCtrl = TextEditingController(text: '30, 29');
+
+    await showDialog<void>(
+      context: context,
+      builder: (dialogCtx) {
+        return AlertDialog(
+          title: Text(
+            _tr(
+              langCode,
+              ar: 'إعدادات التقييم وحدود النجاح والرصيد السابق',
+              he: 'הגדרות ציונים, סף מעבר ויתרה קודמת',
+              en: 'Grading Penalties, Passing Thresholds & Prior Balance',
+            ),
+          ),
+          content: SizedBox(
+            width: 440,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  TextField(
+                    controller: lafziCtrl,
+                    keyboardType: TextInputType.number,
+                    decoration: InputDecoration(
+                      labelText: _tr(
+                        langCode,
+                        ar: 'خصم الخطأ اللفظي (الافتراضي: 3 درجات)',
+                        he: 'ניכוי טעות הגייה (ברירת מחדל: 3)',
+                        en: 'Verbal Mistake Deduction (Default: 3)',
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  TextField(
+                    controller: fathCtrl,
+                    keyboardType: TextInputType.number,
+                    decoration: InputDecoration(
+                      labelText: _tr(
+                        langCode,
+                        ar: 'خصم الفتح / التوقف (الافتراضي: 3 درجات)',
+                        he: 'ניכוי פתיחה / עצירה (ברירת מחדל: 3)',
+                        en: 'Prompt / Fath Deduction (Default: 3)',
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  TextField(
+                    controller: tataaCtrl,
+                    keyboardType: TextInputType.number,
+                    decoration: InputDecoration(
+                      labelText: _tr(
+                        langCode,
+                        ar: 'خصم التعتعة / الاستدراك (الافتراضي: 0)',
+                        he: 'ניכוי תיקון עצמי (ברירת מחדל: 0)',
+                        en: 'Hesitation / Self-Correction Deduction (Default: 0)',
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  TextField(
+                    controller: pageThresholdCtrl,
+                    keyboardType: TextInputType.number,
+                    decoration: InputDecoration(
+                      labelText: _tr(
+                        langCode,
+                        ar: 'الحد الأدنى لاجتياز الصفحة / السورة (الافتراضي: 94)',
+                        he: 'ציון מעבר מינימלי לעמוד / סורה (ברירת מחדל: 94)',
+                        en: 'Page / Surah Minimum Passing Score (Default: 94)',
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  TextField(
+                    controller: juzThresholdCtrl,
+                    keyboardType: TextInputType.number,
+                    decoration: InputDecoration(
+                      labelText: _tr(
+                        langCode,
+                        ar: 'الحد الأدنى لاجتياز اختبار الجزء الكامل (الافتراضي: 79)',
+                        he: 'ציון מעבר מינימלי למבחן ג׳וז (ברירת מחדל: 79)',
+                        en: 'Whole Juz Exam Minimum Passing Score (Default: 79)',
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  TextField(
+                    controller: priorJuzCtrl,
+                    decoration: InputDecoration(
+                      labelText: _tr(
+                        langCode,
+                        ar: 'الرصيد السابق للأجزاء المحفوظة (مثال: 30, 29)',
+                        he: 'יתרה קודמת של ג׳וזים (למשל: 30, 29)',
+                        en: 'Student Prior Completed Juz Balance (e.g. 30, 29)',
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogCtx).pop(),
+              child: Text(_tr(langCode, ar: 'إلغاء', he: 'ביטול', en: 'Cancel')),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                final updated = GradingPenaltyConfig(
+                  lafziPenalty: int.tryParse(lafziCtrl.text.trim()) ?? 3,
+                  fathPenalty: int.tryParse(fathCtrl.text.trim()) ?? 3,
+                  tataaPenalty: int.tryParse(tataaCtrl.text.trim()) ?? 0,
+                  pagePassingThreshold:
+                      int.tryParse(pageThresholdCtrl.text.trim()) ?? 94,
+                  juzExamPassingThreshold:
+                      int.tryParse(juzThresholdCtrl.text.trim()) ?? 79,
+                );
+                await ref
+                    .read(teacherControllerProvider.notifier)
+                    .saveGradingPenaltyConfig(updated);
+                if (dialogCtx.mounted) {
+                  Navigator.of(dialogCtx).pop();
+                }
+              },
+              child: Text(_tr(langCode, ar: 'حفظ الإعدادات', he: 'שמור', en: 'Save')),
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -404,10 +572,15 @@ class _AdminShellScreenState extends ConsumerState<AdminShellScreen> {
   }
 
   void _showCreateGroupDialog(String langCode) {
+    final teachers = ref.read(adminTeachersProvider).value ?? [];
     final nameController = TextEditingController();
     CenterTrack selectedTrack = CenterTrack.hifz;
     final timeController = TextEditingController(text: '17:00');
-    final teacherController = TextEditingController(text: 'الشيخ عبد الرحمن');
+    final teacherController = TextEditingController(
+      text: teachers.isNotEmpty
+          ? teachers.first.fullName
+          : (Firebase.apps.isEmpty ? 'الشيخ عبد الرحمن' : ''),
+    );
 
     showDialog<void>(
       context: context,
@@ -456,14 +629,18 @@ class _AdminShellScreenState extends ConsumerState<AdminShellScreen> {
                 ElevatedButton(
                   onPressed: () async {
                     if (nameController.text.trim().isEmpty) return;
+                    final enteredTeacher = teacherController.text.trim();
+                    final matchedTeacher = teachers
+                        .where((t) => t.fullName == enteredTeacher)
+                        .firstOrNull;
                     Navigator.of(dialogContext).pop();
                     await ref
                         .read(adminControllerProvider.notifier)
                         .createGroup(
                           name: nameController.text.trim(),
                           track: selectedTrack,
-                          teacherId: 'teacher-1',
-                          teacherName: teacherController.text.trim(),
+                          teacherId: matchedTeacher?.uid ?? (Firebase.apps.isEmpty ? 'teacher-1' : ''),
+                          teacherName: enteredTeacher,
                           scheduleDays: ['السبت', 'الاثنين'],
                           startTime: timeController.text.trim(),
                           endTime: '18:30',
@@ -510,13 +687,15 @@ class _AdminShellScreenState extends ConsumerState<AdminShellScreen> {
             textColor: const Color(0xFF00201D),
           ),
         ],
-        groupSchedule: primaryEnrollment?.groupArrivalTime ?? 'الأحد والثلاثاء والخميس 16:30',
+        groupSchedule: primaryEnrollment?.groupArrivalTime ?? (Firebase.apps.isEmpty ? 'الأحد والثلاثاء والخميس 16:30' : ''),
         oneOnOneSchedule: primaryEnrollment?.oneOnOneSlotTime,
         isFromFirestore: true,
       );
     }).toList();
 
-    final combined = [...mappedFirestore, ..._seedRosterRows];
+    final combined = Firebase.apps.isEmpty
+        ? [...mappedFirestore, ..._seedRosterRows]
+        : mappedFirestore;
 
     final trackFilter = ref.watch(adminTrackFilterProvider);
     return combined.where((row) {
@@ -550,11 +729,31 @@ class _AdminShellScreenState extends ConsumerState<AdminShellScreen> {
 
     final rosterRows = _buildRosterRows(firestoreStudents, firestoreEnrollments);
 
-    final totalStudentsCount = firestoreStudents.isNotEmpty ? firestoreStudents.length : 6;
-    final totalGroupsCount = firestoreGroups.isNotEmpty ? firestoreGroups.length : 3;
+    final isDemoMode = Firebase.apps.isEmpty;
+    if (!isDemoMode) {
+      if (_selectedStudentId.isEmpty && firestoreStudents.isNotEmpty) {
+        final first = firestoreStudents.first;
+        _selectedStudentId = first.id;
+        _selectedStudentName = first.fullName;
+        final shortCode = first.id.length >= 4 ? first.id.substring(0, 4).toUpperCase() : first.id.toUpperCase();
+        _selectedStudentCode = '#ST-$shortCode';
+      }
+      if (_selectedGroupId.isEmpty && firestoreGroups.isNotEmpty) {
+        final firstGroup = firestoreGroups.first;
+        _selectedGroupId = firstGroup.id;
+        _selectedGroupLabel = firstGroup.name;
+        _selectedTargetTrack = firstGroup.track;
+      }
+    }
+    final totalStudentsCount = firestoreStudents.isNotEmpty
+        ? firestoreStudents.length
+        : (isDemoMode ? 6 : 0);
+    final totalGroupsCount = firestoreGroups.isNotEmpty
+        ? firestoreGroups.length
+        : (isDemoMode ? 3 : 0);
     final totalOneOnOneCount = firestoreEnrollments.isNotEmpty
         ? firestoreEnrollments.where((e) => e.oneOnOneSlotTime != null && e.oneOnOneSlotTime!.isNotEmpty).length
-        : 3;
+        : (isDemoMode ? 3 : 0);
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -848,6 +1047,17 @@ class _AdminShellScreenState extends ConsumerState<AdminShellScreen> {
                               Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
+                                  IconButton(
+                                    onPressed: () => _showGradingSettingsDialog(langCode),
+                                    tooltip: _tr(
+                                      langCode,
+                                      ar: 'إعدادات التقييم والرصيد السابق',
+                                      he: 'הגדרות ציונים ויתרה קודמת',
+                                      en: 'Grading Thresholds & Prior Balance',
+                                    ),
+                                    icon: const Icon(Icons.tune_rounded, color: DarAlFajrTheme.primary),
+                                  ),
+                                  const SizedBox(width: 6),
                                   OutlinedButton.icon(
                                     onPressed: () {
                                       setState(() {
@@ -1144,36 +1354,66 @@ class _AdminShellScreenState extends ConsumerState<AdminShellScreen> {
                                         _selectedGroupLabel = tuple.$3;
                                       });
                                     },
-                                    itemBuilder: (context) => const [
-                                      PopupMenuItem(
-                                        value: (
-                                          CenterTrack.readingTajweed,
-                                          'grp-tajweed-1',
-                                          'حلقة الإتقان والتجويد (مسار التجويد المتقدم)',
+                                    itemBuilder: (context) {
+                                      final liveGroups = ref.read(adminGroupsProvider).value ?? [];
+                                      if (liveGroups.isNotEmpty) {
+                                        return liveGroups
+                                            .map(
+                                              (g) => PopupMenuItem<(CenterTrack, String, String)>(
+                                                value: (g.track, g.id, g.name),
+                                                child: Text(
+                                                  '${g.name} (${g.scheduleDays.join('، ')} ${g.startTime})',
+                                                ),
+                                              ),
+                                            )
+                                            .toList();
+                                      }
+                                      if (Firebase.apps.isEmpty) {
+                                        return const [
+                                          PopupMenuItem(
+                                            value: (
+                                              CenterTrack.readingTajweed,
+                                              'grp-tajweed-1',
+                                              'حلقة الإتقان والتجويد (مسار التجويد المتقدم)',
+                                            ),
+                                            child: Text('حلقة الإتقان والتجويد (مسار التجويد المتقدم)'),
+                                          ),
+                                          PopupMenuItem(
+                                            value: (CenterTrack.hifz, 'grp-hifz-1', 'حلقة الفجر للحفظ المكثف (مسار الحفظ)'),
+                                            child: Text('حلقة الفجر للحفظ المكثف (مسار الحفظ)'),
+                                          ),
+                                          PopupMenuItem(
+                                            value: (
+                                              CenterTrack.qaidahNouraniah,
+                                              'grp-qaidah-1',
+                                              'حلقة القاعدة النورانية التأسيسية',
+                                            ),
+                                            child: Text('حلقة القاعدة النورانية التأسيسية'),
+                                          ),
+                                          PopupMenuItem(
+                                            value: (
+                                              CenterTrack.tarbawi,
+                                              'grp-tarbawi-1',
+                                              'حلقة الآداب والتدبر (المسار التربوي)',
+                                            ),
+                                            child: Text('حلقة الآداب والتدبر (المسار التربوي)'),
+                                          ),
+                                        ];
+                                      }
+                                      return [
+                                        PopupMenuItem<(CenterTrack, String, String)>(
+                                          enabled: false,
+                                          child: Text(
+                                            _tr(
+                                              langCode,
+                                              ar: 'لا توجد حلقات مسجلة — أنشئ حلقة أولاً',
+                                              he: 'אין קבוצות עדיין — צור קבוצה תחילה',
+                                              en: 'No study groups yet — create one first',
+                                            ),
+                                          ),
                                         ),
-                                        child: Text('حلقة الإتقان والتجويد (مسار التجويد المتقدم)'),
-                                      ),
-                                      PopupMenuItem(
-                                        value: (CenterTrack.hifz, 'grp-hifz-1', 'حلقة الفجر للحفظ المكثف (مسار الحفظ)'),
-                                        child: Text('حلقة الفجر للحفظ المكثف (مسار الحفظ)'),
-                                      ),
-                                      PopupMenuItem(
-                                        value: (
-                                          CenterTrack.qaidahNouraniah,
-                                          'grp-qaidah-1',
-                                          'حلقة القاعدة النورانية التأسيسية',
-                                        ),
-                                        child: Text('حلقة القاعدة النورانية التأسيسية'),
-                                      ),
-                                      PopupMenuItem(
-                                        value: (
-                                          CenterTrack.tarbawi,
-                                          'grp-tarbawi-1',
-                                          'حلقة الآداب والتدبر (المسار التربوي)',
-                                        ),
-                                        child: Text('حلقة الآداب والتدبر (المسار التربوي)'),
-                                      ),
-                                    ],
+                                      ];
+                                    },
                                     child: Container(
                                       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                                       decoration: BoxDecoration(
@@ -1732,7 +1972,9 @@ class _AdminShellScreenState extends ConsumerState<AdminShellScreen> {
                       _StatSummaryCard(
                         width: (constraints.maxWidth - 48) / 4,
                         title: _tr(langCode, ar: 'المقاعد المتاحة', he: 'מקומות פנויים', en: 'Available Seats'),
-                        value: '18',
+                        value: Firebase.apps.isEmpty
+                            ? '18'
+                            : '${(((ref.watch(adminGroupsProvider).value ?? []).length * 15) - (ref.watch(adminEnrollmentsProvider).value ?? []).length).clamp(0, 9999)}',
                         unit: _tr(langCode, ar: 'مقعد متاح', he: 'מקום פנוי', en: 'Open seats'),
                         icon: Icons.event_seat_rounded,
                         accentColor: const Color(0xFF3D4947),
@@ -2439,7 +2681,7 @@ class _AdminShellScreenState extends ConsumerState<AdminShellScreen> {
                       children: [
                         const Icon(Icons.person_rounded, size: 16, color: Color(0xFF6D7A77)),
                         const SizedBox(width: 4),
-                        Text(g.teacherName.isNotEmpty ? g.teacherName : 'الشيخ عبد الرحمن'),
+                        Text(g.teacherName.isNotEmpty ? g.teacherName : (Firebase.apps.isEmpty ? 'الشيخ عبد الرحمن' : '—')),
                       ],
                     ),
                     const SizedBox(height: 4),

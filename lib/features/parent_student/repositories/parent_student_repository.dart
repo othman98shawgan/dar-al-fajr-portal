@@ -14,9 +14,11 @@ class ParentStudentRepository {
   ParentStudentRepository({FirebaseFirestore? firestore})
       : _firestore = firestore ?? FirebaseFirestore.instance;
 
-  /// Streams students linked to [parentId], or all students if none match
-  /// (so demo/seed accounts immediately see enrolled learners).
+  /// Streams students linked to [parentId].
   Stream<List<StudentProfile>> watchChildrenForParent(String parentId) {
+    if (parentId.isEmpty) {
+      return Stream<List<StudentProfile>>.value(const []);
+    }
     return _firestore
         .collection(studentsCollection)
         .snapshots()
@@ -24,11 +26,7 @@ class ParentStudentRepository {
       final allStudents = snapshot.docs
           .map((doc) => StudentProfile.fromFirestore(doc))
           .toList();
-      if (parentId.isEmpty) return allStudents;
-
-      final matched =
-          allStudents.where((s) => s.parentId == parentId).toList();
-      return matched.isNotEmpty ? matched : allStudents;
+      return allStudents.where((s) => s.parentId == parentId).toList();
     });
   }
 
@@ -37,6 +35,10 @@ class ParentStudentRepository {
     required String userId,
     String? email,
   }) {
+    final normalizedEmail = email?.toLowerCase().trim() ?? '';
+    if (userId.isEmpty && normalizedEmail.isEmpty) {
+      return Stream<List<StudentProfile>>.value(const []);
+    }
     return _firestore
         .collection(studentsCollection)
         .snapshots()
@@ -45,17 +47,14 @@ class ParentStudentRepository {
           .map((doc) => StudentProfile.fromFirestore(doc))
           .toList();
 
-      final matched = allStudents.where((s) {
+      return allStudents.where((s) {
         if (userId.isNotEmpty && s.userId == userId) return true;
-        if (email != null &&
-            email.isNotEmpty &&
-            s.email?.toLowerCase().trim() == email.toLowerCase().trim()) {
+        if (normalizedEmail.isNotEmpty &&
+            s.email?.toLowerCase().trim() == normalizedEmail) {
           return true;
         }
         return false;
       }).toList();
-
-      return matched.isNotEmpty ? matched : allStudents.take(1).toList();
     });
   }
 

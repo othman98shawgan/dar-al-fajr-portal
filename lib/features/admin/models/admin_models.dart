@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../../../core/models/surah_page_map.dart';
 
 /// The 4 Dar al-Fajr Center tracks.
 enum CenterTrack {
@@ -73,6 +74,9 @@ class StudentProfile {
   final List<int> memorizedPages;
   final List<int> completedSurahs;
   final List<int> completedJuz;
+  final List<String> memorizedCenterUnits;
+  final Map<int, String> juzStatuses;
+  final Map<int, DateTime> lastRevisedJuzDates;
   final DateTime? createdAt;
 
   const StudentProfile({
@@ -87,8 +91,19 @@ class StudentProfile {
     this.memorizedPages = const [],
     this.completedSurahs = const [],
     this.completedJuz = const [],
+    this.memorizedCenterUnits = const [],
+    this.juzStatuses = const {},
+    this.lastRevisedJuzDates = const {},
     this.createdAt,
   });
+
+  /// Total memorized center page units (out of 657) according to Dar al-Fajr rules.
+  int get memorizedCenterPagesCount =>
+      CenterQuranMap.calculateMemorizedCenterPages(
+        memorizedPages: memorizedPages,
+        completedSurahs: completedSurahs,
+        memorizedCenterUnits: memorizedCenterUnits,
+      );
 
   factory StudentProfile.fromFirestore(
     DocumentSnapshot<Map<String, dynamic>> doc,
@@ -111,6 +126,42 @@ class StudentProfile {
       return const [];
     }
 
+    List<String> parseStringList(dynamic raw) {
+      if (raw is List) {
+        return raw.map((e) => e.toString()).toList();
+      }
+      return const [];
+    }
+
+    Map<int, String> parseJuzStatuses(dynamic raw) {
+      if (raw is Map) {
+        final result = <int, String>{};
+        raw.forEach((key, value) {
+          final k = int.tryParse(key.toString());
+          if (k != null && value != null) {
+            result[k] = value.toString();
+          }
+        });
+        return result;
+      }
+      return const {};
+    }
+
+    Map<int, DateTime> parseLastRevisedDates(dynamic raw) {
+      if (raw is Map) {
+        final result = <int, DateTime>{};
+        raw.forEach((key, value) {
+          final k = int.tryParse(key.toString());
+          final dt = parseDate(value);
+          if (k != null && dt != null) {
+            result[k] = dt;
+          }
+        });
+        return result;
+      }
+      return const {};
+    }
+
     return StudentProfile(
       id: id ?? (map['id'] as String? ?? ''),
       fullName:
@@ -128,6 +179,14 @@ class StudentProfile {
       completedSurahs:
           parseIntList(map['completedSurahs'] ?? map['completed_surahs']),
       completedJuz: parseIntList(map['completedJuz'] ?? map['completed_juz']),
+      memorizedCenterUnits: parseStringList(
+        map['memorizedCenterUnits'] ?? map['memorized_center_units'],
+      ),
+      juzStatuses:
+          parseJuzStatuses(map['juzStatuses'] ?? map['juz_statuses']),
+      lastRevisedJuzDates: parseLastRevisedDates(
+        map['lastRevisedJuzDates'] ?? map['last_revised_juz_dates'],
+      ),
       createdAt: parseDate(map['createdAt'] ?? map['created_at']),
     );
   }
@@ -146,6 +205,11 @@ class StudentProfile {
       'memorizedPages': memorizedPages,
       'completedSurahs': completedSurahs,
       'completedJuz': completedJuz,
+      'memorizedCenterUnits': memorizedCenterUnits,
+      'juzStatuses': juzStatuses.map((k, v) => MapEntry(k.toString(), v)),
+      'lastRevisedJuzDates': lastRevisedJuzDates.map(
+        (k, v) => MapEntry(k.toString(), Timestamp.fromDate(v)),
+      ),
       'createdAt': createdAt != null
           ? Timestamp.fromDate(createdAt!)
           : FieldValue.serverTimestamp(),

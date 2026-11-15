@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/services/quran_metadata_service.dart';
 import '../../admin/models/admin_models.dart';
+import '../../auth/models/app_user.dart';
 import '../../auth/providers/auth_providers.dart';
 import '../models/teacher_models.dart';
 import '../repositories/teacher_repository.dart';
@@ -16,14 +17,34 @@ final teacherRepositoryProvider = Provider<TeacherRepository>((ref) {
   );
 });
 
+/// Streams the Admin-configurable grading penalties & passing thresholds.
+final gradingPenaltyConfigProvider =
+    StreamProvider<GradingPenaltyConfig>((ref) {
+  if (Firebase.apps.isEmpty) {
+    return Stream<GradingPenaltyConfig>.value(const GradingPenaltyConfig());
+  }
+  return ref.watch(teacherRepositoryProvider).watchGradingPenaltyConfig();
+});
+
 /// Streams groups assigned to the currently authenticated teacher.
 final teacherGroupsProvider = StreamProvider<List<StudyGroup>>((ref) {
   if (Firebase.apps.isEmpty) {
     return Stream<List<StudyGroup>>.value(const []);
   }
   final appUser = ref.watch(currentAppUserProvider).asData?.value;
+  if (appUser?.role == UserRole.admin) {
+    return ref.watch(teacherRepositoryProvider).watchAllGroups();
+  }
   final teacherId = appUser?.uid ?? '';
   return ref.watch(teacherRepositoryProvider).watchTeacherGroups(teacherId);
+});
+
+/// Streams all study groups in the center.
+final allGroupsStreamProvider = StreamProvider<List<StudyGroup>>((ref) {
+  if (Firebase.apps.isEmpty) {
+    return Stream<List<StudyGroup>>.value(const []);
+  }
+  return ref.watch(teacherRepositoryProvider).watchAllGroups();
 });
 
 /// Currently selected group ID in the Teacher workflow.
@@ -47,6 +68,34 @@ final groupEnrollmentsProvider =
     return Stream<List<Enrollment>>.value(const []);
   }
   return ref.watch(teacherRepositoryProvider).watchGroupEnrollments(groupId);
+});
+
+/// Streams all enrollments in the center.
+final allEnrollmentsStreamProvider = StreamProvider<List<Enrollment>>((ref) {
+  if (Firebase.apps.isEmpty) {
+    return Stream<List<Enrollment>>.value(const []);
+  }
+  return ref.watch(teacherRepositoryProvider).watchAllEnrollments();
+});
+
+/// Streams a single student's profile.
+final studentProfileByIdProvider =
+    StreamProvider.family<StudentProfile?, String>((ref, studentId) {
+  if (Firebase.apps.isEmpty || studentId.isEmpty) {
+    return Stream<StudentProfile?>.value(null);
+  }
+  return ref.watch(teacherRepositoryProvider).watchStudentProfile(studentId);
+});
+
+/// Streams all student profiles indexed by studentId for quick group stats lookup.
+final allStudentsMapProvider =
+    StreamProvider<Map<String, StudentProfile>>((ref) {
+  if (Firebase.apps.isEmpty) {
+    return Stream<Map<String, StudentProfile>>.value(const {});
+  }
+  return ref.watch(teacherRepositoryProvider).watchAllStudents().map(
+        (list) => {for (final s in list) s.id: s},
+      );
 });
 
 /// Streams attendance logs for a given `groupId`.
@@ -74,6 +123,26 @@ final groupAssignmentsProvider =
     return Stream<List<HifzAssignment>>.value(const []);
   }
   return ref.watch(teacherRepositoryProvider).watchGroupAssignments(groupId);
+});
+
+/// Streams Weekly Revision Plans for a given `studentId`.
+final studentWeeklyPlansProvider =
+    StreamProvider.family<List<WeeklyRevisionPlan>, String>((ref, studentId) {
+  if (Firebase.apps.isEmpty || studentId.isEmpty) {
+    return Stream<List<WeeklyRevisionPlan>>.value(const []);
+  }
+  return ref
+      .watch(teacherRepositoryProvider)
+      .watchStudentWeeklyPlans(studentId);
+});
+
+/// Streams Weekly Revision Plans for a given `groupId`.
+final groupWeeklyPlansProvider =
+    StreamProvider.family<List<WeeklyRevisionPlan>, String>((ref, groupId) {
+  if (Firebase.apps.isEmpty || groupId.isEmpty) {
+    return Stream<List<WeeklyRevisionPlan>>.value(const []);
+  }
+  return ref.watch(teacherRepositoryProvider).watchGroupWeeklyPlans(groupId);
 });
 
 class TeacherController extends AsyncNotifier<void> {
@@ -131,6 +200,7 @@ class TeacherController extends AsyncNotifier<void> {
   }
 
   Future<HifzAssignment?> saveHifzAssignment({
+    String? existingAssignmentId,
     required String studentId,
     required String studentName,
     required String groupId,
@@ -141,6 +211,22 @@ class TeacherController extends AsyncNotifier<void> {
     required int toAyah,
     required EvaluationGrade grade,
     String teacherNotes = '',
+    int? targetPage,
+    int? juzNumber,
+    int? score,
+    int lafziCount = 0,
+    int fathCount = 0,
+    int tataaCount = 0,
+    bool isPartialRead = false,
+    bool isJuzExam = false,
+    bool forceRepeat = false,
+    List<TasmeeRecitationUnit> recitationUnits = const [],
+    bool autoCreateNextAssignment = false,
+    int? nextSurahId,
+    String? nextSurahName,
+    int? nextPage,
+    int? nextFromAyah,
+    int? nextToAyah,
   }) async {
     state = const AsyncLoading();
     HifzAssignment? created;
@@ -148,6 +234,7 @@ class TeacherController extends AsyncNotifier<void> {
       final teacherId =
           ref.read(currentAppUserProvider).asData?.value?.uid ?? 'teacher-1';
       created = await ref.read(teacherRepositoryProvider).saveHifzAssignment(
+            existingAssignmentId: existingAssignmentId,
             studentId: studentId,
             studentName: studentName,
             groupId: groupId,
@@ -159,9 +246,95 @@ class TeacherController extends AsyncNotifier<void> {
             toAyah: toAyah,
             grade: grade,
             teacherNotes: teacherNotes,
+            targetPage: targetPage,
+            juzNumber: juzNumber,
+            score: score,
+            lafziCount: lafziCount,
+            fathCount: fathCount,
+            tataaCount: tataaCount,
+            isPartialRead: isPartialRead,
+            isJuzExam: isJuzExam,
+            forceRepeat: forceRepeat,
+            recitationUnits: recitationUnits,
+            autoCreateNextAssignment: autoCreateNextAssignment,
+            nextSurahId: nextSurahId,
+            nextSurahName: nextSurahName,
+            nextPage: nextPage,
+            nextFromAyah: nextFromAyah,
+            nextToAyah: nextToAyah,
           );
     });
     return created;
+  }
+
+  Future<WeeklyRevisionPlan?> saveWeeklyRevisionPlan({
+    String? existingPlanId,
+    required String studentId,
+    required String studentName,
+    required String groupId,
+    required DateTime weekStartDate,
+    required List<DailyRevisionTask> dailyTasks,
+  }) async {
+    state = const AsyncLoading();
+    WeeklyRevisionPlan? saved;
+    state = await AsyncValue.guard(() async {
+      final teacherId =
+          ref.read(currentAppUserProvider).asData?.value?.uid ?? 'teacher-1';
+      saved = await ref.read(teacherRepositoryProvider).saveWeeklyRevisionPlan(
+            existingPlanId: existingPlanId,
+            studentId: studentId,
+            studentName: studentName,
+            groupId: groupId,
+            teacherId: teacherId,
+            weekStartDate: weekStartDate,
+            dailyTasks: dailyTasks,
+          );
+    });
+    return saved;
+  }
+
+  Future<bool> updateDailyRevisionTaskStatus({
+    required WeeklyRevisionPlan plan,
+    required int dayIndex,
+    required RevisionTaskStatus status,
+  }) async {
+    state = const AsyncLoading();
+    state = await AsyncValue.guard(() async {
+      await ref.read(teacherRepositoryProvider).updateDailyRevisionTaskStatus(
+            plan: plan,
+            dayIndex: dayIndex,
+            status: status,
+          );
+    });
+    return !state.hasError;
+  }
+
+  Future<bool> saveGradingPenaltyConfig(GradingPenaltyConfig config) async {
+    state = const AsyncLoading();
+    state = await AsyncValue.guard(() async {
+      await ref
+          .read(teacherRepositoryProvider)
+          .saveGradingPenaltyConfig(config);
+    });
+    return !state.hasError;
+  }
+
+  Future<bool> updateStudentPriorBalance({
+    required String studentId,
+    required List<int> completedJuz,
+    required List<int> completedSurahs,
+    required List<int> memorizedPages,
+  }) async {
+    state = const AsyncLoading();
+    state = await AsyncValue.guard(() async {
+      await ref.read(teacherRepositoryProvider).updateStudentPriorBalance(
+            studentId: studentId,
+            completedJuz: completedJuz,
+            completedSurahs: completedSurahs,
+            memorizedPages: memorizedPages,
+          );
+    });
+    return !state.hasError;
   }
 }
 
