@@ -1,3 +1,4 @@
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -27,10 +28,10 @@ class StudentHifzModal extends ConsumerStatefulWidget {
   const StudentHifzModal({
     super.key,
     this.existingAssignmentId,
-    this.groupId = 'grp-hifz-1',
-    this.groupTitle = 'حلقة أبي بكر الصديق',
-    this.studentId = 'st-1042',
-    this.studentName = 'إبراهيم طه عثمان',
+    this.groupId = '',
+    this.groupTitle = '',
+    this.studentId = '',
+    this.studentName = '',
     this.currentType = AssignmentType.newHifz,
     this.currentSurahId = 16,
     this.currentSurahName = 'النحل',
@@ -48,10 +49,10 @@ class StudentHifzModal extends ConsumerStatefulWidget {
   static Future<void> show(
     BuildContext context, {
     String? existingAssignmentId,
-    String groupId = 'grp-hifz-1',
-    String groupTitle = 'حلقة أبي بكر الصديق',
-    String studentId = 'st-1042',
-    String studentName = 'إبراهيم طه عثمان',
+    String groupId = '',
+    String groupTitle = '',
+    String studentId = '',
+    String studentName = '',
     AssignmentType currentType = AssignmentType.newHifz,
     int currentSurahId = 16,
     String currentSurahName = 'النحل',
@@ -114,6 +115,22 @@ class _StudentHifzModalState extends ConsumerState<StudentHifzModal> {
   bool _isSaving = false;
   bool _isSavedSuccess = false;
   bool _isVoiceNoteRecording = false;
+
+  String get _effectiveGroupId => widget.groupId.isNotEmpty
+      ? widget.groupId
+      : (Firebase.apps.isEmpty ? 'grp-hifz-1' : '');
+
+  String get _effectiveGroupTitle => widget.groupTitle.isNotEmpty
+      ? widget.groupTitle
+      : (Firebase.apps.isEmpty ? 'حلقة أبي بكر الصديق' : '');
+
+  String get _effectiveStudentId => widget.studentId.isNotEmpty
+      ? widget.studentId
+      : (Firebase.apps.isEmpty ? 'st-1042' : '');
+
+  String get _effectiveStudentName => widget.studentName.isNotEmpty
+      ? widget.studentName
+      : (Firebase.apps.isEmpty ? 'إبراهيم طه عثمان' : '');
 
   // Color tokens
   static const Color _surface = Color(0xFFF7F9FB);
@@ -432,6 +449,22 @@ class _StudentHifzModalState extends ConsumerState<StudentHifzModal> {
     GradingPenaltyConfig penaltyConfig,
   ) async {
     if (_isSaving) return;
+    if (_effectiveStudentId.isEmpty || _effectiveGroupId.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            _tr(
+              langCode,
+              ar: 'بيانات الطالب أو الحلقة غير مكتملة',
+              he: 'פרטי התלמיד או הקבוצה חסרים',
+              en: 'Student or group details are missing',
+            ),
+          ),
+          backgroundColor: _error,
+        ),
+      );
+      return;
+    }
 
     setState(() {
       _isSaving = true;
@@ -446,9 +479,9 @@ class _StudentHifzModalState extends ConsumerState<StudentHifzModal> {
       // Only create or update a pending assignment (without logging a recitation evaluation)
       await ref.read(teacherControllerProvider.notifier).saveHifzAssignment(
             existingAssignmentId: widget.existingAssignmentId,
-            studentId: widget.studentId,
-            studentName: widget.studentName,
-            groupId: widget.groupId,
+            studentId: _effectiveStudentId,
+            studentName: _effectiveStudentName,
+            groupId: _effectiveGroupId,
             type: _nextAssignmentType,
             surahId: nextSurah.id,
             surahName: nextSurah.nameAr,
@@ -506,9 +539,9 @@ class _StudentHifzModalState extends ConsumerState<StudentHifzModal> {
 
       await ref.read(teacherControllerProvider.notifier).saveHifzAssignment(
             existingAssignmentId: widget.existingAssignmentId,
-            studentId: widget.studentId,
-            studentName: widget.studentName,
-            groupId: widget.groupId,
+            studentId: _effectiveStudentId,
+            studentName: _effectiveStudentName,
+            groupId: _effectiveGroupId,
             type: isJuzRevision
                 ? AssignmentType.revision
                 : AssignmentType.newHifz,
@@ -553,13 +586,13 @@ class _StudentHifzModalState extends ConsumerState<StudentHifzModal> {
           _assignOnlyMode
               ? _tr(
                   langCode,
-                  ar: 'تم حفظ واجب الطالب (${widget.studentName}) بنجاح!',
+                  ar: 'تم حفظ واجب الطالب ($_effectiveStudentName) بنجاح!',
                   he: 'מטלת התלמיד נשמרה בהצלחה!',
                   en: 'Student assignment saved successfully!',
                 )
               : _tr(
                   langCode,
-                  ar: 'تم حفظ جلسة التسميع وتحديث تقدم (${widget.studentName}) وجدولة الواجب القادم!',
+                  ar: 'تم حفظ جلسة التسميع وتحديث تقدم ($_effectiveStudentName) وجدولة الواجب القادم!',
                   he: 'מפגש השינון נשמר והמטלה הבאה נקבעה בהצלחה!',
                   en: 'Recitation saved, progress updated & next assignment scheduled!',
                 ),
@@ -654,9 +687,9 @@ class _StudentHifzModalState extends ConsumerState<StudentHifzModal> {
                                     color: _onSurfaceVariant,
                                   ),
                               children: [
-                                TextSpan(text: '${widget.studentName} • '),
+                                TextSpan(text: '$_effectiveStudentName • '),
                                 TextSpan(
-                                  text: widget.groupTitle,
+                                  text: _effectiveGroupTitle,
                                   style: const TextStyle(
                                     color: _primary,
                                     fontWeight: FontWeight.w600,

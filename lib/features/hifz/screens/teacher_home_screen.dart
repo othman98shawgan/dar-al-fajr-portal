@@ -146,6 +146,27 @@ class _TeacherHomeScreenState extends ConsumerState<TeacherHomeScreen> {
     ),
   ];
 
+  String _formatCurrentDate(DateTime date, String langCode) {
+    const arDays = ['الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت', 'الأحد'];
+    const heDays = ['יום שני', 'יום שלישי', 'יום רביעי', 'יום חמישי', 'יום שישי', 'שבת', 'יום ראשון'];
+    const enDays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+    const arMonths = ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'];
+    const heMonths = ['בינואר', 'בפברואר', 'במרץ', 'באפריל', 'במאי', 'ביוני', 'ביולי', 'באוגוסט', 'בספטמבר', 'באוקטובר', 'בנובמבר', 'בדצמבר'];
+    const enMonths = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+    final weekdayIdx = date.weekday - 1;
+    final monthIdx = date.month - 1;
+    switch (langCode) {
+      case 'he':
+        return '${heDays[weekdayIdx]}, ${date.day} ${heMonths[monthIdx]} ${date.year}';
+      case 'en':
+        return '${enDays[weekdayIdx]}, ${enMonths[monthIdx]} ${date.day}, ${date.year}';
+      case 'ar':
+      default:
+        return '${arDays[weekdayIdx]}، ${date.day} ${arMonths[monthIdx]} ${date.year}';
+    }
+  }
+
   String _formatNum(int number, String langCode) {
     if (langCode != 'ar') return '$number';
     const arabicDigits = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
@@ -369,14 +390,16 @@ class _TeacherHomeScreenState extends ConsumerState<TeacherHomeScreen> {
     final appUser = ref.watch(currentAppUserProvider).asData?.value;
     final teacherGroups = ref.watch(teacherGroupsProvider).asData?.value ?? const [];
 
+    final isLiveFirebase = Firebase.apps.isNotEmpty;
     final rawName = appUser?.fullName.trim() ?? '';
     final displayTeacherName = rawName.isNotEmpty
         ? rawName
-        : _tr(langCode, ar: 'أستاذ طارق', he: 'אוסתאז טארק', en: 'Ustadh Tariq');
+        : (isLiveFirebase
+            ? (appUser?.email ?? '')
+            : _tr(langCode, ar: 'أستاذ طارق', he: 'אוסתאז טארק', en: 'Ustadh Tariq'));
 
-    final activeGroupsCount = teacherGroups.isNotEmpty ? teacherGroups.length : 4;
-
-    final isLiveFirebase = Firebase.apps.isNotEmpty;
+    final activeGroupsCount =
+        teacherGroups.isNotEmpty ? teacherGroups.length : (isLiveFirebase ? 0 : 4);
     final allEnrollments = ref.watch(allEnrollmentsStreamProvider).asData?.value ?? const [];
     final teacherGroupIds = teacherGroups.map((g) => g.id).toSet();
     final teacherEnrollments = allEnrollments
@@ -527,9 +550,9 @@ class _TeacherHomeScreenState extends ConsumerState<TeacherHomeScreen> {
                                               content: Text(
                                                 _tr(
                                                   langCode,
-                                                  ar: 'لديك ٤ جلسات تسميع فردية مجدولة اليوم',
-                                                  he: 'יש לך 4 מפגשים פרטניים מתוכננים להיום',
-                                                  en: 'You have 4 individual 1-on-1 slots scheduled today',
+                                                  ar: 'لديك ${_formatNum(activeSlots.length, langCode)} جلسات تسميع فردية مجدولة اليوم',
+                                                  he: 'יש לך ${activeSlots.length} מפגשים פרטניים מתוכננים להיום',
+                                                  en: 'You have ${activeSlots.length} individual 1-on-1 slots scheduled today',
                                                 ),
                                               ),
                                               backgroundColor: _primary,
@@ -775,12 +798,14 @@ class _TeacherHomeScreenState extends ConsumerState<TeacherHomeScreen> {
                           ),
                           const SizedBox(height: 2),
                           Text(
-                            _tr(
-                              langCode,
-                              ar: 'الأحد، ١٨ ربيع الأول ١٤٤٦ هـ • ٢٠ أكتوبر',
-                              he: 'יום ראשון, 18 ברביע אל-אוול 1446 • 20 באוקטובר',
-                              en: 'Sunday, 18 Rabi al-Awwal 1446 • Oct 20',
-                            ),
+                            Firebase.apps.isEmpty
+                                ? _tr(
+                                    langCode,
+                                    ar: 'الأحد، ١٨ ربيع الأول ١٤٤٦ هـ • ٢٠ أكتوبر',
+                                    he: 'יום ראשון, 18 ברביע אל-אוול 1446 • 20 באוקטובר',
+                                    en: 'Sunday, 18 Rabi al-Awwal 1446 • Oct 20',
+                                  )
+                                : _formatCurrentDate(DateTime.now(), langCode),
                             style: Theme.of(context).textTheme.labelSmall?.copyWith(
                               color: _onSurfaceVariant,
                               fontSize: 11,
@@ -794,28 +819,30 @@ class _TeacherHomeScreenState extends ConsumerState<TeacherHomeScreen> {
                   ],
                 ),
               ),
-              const SizedBox(width: 8),
+              if (Firebase.apps.isEmpty) ...[
+                const SizedBox(width: 8),
 
-              // Streak Badge
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(color: _secondaryFixed, borderRadius: BorderRadius.circular(999)),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.local_fire_department_rounded, size: 16, color: _onSecondaryFixed),
-                    const SizedBox(width: 4),
-                    Text(
-                      _tr(langCode, ar: '١٤ يوماً التزام', he: '14 ימי התמדה', en: '14d Streak'),
-                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                        color: _onSecondaryFixed,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
+                // Streak Badge
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(color: _secondaryFixed, borderRadius: BorderRadius.circular(999)),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.local_fire_department_rounded, size: 16, color: _onSecondaryFixed),
+                      const SizedBox(width: 4),
+                      Text(
+                        _tr(langCode, ar: '١٤ يوماً التزام', he: '14 ימי התמדה', en: '14d Streak'),
+                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                          color: _onSecondaryFixed,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
+              ],
             ],
           ),
           const SizedBox(height: 16),
@@ -841,7 +868,9 @@ class _TeacherHomeScreenState extends ConsumerState<TeacherHomeScreen> {
               const SizedBox(width: 8),
               Expanded(
                 child: _VitalStatBox(
-                  value: langCode == 'ar' ? '٩٦٪' : '96%',
+                  value: Firebase.apps.isEmpty
+                      ? (langCode == 'ar' ? '٩٦٪' : '96%')
+                      : '—',
                   label: _tr(langCode, ar: 'نسبة الإتقان', he: 'אחוז שליטה', en: 'Mastery Rate'),
                   valueColor: _secondary,
                 ),
