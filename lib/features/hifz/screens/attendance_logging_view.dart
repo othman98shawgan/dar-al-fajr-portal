@@ -1,5 +1,6 @@
 import 'dart:ui';
 
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -13,20 +14,12 @@ class _StudentAttendanceRowItem {
   final String studentId;
   final String fullName;
   final String initial;
-  final String subtitle;
-  final String? lateExcuseSubtitle;
-  final String? absentExcuseSubtitle;
-  final bool isStarred;
   final AttendanceStatus defaultStatus;
 
   const _StudentAttendanceRowItem({
     required this.studentId,
     required this.fullName,
     required this.initial,
-    required this.subtitle,
-    this.lateExcuseSubtitle,
-    this.absentExcuseSubtitle,
-    this.isStarred = false,
     this.defaultStatus = AttendanceStatus.present,
   });
 }
@@ -46,7 +39,6 @@ class AttendanceLoggingView extends ConsumerStatefulWidget {
 
 class _AttendanceLoggingViewState extends ConsumerState<AttendanceLoggingView> {
   DateTime _selectedDate = DateTime(2026, 10, 18);
-  SessionMode _sessionMode = SessionMode.group;
   bool _isSaving = false;
   bool _showSuccessBanner = false;
 
@@ -56,7 +48,6 @@ class _AttendanceLoggingViewState extends ConsumerState<AttendanceLoggingView> {
   static const Color _surface = Color(0xFFF7F9FB);
   static const Color _surfaceContainerLowest = Color(0xFFFFFFFF);
   static const Color _surfaceContainerLow = Color(0xFFF2F4F6);
-  static const Color _surfaceContainer = Color(0xFFECEEF0);
   static const Color _surfaceContainerHigh = Color(0xFFE6E8EA);
   static const Color _onSurface = Color(0xFF191C1E);
   static const Color _onSurfaceVariant = Color(0xFF3D4947);
@@ -75,59 +66,48 @@ class _AttendanceLoggingViewState extends ConsumerState<AttendanceLoggingView> {
       studentId: 'st-1042',
       fullName: 'إبراهيم طه عثمان',
       initial: 'إ',
-      subtitle: 'سورة البقرة • الحزب الأول',
-      isStarred: true,
       defaultStatus: AttendanceStatus.present,
     ),
     _StudentAttendanceRowItem(
       studentId: 'st-1088',
       fullName: 'عبد الرحمن يوسف الشريف',
       initial: 'ع',
-      subtitle: 'سورة آل عمران • الحزب الثاني',
       defaultStatus: AttendanceStatus.present,
     ),
     _StudentAttendanceRowItem(
       studentId: 'st-1102',
       fullName: 'زياد المنصور',
       initial: 'ز',
-      subtitle: 'سورة النحل • الحزب السابع والعشرون',
-      lateExcuseSubtitle: 'تأخر ١٥ دقيقة (ازدحام سير)',
       defaultStatus: AttendanceStatus.late,
     ),
     _StudentAttendanceRowItem(
       studentId: 'st-1115',
       fullName: 'حمزة كمال الدين',
       initial: 'ح',
-      subtitle: 'سورة الكهف • الحزب الثلاثون',
-      absentExcuseSubtitle: 'غائب بعذر مسبق (طبي)',
       defaultStatus: AttendanceStatus.excused,
     ),
     _StudentAttendanceRowItem(
       studentId: 'st-1120',
       fullName: 'عمر فاروق البغدادي',
       initial: 'ع',
-      subtitle: 'سورة المائدة • الحزب الرابع',
       defaultStatus: AttendanceStatus.present,
     ),
     _StudentAttendanceRowItem(
       studentId: 'st-1125',
       fullName: 'محمد أنس رضوان',
       initial: 'م',
-      subtitle: 'سورة الأعراف • الحزب السادس',
       defaultStatus: AttendanceStatus.present,
     ),
     _StudentAttendanceRowItem(
       studentId: 'st-1130',
       fullName: 'خالد بن وليد التميمي',
       initial: 'خ',
-      subtitle: 'سورة الأنفال • مراجعة',
       defaultStatus: AttendanceStatus.present,
     ),
     _StudentAttendanceRowItem(
       studentId: 'st-1135',
       fullName: 'بلال سعد السبيعي',
       initial: 'ب',
-      subtitle: 'سورة التوبة • الحزب التاسع',
       defaultStatus: AttendanceStatus.present,
     ),
   ];
@@ -135,8 +115,10 @@ class _AttendanceLoggingViewState extends ConsumerState<AttendanceLoggingView> {
   @override
   void initState() {
     super.initState();
-    for (final s in _seedStudents) {
-      _studentStatuses[s.studentId] = s.defaultStatus;
+    if (Firebase.apps.isEmpty) {
+      for (final s in _seedStudents) {
+        _studentStatuses[s.studentId] = s.defaultStatus;
+      }
     }
   }
 
@@ -233,7 +215,7 @@ class _AttendanceLoggingViewState extends ConsumerState<AttendanceLoggingView> {
           groupId: effectiveGroupId,
           studentStatuses: statusesToSave,
           studentNames: namesToSave,
-          sessionMode: _sessionMode,
+          sessionMode: SessionMode.group,
           sessionDate: _selectedDate,
         );
 
@@ -309,25 +291,46 @@ class _AttendanceLoggingViewState extends ConsumerState<AttendanceLoggingView> {
             ?.value ??
         const [];
 
-    final students = <_StudentAttendanceRowItem>[..._seedStudents];
-    for (final enrollment in enrollments) {
-      final exists =
-          students.any((s) => s.studentId == enrollment.studentId);
-      if (!exists && enrollment.studentName.trim().isNotEmpty) {
-        final trimmed = enrollment.studentName.trim();
-        students.add(
-          _StudentAttendanceRowItem(
-            studentId: enrollment.studentId,
-            fullName: trimmed,
-            initial: trimmed.characters.first,
-            subtitle: enrollment.track.localizedName(langCode),
-            defaultStatus: AttendanceStatus.present,
-          ),
-        );
-        _studentStatuses.putIfAbsent(
-          enrollment.studentId,
-          () => AttendanceStatus.present,
-        );
+    final isLiveFirebase = Firebase.apps.isNotEmpty;
+    final students = <_StudentAttendanceRowItem>[];
+    if (isLiveFirebase) {
+      for (final enrollment in enrollments) {
+        if (enrollment.studentName.trim().isNotEmpty) {
+          final trimmed = enrollment.studentName.trim();
+          students.add(
+            _StudentAttendanceRowItem(
+              studentId: enrollment.studentId,
+              fullName: trimmed,
+              initial: trimmed.characters.first,
+              defaultStatus: AttendanceStatus.present,
+            ),
+          );
+          _studentStatuses.putIfAbsent(
+            enrollment.studentId,
+            () => AttendanceStatus.present,
+          );
+        }
+      }
+    } else {
+      students.addAll(_seedStudents);
+      for (final enrollment in enrollments) {
+        final exists =
+            students.any((s) => s.studentId == enrollment.studentId);
+        if (!exists && enrollment.studentName.trim().isNotEmpty) {
+          final trimmed = enrollment.studentName.trim();
+          students.add(
+            _StudentAttendanceRowItem(
+              studentId: enrollment.studentId,
+              fullName: trimmed,
+              initial: trimmed.characters.first,
+              defaultStatus: AttendanceStatus.present,
+            ),
+          );
+          _studentStatuses.putIfAbsent(
+            enrollment.studentId,
+            () => AttendanceStatus.present,
+          );
+        }
       }
     }
 
@@ -379,14 +382,8 @@ class _AttendanceLoggingViewState extends ConsumerState<AttendanceLoggingView> {
                         langCode: langCode,
                         groupTitle: groupTitle,
                       ),
-                      const SizedBox(height: 8),
-                      _buildSegmentedTabs(
-                        context: context,
-                        langCode: langCode,
-                        effectiveGroupId: effectiveGroupId,
-                      ),
                       const SizedBox(height: 16),
-                      _buildFilterAndModeRow(
+                      _buildDateSelectorRow(
                         context: context,
                         langCode: langCode,
                       ),
@@ -424,19 +421,52 @@ class _AttendanceLoggingViewState extends ConsumerState<AttendanceLoggingView> {
                         ),
                       ),
                       const SizedBox(height: 8),
-                      ...students.map(
-                        (student) => Padding(
-                          padding: const EdgeInsets.only(bottom: 10),
-                          child: _buildStudentAttendanceCard(
-                            context: context,
-                            langCode: langCode,
-                            student: student,
-                            currentStatus:
-                                _studentStatuses[student.studentId] ??
-                                    student.defaultStatus,
+                      if (students.isEmpty)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 36),
+                          child: Center(
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.people_outline_rounded,
+                                  size: 48,
+                                  color: _onSurfaceVariant.withValues(alpha: 0.5),
+                                ),
+                                const SizedBox(height: 12),
+                                Text(
+                                  _tr(
+                                    langCode,
+                                    ar: 'لا يوجد طلاب مسجلون في هذه الحلقة حالياً',
+                                    he: 'אין תלמידים רשומים לקבוצה זו כעת',
+                                    en: 'No students enrolled in this group yet',
+                                  ),
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .bodyMedium
+                                      ?.copyWith(
+                                        color: _onSurfaceVariant,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        )
+                      else
+                        ...students.map(
+                          (student) => Padding(
+                            padding: const EdgeInsets.only(bottom: 10),
+                            child: _buildStudentAttendanceCard(
+                              context: context,
+                              langCode: langCode,
+                              student: student,
+                              currentStatus:
+                                  _studentStatuses[student.studentId] ??
+                                      student.defaultStatus,
+                            ),
                           ),
                         ),
-                      ),
                     ],
                   ),
                 ),
@@ -701,102 +731,11 @@ class _AttendanceLoggingViewState extends ConsumerState<AttendanceLoggingView> {
     );
   }
 
-  Widget _buildSegmentedTabs({
-    required BuildContext context,
-    required String langCode,
-    required String effectiveGroupId,
-  }) {
-    return Container(
-      padding: const EdgeInsets.all(4),
-      decoration: BoxDecoration(
-        color: _surfaceContainer,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Container(
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              decoration: BoxDecoration(
-                color: _surfaceContainerLowest,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(
-                    Icons.how_to_reg_rounded,
-                    size: 18,
-                    color: _primary,
-                  ),
-                  const SizedBox(width: 6),
-                  Text(
-                    _tr(
-                      langCode,
-                      ar: 'الحضور',
-                      he: 'נוכחות',
-                      en: 'Attendance',
-                    ),
-                    style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                          color: _primary,
-                          fontWeight: FontWeight.w600,
-                        ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          Expanded(
-            child: InkWell(
-              onTap: () {
-                if (context.canPop()) {
-                  context.pop();
-                } else {
-                  context.go(
-                    '${AppRoutes.teacherGroupDetail}/$effectiveGroupId',
-                  );
-                }
-              },
-              borderRadius: BorderRadius.circular(8),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(
-                      Icons.assignment_outlined,
-                      size: 18,
-                      color: _onSurfaceVariant,
-                    ),
-                    const SizedBox(width: 6),
-                    Text(
-                      _tr(
-                        langCode,
-                        ar: 'الواجبات والخطة',
-                        he: 'מטלות ותוכנית',
-                        en: 'Assignments & Plan',
-                      ),
-                      style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                            color: _onSurfaceVariant,
-                            fontWeight: FontWeight.w600,
-                          ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildFilterAndModeRow({
+  Widget _buildDateSelectorRow({
     required BuildContext context,
     required String langCode,
   }) {
     return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         Material(
           color: _surfaceContainerLowest,
@@ -832,69 +771,6 @@ class _AttendanceLoggingViewState extends ConsumerState<AttendanceLoggingView> {
                 ],
               ),
             ),
-          ),
-        ),
-        Container(
-          padding: const EdgeInsets.all(4),
-          decoration: BoxDecoration(
-            color: _surfaceContainerHigh,
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              InkWell(
-                onTap: () => setState(() => _sessionMode = SessionMode.group),
-                borderRadius: BorderRadius.circular(8),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    color: _sessionMode == SessionMode.group
-                        ? _primary
-                        : Colors.transparent,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    _tr(langCode, ar: 'جماعي', he: 'קבוצתי', en: 'Group'),
-                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                          color: _sessionMode == SessionMode.group
-                              ? Colors.white
-                              : _onSurfaceVariant,
-                          fontWeight: FontWeight.w600,
-                        ),
-                  ),
-                ),
-              ),
-              InkWell(
-                onTap: () =>
-                    setState(() => _sessionMode = SessionMode.oneOnOne),
-                borderRadius: BorderRadius.circular(8),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    color: _sessionMode == SessionMode.oneOnOne
-                        ? _primary
-                        : Colors.transparent,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    _tr(langCode, ar: 'فردي', he: 'פרטני', en: '1-on-1'),
-                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                          color: _sessionMode == SessionMode.oneOnOne
-                              ? Colors.white
-                              : _onSurfaceVariant,
-                          fontWeight: FontWeight.w600,
-                        ),
-                  ),
-                ),
-              ),
-            ],
           ),
         ),
       ],
@@ -1070,33 +946,13 @@ class _AttendanceLoggingViewState extends ConsumerState<AttendanceLoggingView> {
                     ),
                     const SizedBox(width: 10),
                     Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            student.fullName,
-                            style: Theme.of(context)
-                                .textTheme
-                                .labelLarge
-                                ?.copyWith(
-                                  color: _onSurface,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            student.subtitle,
-                            style: Theme.of(context)
-                                .textTheme
-                                .labelSmall
-                                ?.copyWith(
-                                  color: _onSurfaceVariant,
-                                  fontSize: 11,
-                                ),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ],
+                      child: Text(
+                        student.fullName,
+                        style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                              color: _onSurface,
+                              fontWeight: FontWeight.w600,
+                            ),
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
                   ],

@@ -70,6 +70,14 @@ final groupEnrollmentsProvider =
   return ref.watch(teacherRepositoryProvider).watchGroupEnrollments(groupId);
 });
 
+/// Streams all enrollments in the center.
+final allEnrollmentsStreamProvider = StreamProvider<List<Enrollment>>((ref) {
+  if (Firebase.apps.isEmpty) {
+    return Stream<List<Enrollment>>.value(const []);
+  }
+  return ref.watch(teacherRepositoryProvider).watchAllEnrollments();
+});
+
 /// Streams a single student's profile.
 final studentProfileByIdProvider =
     StreamProvider.family<StudentProfile?, String>((ref, studentId) {

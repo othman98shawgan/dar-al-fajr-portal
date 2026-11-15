@@ -1,5 +1,6 @@
 import 'dart:ui';
 
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -367,7 +368,10 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
       );
     }).toList();
 
-    final combined = [...mappedFirestore, ..._seedCards];
+    final isLiveFirebase = Firebase.apps.isNotEmpty;
+    final combined = isLiveFirebase
+        ? mappedFirestore
+        : [...mappedFirestore, ..._seedCards];
 
     final filtered = combined.where((card) {
       if (_activeFilter == _AssignmentFilterTab.newHifz &&
@@ -769,19 +773,34 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
 
     final cards = _buildAssignmentCards(firestoreAssignments, langCode);
 
-    final totalCount = firestoreAssignments.length + _seedCards.length;
-    final newHifzCount = firestoreAssignments
+    final isLiveFirebase = Firebase.apps.isNotEmpty;
+    final totalCount = isLiveFirebase
+        ? firestoreAssignments.length
+        : firestoreAssignments.length + _seedCards.length;
+    final newHifzCount = isLiveFirebase
+        ? firestoreAssignments
             .where((a) => a.type == AssignmentType.newHifz)
-            .length +
-        2;
-    final revisionCount = firestoreAssignments
+            .length
+        : firestoreAssignments
+                .where((a) => a.type == AssignmentType.newHifz)
+                .length +
+            2;
+    final revisionCount = isLiveFirebase
+        ? firestoreAssignments
             .where((a) => a.type == AssignmentType.revision)
-            .length +
-        1;
-    final pendingCount = firestoreAssignments
+            .length
+        : firestoreAssignments
+                .where((a) => a.type == AssignmentType.revision)
+                .length +
+            1;
+    final pendingCount = isLiveFirebase
+        ? firestoreAssignments
             .where((a) => a.grade == EvaluationGrade.pending)
-            .length +
-        1;
+            .length
+        : firestoreAssignments
+                .where((a) => a.grade == EvaluationGrade.pending)
+                .length +
+            1;
 
     final topPadding = MediaQuery.paddingOf(context).top + 64 + 8;
     final bottomPadding = MediaQuery.paddingOf(context).bottom + 96;
@@ -852,18 +871,51 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
                           pendingCount: pendingCount,
                         ),
                         const SizedBox(height: 16),
-                        ...cards.map(
-                          (card) => Padding(
-                            padding: const EdgeInsets.only(bottom: 16),
-                            child: _buildStudentAssignmentCard(
-                              context: context,
-                              langCode: langCode,
-                              card: card,
-                              effectiveGroupId: effectiveGroupId,
-                              groupAttendanceLogs: groupAttendanceLogs,
+                        if (cards.isEmpty)
+                          Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 40),
+                            child: Center(
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Icons.assignment_outlined,
+                                    size: 52,
+                                    color: _onSurfaceVariant.withValues(alpha: 0.5),
+                                  ),
+                                  const SizedBox(height: 12),
+                                  Text(
+                                    _tr(
+                                      langCode,
+                                      ar: 'لا توجد تكليفات حفظ أو مراجعة في هذه الحلقة حالياً',
+                                      he: 'אין משימות שינון או חזרה בקבוצה זו כעת',
+                                      en: 'No Hifz or revision assignments found for this group',
+                                    ),
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .bodyMedium
+                                        ?.copyWith(
+                                          color: _onSurfaceVariant,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          )
+                        else
+                          ...cards.map(
+                            (card) => Padding(
+                              padding: const EdgeInsets.only(bottom: 16),
+                              child: _buildStudentAssignmentCard(
+                                context: context,
+                                langCode: langCode,
+                                card: card,
+                                effectiveGroupId: effectiveGroupId,
+                                groupAttendanceLogs: groupAttendanceLogs,
+                              ),
                             ),
                           ),
-                        ),
                       ] else if (effectiveTab ==
                           _GroupModuleTab.studentsRoster) ...[
                         _buildNonHifzStudentsRosterSection(

@@ -69,6 +69,14 @@ class TeacherRepository {
         );
   }
 
+  Stream<List<Enrollment>> watchAllEnrollments() {
+    return _firestore.collection(enrollmentsCollection).snapshots().map(
+          (snapshot) => snapshot.docs
+              .map((doc) => Enrollment.fromFirestore(doc))
+              .toList(),
+        );
+  }
+
   Stream<List<Enrollment>> watchGroupEnrollments(String groupId) {
     return _firestore
         .collection(enrollmentsCollection)
