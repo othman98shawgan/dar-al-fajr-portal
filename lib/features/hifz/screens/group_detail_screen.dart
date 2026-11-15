@@ -406,13 +406,91 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
     context.push('${AppRoutes.teacherAttendance}/$effectiveGroupId');
   }
 
+  List<({String id, String name, String parentName})> _resolveGroupStudents({
+    required String effectiveGroupId,
+    required List<_AssignmentCardItem> cards,
+    List<AttendanceLog> extraLogs = const [],
+    bool watchProviders = true,
+  }) {
+    final isLiveFirebase = Firebase.apps.isNotEmpty;
+    final enrollments = (watchProviders
+                ? ref.watch(groupEnrollmentsProvider(effectiveGroupId))
+                : ref.read(groupEnrollmentsProvider(effectiveGroupId)))
+            .asData
+            ?.value ??
+        const [];
+    final allStudents = (watchProviders
+                ? ref.watch(allStudentsMapProvider)
+                : ref.read(allStudentsMapProvider))
+            .asData
+            ?.value ??
+        const {};
+
+    final result = <({String id, String name, String parentName})>[];
+    final seen = <String>{};
+
+    if (enrollments.isNotEmpty) {
+      for (final e in enrollments) {
+        if (seen.contains(e.studentId)) continue;
+        seen.add(e.studentId);
+        final profile = allStudents[e.studentId];
+        final name = profile?.fullName.isNotEmpty == true
+            ? profile!.fullName
+            : (e.studentName.isNotEmpty ? e.studentName : 'طالب');
+        result.add((
+          id: e.studentId,
+          name: name,
+          parentName: profile?.parentName ?? '',
+        ));
+      }
+      return result;
+    }
+
+    for (final c in cards) {
+      if (!seen.contains(c.studentId)) {
+        seen.add(c.studentId);
+        final profile = allStudents[c.studentId];
+        result.add((
+          id: c.studentId,
+          name: profile?.fullName.isNotEmpty == true
+              ? profile!.fullName
+              : c.studentName,
+          parentName: profile?.parentName ?? '',
+        ));
+      }
+    }
+    for (final l in extraLogs) {
+      if (!seen.contains(l.studentId) && l.studentName.trim().isNotEmpty) {
+        seen.add(l.studentId);
+        final profile = allStudents[l.studentId];
+        result.add((
+          id: l.studentId,
+          name: profile?.fullName.isNotEmpty == true
+              ? profile!.fullName
+              : l.studentName,
+          parentName: profile?.parentName ?? '',
+        ));
+      }
+    }
+
+    if (!isLiveFirebase && !seen.contains('st-1115')) {
+      result.add((
+        id: 'st-1115',
+        name: 'حمزة كمال الدين',
+        parentName: 'كمال الدين',
+      ));
+    }
+    return result;
+  }
+
   Future<void> _showAssignmentEvaluationModal({
     required BuildContext context,
     required String langCode,
     required String effectiveGroupId,
     _AssignmentCardItem? existingCard,
     bool assignOnlyMode = false,
-  }) {
+  }) async {
+    final isLiveFirebase = Firebase.apps.isNotEmpty;
     final teacherGroups =
         ref.read(teacherGroupsProvider).asData?.value ?? const [];
     final matchedGroup = teacherGroups
@@ -420,16 +498,128 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
         .firstOrNull;
     final groupTitle = matchedGroup?.name.isNotEmpty == true
         ? matchedGroup!.name
-        : 'حلقة أبي بكر الصديق';
+        : (isLiveFirebase
+            ? _tr(
+                langCode,
+                ar: 'الحلقة التعليمية',
+                he: 'קבוצת לימוד',
+                en: 'Study Group',
+              )
+            : 'حلقة أبي بكر الصديق');
 
+    String targetStudentId = existingCard?.studentId ?? 'st-1042';
+    String targetStudentName =
+        existingCard?.studentName ?? 'إبراهيم طه عثمان';
+
+    if (existingCard == null && isLiveFirebase) {
+      final groupStudents = _resolveGroupStudents(
+        effectiveGroupId: effectiveGroupId,
+        cards: const [],
+        watchProviders: false,
+      );
+      if (groupStudents.isEmpty) {
+        if (!context.mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              _tr(
+                langCode,
+                ar: 'لا يوجد طلاب مسجلون في هذه الحلقة حالياً',
+                he: 'אין תלמידים רשומים לקבוצה זו כעת',
+                en: 'No students enrolled in this group yet',
+              ),
+            ),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        return;
+      } else if (groupStudents.length == 1) {
+        targetStudentId = groupStudents.first.id;
+        targetStudentName = groupStudents.first.name;
+      } else {
+        if (!context.mounted) return;
+        final picked = await showModalBottomSheet<({String id, String name})>(
+          context: context,
+          backgroundColor: _surfaceContainerLowest,
+          shape: const RoundedRectangleBorder(
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          builder: (sheetCtx) {
+            return SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(
+                      _tr(
+                        langCode,
+                        ar: 'اختر الطالب لإضافة التكليف',
+                        he: 'בחר תלמיד להוספת משימה',
+                        en: 'Select Student for Assignment',
+                      ),
+                      style: Theme.of(sheetCtx).textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: _onSurface,
+                          ),
+                    ),
+                    const SizedBox(height: 12),
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(maxHeight: 360),
+                      child: ListView.separated(
+                        shrinkWrap: true,
+                        itemCount: groupStudents.length,
+                        separatorBuilder: (_, _) => const SizedBox(height: 6),
+                        itemBuilder: (_, idx) {
+                          final st = groupStudents[idx];
+                          return ListTile(
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            tileColor: _surfaceContainerLow,
+                            leading: CircleAvatar(
+                              backgroundColor: _primaryFixed,
+                              child: Text(
+                                st.name.characters.first,
+                                style: const TextStyle(
+                                  color: _onPrimaryFixed,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                            title: Text(
+                              st.name,
+                              style: const TextStyle(fontWeight: FontWeight.w600),
+                            ),
+                            onTap: () => Navigator.of(sheetCtx).pop(
+                              (id: st.id, name: st.name),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+        if (picked == null || !context.mounted) return;
+        targetStudentId = picked.id;
+        targetStudentName = picked.name;
+      }
+    }
+
+    if (!context.mounted) return;
     return StudentHifzModal.show(
       context,
       existingAssignmentId:
           existingCard?.isFromFirestore == true ? existingCard!.id : null,
       groupId: effectiveGroupId,
       groupTitle: groupTitle,
-      studentId: existingCard?.studentId ?? 'st-1042',
-      studentName: existingCard?.studentName ?? 'إبراهيم طه عثمان',
+      studentId: targetStudentId,
+      studentName: targetStudentName,
       currentType: existingCard?.assignmentType ?? AssignmentType.newHifz,
       currentSurahId: existingCard?.surahId ?? 16,
       currentSurahName: existingCard?.surahName ?? 'النحل',
@@ -453,36 +643,57 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
     required String studentName,
     required List<AttendanceLog> groupAttendanceLogs,
   }) {
+    final isLiveFirebase = Firebase.apps.isNotEmpty;
     final studentsMap =
         ref.read(allStudentsMapProvider).asData?.value ?? const {};
     final profile = studentsMap[studentId] ??
-        StudentProfile(
-          id: studentId,
-          fullName: studentName,
-          parentId: 'parent-1',
-          memorizedPages: const [1, 2, 3, 4, 5, 582, 583, 584, 585, 586, 587],
-          completedSurahs: List.generate(37, (i) => 78 + i),
-          completedJuz: const [30, 29],
-          juzStatuses: const {
-            30: 'passed_exam',
-            29: 'ready_for_exam',
-            28: 'in_progress',
-          },
-        );
+        (isLiveFirebase
+            ? StudentProfile(
+                id: studentId,
+                fullName: studentName,
+                parentId: '',
+              )
+            : StudentProfile(
+                id: studentId,
+                fullName: studentName,
+                parentId: 'parent-1',
+                memorizedPages: const [
+                  1,
+                  2,
+                  3,
+                  4,
+                  5,
+                  582,
+                  583,
+                  584,
+                  585,
+                  586,
+                  587,
+                ],
+                completedSurahs: List.generate(37, (i) => 78 + i),
+                completedJuz: const [30, 29],
+                juzStatuses: const {
+                  30: 'passed_exam',
+                  29: 'ready_for_exam',
+                  28: 'in_progress',
+                },
+              ));
 
     final studentLogs = groupAttendanceLogs
         .where((l) => l.studentId == studentId)
         .toList();
-    final totalSessions = studentLogs.isNotEmpty ? studentLogs.length : 12;
-    final attendedSessions = studentLogs.isNotEmpty
+    final totalSessions =
+        studentLogs.isNotEmpty || isLiveFirebase ? studentLogs.length : 12;
+    final attendedSessions = studentLogs.isNotEmpty || isLiveFirebase
         ? studentLogs
             .where((l) =>
                 l.status == AttendanceStatus.present ||
                 l.status == AttendanceStatus.late)
             .length
         : 11;
-    final attendancePercent =
-        totalSessions > 0 ? ((attendedSessions / totalSessions) * 100).round() : 92;
+    final attendancePercent = totalSessions > 0
+        ? ((attendedSessions / totalSessions) * 100).round()
+        : (isLiveFirebase ? 0 : 92);
 
     final centerPagesCount = profile.memorizedCenterPagesCount;
     final totalCenterPages = CenterQuranMap.totalCenterPages; // 657
@@ -742,23 +953,34 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
             ? _GroupModuleTab.studentsRoster
             : _activeModuleTab);
 
+    final isLiveFirebase = Firebase.apps.isNotEmpty;
+
     final groupTitle = matchedGroup?.name.isNotEmpty == true
         ? matchedGroup!.name
-        : _tr(
-            langCode,
-            ar: 'حلقة أبي بكر الصديق',
-            he: 'קבוצת אבו בכר אל-סידיק',
-            en: 'Abu Bakr As-Siddiq Circle',
-          );
+        : (isLiveFirebase
+            ? _tr(
+                langCode,
+                ar: 'الحلقة التعليمية',
+                he: 'קבוצת לימוד',
+                en: 'Study Group',
+              )
+            : _tr(
+                langCode,
+                ar: 'حلقة أبي بكر الصديق',
+                he: 'קבוצת אבו בכר אל-סידיק',
+                en: 'Abu Bakr As-Siddiq Circle',
+              ));
 
     final groupTrackSubtitle = matchedGroup != null
         ? matchedGroup.track.localizedName(langCode)
-        : _tr(
-            langCode,
-            ar: 'مسار الحفظ والتسميع • المستوى المتقدم',
-            he: 'מסלול חיפז ושינון • רמה מתקדמת',
-            en: 'Hifz & Memorization Track',
-          );
+        : (isLiveFirebase
+            ? ''
+            : _tr(
+                langCode,
+                ar: 'مسار الحفظ والتسميع • المستوى المتقدم',
+                he: 'מסלול חיפז ושינון • רמה מתקדמת',
+                en: 'Hifz & Memorization Track',
+              ));
 
     final firestoreAssignments = ref
             .watch(groupAssignmentsProvider(effectiveGroupId))
@@ -773,7 +995,6 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
 
     final cards = _buildAssignmentCards(firestoreAssignments, langCode);
 
-    final isLiveFirebase = Firebase.apps.isNotEmpty;
     final totalCount = isLiveFirebase
         ? firestoreAssignments.length
         : firestoreAssignments.length + _seedCards.length;
@@ -1362,44 +1583,11 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
     required List<_AssignmentCardItem> cards,
     required List<AttendanceLog> groupAttendanceLogs,
   }) {
-    final enrollments = ref
-            .watch(groupEnrollmentsProvider(effectiveGroupId))
-            .asData
-            ?.value ??
-        const [];
-    final allStudents =
-        ref.watch(allStudentsMapProvider).asData?.value ?? const {};
-
-    final studentItems = <({String id, String name, String parentName})>[];
-    if (enrollments.isNotEmpty) {
-      for (final e in enrollments) {
-        final profile = allStudents[e.studentId];
-        final name = profile?.fullName.isNotEmpty == true
-            ? profile!.fullName
-            : (e.studentName.isNotEmpty ? e.studentName : 'طالب');
-        studentItems.add((
-          id: e.studentId,
-          name: name,
-          parentName: profile?.parentName ?? '',
-        ));
-      }
-    } else {
-      // Fallback roster from cards
-      final seen = <String>{};
-      for (final c in cards) {
-        if (!seen.contains(c.studentId)) {
-          seen.add(c.studentId);
-          studentItems.add((id: c.studentId, name: c.studentName, parentName: ''));
-        }
-      }
-      if (!seen.contains('st-1115')) {
-        studentItems.add((
-          id: 'st-1115',
-          name: 'حمزة كمال الدين',
-          parentName: 'كمال الدين',
-        ));
-      }
-    }
+    final isLiveFirebase = Firebase.apps.isNotEmpty;
+    final studentItems = _resolveGroupStudents(
+      effectiveGroupId: effectiveGroupId,
+      cards: cards,
+    );
 
     final filteredStudents = studentItems.where((s) {
       if (_searchQuery.trim().isEmpty) return true;
@@ -1470,9 +1658,27 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
                     l.status == AttendanceStatus.present ||
                     l.status == AttendanceStatus.late)
                 .length;
-            final total = stLogs.isNotEmpty ? stLogs.length : 10;
-            final rate =
-                total > 0 ? (((stLogs.isNotEmpty ? attended : 9) / total) * 100).round() : 90;
+            final total =
+                stLogs.isNotEmpty || isLiveFirebase ? stLogs.length : 10;
+            final rate = total > 0
+                ? (((stLogs.isNotEmpty || isLiveFirebase ? attended : 9) /
+                            total) *
+                        100)
+                    .round()
+                : 0;
+            final attendanceText = total == 0
+                ? _tr(
+                    langCode,
+                    ar: 'لا توجد جلسات حضور مسجلة بعد',
+                    he: 'אין עדיין רישומי נוכחות',
+                    en: 'No attendance sessions logged yet',
+                  )
+                : _tr(
+                    langCode,
+                    ar: 'نسبة الحضور في الحلقة: ${_formatNum(rate, langCode)}%',
+                    he: 'נוכחות בקבוצה: $rate%',
+                    en: 'Group Attendance: $rate%',
+                  );
 
             return Container(
               margin: const EdgeInsets.only(bottom: 12),
@@ -1517,12 +1723,7 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
                         ),
                         const SizedBox(height: 3),
                         Text(
-                          _tr(
-                            langCode,
-                            ar: 'نسبة الحضور في الحلقة: ${_formatNum(rate, langCode)}%',
-                            he: 'נוכחות בקבוצה: $rate%',
-                            en: 'Group Attendance: $rate%',
-                          ),
+                          attendanceText,
                           style: const TextStyle(
                             fontSize: 11.5,
                             color: _onSurfaceVariant,
@@ -1571,40 +1772,73 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
     required String effectiveGroupId,
     required List<_AssignmentCardItem> cards,
   }) {
-    final uniqueStudents = <String, String>{
-      'st-1042': 'إبراهيم طه عثمان',
-      'st-1088': 'عبد الرحمن يوسف الشريف',
-      'st-1102': 'زياد المنصور',
-    };
-    for (final c in cards) {
-      uniqueStudents[c.studentId] = c.studentName;
+    final isLiveFirebase = Firebase.apps.isNotEmpty;
+    final resolvedStudents = _resolveGroupStudents(
+      effectiveGroupId: effectiveGroupId,
+      cards: cards,
+    );
+    final uniqueStudents = <String, String>{};
+    if (!isLiveFirebase) {
+      uniqueStudents['st-1042'] = 'إبراهيم طه عثمان';
+      uniqueStudents['st-1088'] = 'عبد الرحمن يوسف الشريف';
+      uniqueStudents['st-1102'] = 'زياد المنصور';
     }
+    for (final st in resolvedStudents) {
+      uniqueStudents[st.id] = st.name;
+    }
+
+    if (uniqueStudents.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          color: _surfaceContainerLowest,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        alignment: Alignment.center,
+        child: Text(
+          _tr(
+            langCode,
+            ar: 'لا يوجد طلاب مسجلون في هذه الحلقة لإنشاء خطة مراجعة.',
+            he: 'אין תלמידים רשומים בקבוצה זו ליצירת תוכנית חזרה.',
+            en: 'No students enrolled in this group to create a revision plan.',
+          ),
+          style: const TextStyle(color: _onSurfaceVariant),
+        ),
+      );
+    }
+
     if (!uniqueStudents.containsKey(_selectedRevisionStudentId)) {
       _selectedRevisionStudentId = uniqueStudents.keys.first;
     }
     final selectedStudentName =
-        uniqueStudents[_selectedRevisionStudentId] ?? 'إبراهيم طه عثمان';
+        uniqueStudents[_selectedRevisionStudentId] ?? uniqueStudents.values.first;
 
     final studentsMap =
         ref.watch(allStudentsMapProvider).asData?.value ?? const {};
     final studentProfile = studentsMap[_selectedRevisionStudentId] ??
-        StudentProfile(
-          id: _selectedRevisionStudentId,
-          fullName: selectedStudentName,
-          parentId: 'parent-1',
-          completedJuz: const [30, 29, 28, 27],
-          juzStatuses: const {
-            30: 'passed_exam',
-            29: 'passed_exam',
-            28: 'ready_for_exam',
-            27: 'in_progress',
-          },
-          lastRevisedJuzDates: {
-            30: DateTime.now().subtract(const Duration(days: 3)),
-            29: DateTime.now().subtract(const Duration(days: 19)),
-            28: DateTime.now().subtract(const Duration(days: 12)),
-          },
-        );
+        (isLiveFirebase
+            ? StudentProfile(
+                id: _selectedRevisionStudentId,
+                fullName: selectedStudentName,
+                parentId: '',
+              )
+            : StudentProfile(
+                id: _selectedRevisionStudentId,
+                fullName: selectedStudentName,
+                parentId: 'parent-1',
+                completedJuz: const [30, 29, 28, 27],
+                juzStatuses: const {
+                  30: 'passed_exam',
+                  29: 'passed_exam',
+                  28: 'ready_for_exam',
+                  27: 'in_progress',
+                },
+                lastRevisedJuzDates: {
+                  30: DateTime.now().subtract(const Duration(days: 3)),
+                  29: DateTime.now().subtract(const Duration(days: 19)),
+                  28: DateTime.now().subtract(const Duration(days: 12)),
+                },
+              ));
 
     final lruQueue =
         TeacherRepository.computeRevisionPriorityQueueForStudent(studentProfile);
@@ -2225,19 +2459,21 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
         )
         .toList();
 
-    final roster = <String, String>{
-      'st-1042': 'إبراهيم طه عثمان',
-      'st-1088': 'عبد الرحمن يوسف الشريف',
-      'st-1102': 'زياد المنصور',
-      'st-1115': 'حمزة كمال الدين',
-    };
-    for (final c in cards) {
-      roster[c.studentId] = c.studentName;
+    final isLiveFirebase = Firebase.apps.isNotEmpty;
+    final resolvedStudents = _resolveGroupStudents(
+      effectiveGroupId: effectiveGroupId,
+      cards: cards,
+      extraLogs: monthLogs,
+    );
+    final roster = <String, String>{};
+    if (!isLiveFirebase) {
+      roster['st-1042'] = 'إبراهيم طه عثمان';
+      roster['st-1088'] = 'عبد الرحمن يوسف الشريف';
+      roster['st-1102'] = 'زياد المنصور';
+      roster['st-1115'] = 'حمزة كمال الدين';
     }
-    for (final l in monthLogs) {
-      if (l.studentName.trim().isNotEmpty) {
-        roster[l.studentId] = l.studentName;
-      }
+    for (final st in resolvedStudents) {
+      roster[st.id] = st.name;
     }
 
     return Column(
@@ -2298,91 +2534,114 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
         const SizedBox(height: 12),
 
         // Per-Student Monthly Attendance Breakdown
-        ...roster.entries.map((entry) {
-          final stId = entry.key;
-          final stName = entry.value;
-          final stLogs =
-              monthLogs.where((l) => l.studentId == stId).toList();
-
-          final present = stLogs.isNotEmpty
-              ? stLogs
-                  .where((l) => l.status == AttendanceStatus.present)
-                  .length
-              : (stId == 'st-1115' ? 6 : 8);
-          final lateCount = stLogs.isNotEmpty
-              ? stLogs.where((l) => l.status == AttendanceStatus.late).length
-              : (stId == 'st-1102' ? 1 : 0);
-          final absent = stLogs.isNotEmpty
-              ? stLogs
-                  .where((l) =>
-                      l.status == AttendanceStatus.absent ||
-                      l.status == AttendanceStatus.excused)
-                  .length
-              : (stId == 'st-1115' ? 2 : 0);
-          final total = (present + lateCount + absent).clamp(1, 999);
-          final rate = (((present + lateCount) / total) * 100).round();
-
-          return Container(
-            margin: const EdgeInsets.only(bottom: 10),
-            padding: const EdgeInsets.all(14),
+        if (roster.isEmpty)
+          Container(
+            padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
               color: _surfaceContainerLowest,
               borderRadius: BorderRadius.circular(12),
             ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        stName,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 14,
+            alignment: Alignment.center,
+            child: Text(
+              _tr(
+                langCode,
+                ar: 'لا يوجد طلاب مسجلون في هذه الحلقة حالياً.',
+                he: 'אין תלמידים רשומים בקבוצה זו כעת.',
+                en: 'No students enrolled in this group yet.',
+              ),
+              style: const TextStyle(color: _onSurfaceVariant),
+            ),
+          )
+        else
+          ...roster.entries.map((entry) {
+            final stId = entry.key;
+            final stName = entry.value;
+            final stLogs =
+                monthLogs.where((l) => l.studentId == stId).toList();
+
+            final present = stLogs.isNotEmpty || isLiveFirebase
+                ? stLogs
+                    .where((l) => l.status == AttendanceStatus.present)
+                    .length
+                : (stId == 'st-1115' ? 6 : 8);
+            final lateCount = stLogs.isNotEmpty || isLiveFirebase
+                ? stLogs.where((l) => l.status == AttendanceStatus.late).length
+                : (stId == 'st-1102' ? 1 : 0);
+            final absent = stLogs.isNotEmpty || isLiveFirebase
+                ? stLogs
+                    .where((l) =>
+                        l.status == AttendanceStatus.absent ||
+                        l.status == AttendanceStatus.excused)
+                    .length
+                : (stId == 'st-1115' ? 2 : 0);
+            final total = present + lateCount + absent;
+            final rate =
+                total > 0 ? (((present + lateCount) / total) * 100).round() : 0;
+
+            return Container(
+              margin: const EdgeInsets.only(bottom: 10),
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: _surfaceContainerLowest,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          stName,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        _tr(
-                          langCode,
-                          ar: 'حاضر: ${_formatNum(present, langCode)} • متأخر: ${_formatNum(lateCount, langCode)} • غائب/معذور: ${_formatNum(absent, langCode)}',
-                          he: 'נוכח: $present • איחור: $lateCount • חיסור: $absent',
-                          en: 'Present: $present • Late: $lateCount • Absent: $absent',
+                        const SizedBox(height: 4),
+                        Text(
+                          _tr(
+                            langCode,
+                            ar: 'حاضر: ${_formatNum(present, langCode)} • متأخر: ${_formatNum(lateCount, langCode)} • غائب/معذور: ${_formatNum(absent, langCode)}',
+                            he: 'נוכח: $present • איחור: $lateCount • חיסור: $absent',
+                            en: 'Present: $present • Late: $lateCount • Absent: $absent',
+                          ),
+                          style: const TextStyle(
+                            fontSize: 11.5,
+                            color: _onSurfaceVariant,
+                          ),
                         ),
-                        style: const TextStyle(
-                          fontSize: 11.5,
-                          color: _onSurfaceVariant,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    color: rate >= 85
-                        ? _primaryFixed
-                        : _secondaryFixed,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    '${_formatNum(rate, langCode)}%',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color:
-                          rate >= 85 ? _onPrimaryFixed : _onSecondaryFixed,
+                      ],
                     ),
                   ),
-                ),
-              ],
-            ),
-          );
-        }),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: total == 0
+                          ? _surfaceContainerHigh
+                          : (rate >= 85 ? _primaryFixed : _secondaryFixed),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      total == 0 ? '—' : '${_formatNum(rate, langCode)}%',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: total == 0
+                            ? _onSurfaceVariant
+                            : (rate >= 85
+                                ? _onPrimaryFixed
+                                : _onSecondaryFixed),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }),
       ],
     );
   }
