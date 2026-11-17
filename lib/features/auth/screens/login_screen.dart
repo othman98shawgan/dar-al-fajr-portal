@@ -12,6 +12,7 @@ import '../../../core/services/dev_seed_service.dart';
 import '../../../core/services/locale_provider.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../l10n/app_localizations.dart';
+import '../../../l10n/app_localizations_tr.dart';
 import '../providers/auth_providers.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
@@ -53,7 +54,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
     if (!success) {
       final error = ref.read(authControllerProvider).error;
-      String message = _tr(
+      String message = trByLang(
         ref.read(localeProvider).languageCode,
         ar: 'تعذّر تسجيل الدخول. يرجى التحقق من البريد الإلكتروني وكلمة المرور.',
         he: 'ההתחברות נכשלה. אנא בדוק את האימייל והסיסמה.',
@@ -75,6 +76,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   }
 
   Future<void> _handleDevSeed(String langCode) async {
+    if (!kDebugMode) return;
     setState(() => _isSeeding = true);
     try {
       await DevSeedService.seedAllDemoData(
@@ -86,7 +88,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            _tr(
+            trByLang(
               langCode,
               ar: 'تمت تهيئة البيانات بنجاح! تم تعبئة حساب المدير.',
               he: 'נתוני הדמו נוצרו בהצלחה! מולאו פרטי מנהל.',
@@ -116,7 +118,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: Text(
-          _tr(
+          trByLang(
             langCode,
             ar: 'المساعدة والدعم',
             he: 'תמיכה ועזרה',
@@ -124,7 +126,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           ),
         ),
         content: Text(
-          _tr(
+          trByLang(
             langCode,
             ar: 'للحصول على بيانات حسابك أو إعادة تعيين كلمة المرور، يرجى التواصل مع إدارة مركز دار الفجر.',
             he: 'לקבלת פרטי חשבון או איפוס סיסמה, אנא פנו להנהלת מרכז דאר אל-פג׳ר.',
@@ -135,7 +137,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
             child: Text(
-              _tr(langCode, ar: 'حسناً', he: 'אישור', en: 'OK'),
+              trByLang(langCode, ar: 'حسناً', he: 'אישור', en: 'OK'),
             ),
           ),
         ],
@@ -144,6 +146,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   }
 
   void _showDevOptionsSheet(String langCode) {
+    if (!kDebugMode) return;
     showModalBottomSheet<void>(
       context: context,
       backgroundColor: Colors.white,
@@ -175,7 +178,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       const Icon(Icons.code_rounded, color: DarAlFajrTheme.accent),
                       const SizedBox(width: 8),
                       Text(
-                        _tr(
+                        trByLang(
                           langCode,
                           ar: 'خيارات المطور (Dev Options)',
                           he: 'אפשרויות מפתח',
@@ -189,44 +192,45 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     ],
                   ),
                   const SizedBox(height: 14),
-                  ElevatedButton.icon(
-                    onPressed: _isSeeding
-                        ? null
-                        : () async {
-                            Navigator.of(ctx).pop();
-                            await _handleDevSeed(langCode);
-                          },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: DarAlFajrTheme.accent,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
+                  if (kDebugMode)
+                    ElevatedButton.icon(
+                      onPressed: _isSeeding
+                          ? null
+                          : () async {
+                              Navigator.of(ctx).pop();
+                              await _handleDevSeed(langCode);
+                            },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: DarAlFajrTheme.accent,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                      icon: _isSeeding
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                          : const Icon(Icons.cloud_upload_rounded, size: 20),
+                      label: Text(
+                        trByLang(
+                          langCode,
+                          ar: 'تهيئة الحسابات التجريبية (1-Click Seed)',
+                          he: 'אתחול נתוני דמו (1-Click Seed)',
+                          en: 'Seed Demo Accounts (1-Click)',
+                        ),
+                        style: const TextStyle(fontWeight: FontWeight.bold),
                       ),
                     ),
-                    icon: _isSeeding
-                        ? const SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Colors.white,
-                            ),
-                          )
-                        : const Icon(Icons.cloud_upload_rounded, size: 20),
-                    label: Text(
-                      _tr(
-                        langCode,
-                        ar: 'تهيئة الحسابات التجريبية (1-Click Seed)',
-                        he: 'אתחול נתוני דמו (1-Click Seed)',
-                        en: 'Seed Demo Accounts (1-Click)',
-                      ),
-                      style: const TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                  ),
                   const SizedBox(height: 14),
                   Text(
-                    _tr(
+                    trByLang(
                       langCode,
                       ar: 'تعبئة سريعة للحسابات:',
                       he: 'מילוי מהיר של חשבונות:',
@@ -287,7 +291,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         contentPadding: EdgeInsets.zero,
                         secondary: const Icon(Icons.screen_lock_portrait_rounded, size: 22, color: DarAlFajrTheme.accent),
                         title: Text(
-                          _tr(
+                          trByLang(
                             langCode,
                             ar: 'إبقاء الشاشة مضاءة (Wakelock)',
                             he: 'השאר מסך דולק (Wakelock)',
@@ -296,7 +300,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600),
                         ),
                         subtitle: Text(
-                          _tr(
+                          trByLang(
                             langCode,
                             ar: 'منع قفل الشاشة أثناء الاختبار',
                             he: 'מניעת נעילת המסך במהלך בדיקות',
@@ -320,7 +324,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   const Divider(),
                   const SizedBox(height: 10),
                   Text(
-                    _tr(
+                    trByLang(
                       langCode,
                       ar: 'معاينة الشاشات (Dev Flows):',
                       he: 'תצוגה מקדימה של מסכים:',
@@ -340,7 +344,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     },
                     icon: const Icon(Icons.password_rounded, size: 18),
                     label: Text(
-                      _tr(
+                      trByLang(
                         langCode,
                         ar: 'شاشة إعداد الدخول الأول (First Login Setup)',
                         he: 'מסך הגדרת כניסה ראשונה',
@@ -369,23 +373,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         );
       },
     );
-  }
-
-  String _tr(
-    String langCode, {
-    required String ar,
-    required String he,
-    required String en,
-  }) {
-    switch (langCode) {
-      case 'he':
-        return he;
-      case 'en':
-        return en;
-      case 'ar':
-      default:
-        return ar;
-    }
   }
 
   @override
@@ -625,7 +612,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                           ),
                                           const SizedBox(height: 4),
                                           Text(
-                                            _tr(
+                                            trByLang(
                                               langCode,
                                               ar: 'تسجيل الدخول للمتابعة',
                                               he: 'התחבר כדי להמשיך',
@@ -648,7 +635,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                               children: [
                                                 // Email Field
                                                 Text(
-                                                  _tr(
+                                                  trByLang(
                                                     langCode,
                                                     ar: 'البريد الإلكتروني',
                                                     he: 'אימייל',
@@ -694,7 +681,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                                   ),
                                                   validator: (value) {
                                                     if (value == null || value.trim().isEmpty) {
-                                                      return _tr(
+                                                      return trByLang(
                                                         langCode,
                                                         ar: 'يرجى إدخال البريد الإلكتروني',
                                                         he: 'נא להזין אימייל',
@@ -710,7 +697,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                                 // Password Field
                                                 Text(
                                                   l10n?.password ??
-                                                      _tr(
+                                                      trByLang(
                                                         langCode,
                                                         ar: 'كلمة المرور',
                                                         he: 'סיסמה',
@@ -771,7 +758,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                                   ),
                                                   validator: (value) {
                                                     if (value == null || value.isEmpty) {
-                                                      return _tr(
+                                                      return trByLang(
                                                         langCode,
                                                         ar: 'يرجى إدخال كلمة المرور',
                                                         he: 'נא להזין סיסמה',
@@ -785,8 +772,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                                 const SizedBox(height: 10),
 
                                                 // Remember Me & Forgot Password Row
-                                                Row(
-                                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                                Wrap(
+                                                  alignment: WrapAlignment.spaceBetween,
+                                                  crossAxisAlignment: WrapCrossAlignment.center,
+                                                  spacing: 8,
+                                                  runSpacing: 6,
                                                   children: [
                                                     InkWell(
                                                       borderRadius: BorderRadius.circular(6),
@@ -816,7 +806,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                                           ),
                                                           const SizedBox(width: 8),
                                                           Text(
-                                                            _tr(
+                                                            trByLang(
                                                               langCode,
                                                               ar: 'تذكرني',
                                                               he: 'זכור אותי',
@@ -838,7 +828,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                                         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                                                       ),
                                                       child: Text(
-                                                        _tr(
+                                                        trByLang(
                                                           langCode,
                                                           ar: 'نسيت كلمة المرور؟',
                                                           he: 'שכחת סיסמה?',
@@ -880,7 +870,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                                           )
                                                         : Text(
                                                             l10n?.login ??
-                                                                _tr(
+                                                                trByLang(
                                                                   langCode,
                                                                   ar: 'تسجيل الدخول',
                                                                   he: 'התחברות',
@@ -906,11 +896,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                               const SizedBox(height: 20),
 
                               // Simple Clean Support Footer
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
+                              Wrap(
+                                alignment: WrapAlignment.center,
+                                crossAxisAlignment: WrapCrossAlignment.center,
+                                spacing: 4,
+                                runSpacing: 4,
                                 children: [
                                   Text(
-                                    _tr(
+                                    trByLang(
                                       langCode,
                                       ar: 'تواجه صعوبة في الدخول؟',
                                       he: 'מתקשה להתחבר?',
@@ -921,11 +914,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                       color: Color(0xFF6D7A77),
                                     ),
                                   ),
-                                  const SizedBox(width: 4),
                                   GestureDetector(
                                     onTap: () => _showSupportDialog(langCode),
                                     child: Text(
-                                      _tr(
+                                      trByLang(
                                         langCode,
                                         ar: 'تواصل مع الإدارة',
                                         he: 'פנה להנהלה',
