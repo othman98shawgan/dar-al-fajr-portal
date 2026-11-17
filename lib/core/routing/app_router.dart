@@ -14,6 +14,7 @@ import '../../features/auth/screens/login_screen.dart';
 import '../../features/hifz/screens/attendance_logging_view.dart';
 import '../../features/hifz/screens/group_detail_screen.dart';
 import '../../features/hifz/screens/teacher_home_screen.dart';
+import '../../features/hifz/screens/teacher_student_profile_screen.dart';
 import '../../features/home/home_screen.dart';
 import '../../features/parent_student/screens/parent_student_home_screen.dart';
 
@@ -26,6 +27,7 @@ class AppRoutes {
   static const String admin = '/admin';
   static const String teacher = '/teacher';
   static const String teacherGroupDetail = '/teacher/group';
+  static const String teacherStudentProfile = '/teacher/student';
   static const String teacherAttendance = '/teacher/attendance';
   static const String parentStudent = '/parent-student';
   static const String account = '/account';
@@ -162,6 +164,17 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (BuildContext context, GoRouterState state) {
           final groupId = state.pathParameters['groupId'] ?? '';
           return GroupDetailScreen(groupId: groupId);
+        },
+      ),
+      GoRoute(
+        path: '${AppRoutes.teacherStudentProfile}/:groupId/:studentId',
+        builder: (BuildContext context, GoRouterState state) {
+          final groupId = state.pathParameters['groupId'] ?? '';
+          final studentId = state.pathParameters['studentId'] ?? '';
+          return TeacherStudentProfileScreen(
+            groupId: groupId,
+            studentId: studentId,
+          );
         },
       ),
       GoRoute(

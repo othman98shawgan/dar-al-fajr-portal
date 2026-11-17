@@ -217,6 +217,249 @@ class StudentProfile {
   }
 }
 
+/// Utility for parsing and localizing weekly schedule days and times.
+class ScheduleDayHelper {
+  ScheduleDayHelper._();
+
+  /// Standard center week order: Sunday (7) .. Saturday (6).
+  static const List<int> centerWeekOrder = [
+    DateTime.sunday,
+    DateTime.monday,
+    DateTime.tuesday,
+    DateTime.wednesday,
+    DateTime.thursday,
+    DateTime.friday,
+    DateTime.saturday,
+  ];
+
+  static String normalizeDigits(String input) {
+    const eastern = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
+    var out = input;
+    for (var i = 0; i < eastern.length; i++) {
+      out = out.replaceAll(eastern[i], '$i');
+    }
+    return out;
+  }
+
+  /// Parses an Arabic, Hebrew, or English day string (or substring) into `DateTime.weekday` (`1..7`).
+  static int? parseWeekday(String raw) {
+    final text = raw.trim().toLowerCase();
+    if (text.isEmpty) return null;
+
+    if (text.contains('سبت') ||
+        text.contains('שבת') ||
+        text.contains('saturday') ||
+        RegExp(r'\bsat\b').hasMatch(text)) {
+      return DateTime.saturday;
+    }
+    if (text.contains('أحد') ||
+        text.contains('احد') ||
+        text.contains('ראשון') ||
+        text.contains('sunday') ||
+        RegExp(r'\bsun\b').hasMatch(text)) {
+      return DateTime.sunday;
+    }
+    if (text.contains('إثنين') ||
+        text.contains('اثنين') ||
+        text.contains('שני') ||
+        text.contains('monday') ||
+        RegExp(r'\bmon\b').hasMatch(text)) {
+      return DateTime.monday;
+    }
+    if (text.contains('ثلاثاء') ||
+        text.contains('שלישי') ||
+        text.contains('tuesday') ||
+        RegExp(r'\btue\b').hasMatch(text)) {
+      return DateTime.tuesday;
+    }
+    if (text.contains('أربعاء') ||
+        text.contains('اربعاء') ||
+        text.contains('רביעי') ||
+        text.contains('wednesday') ||
+        RegExp(r'\bwed\b').hasMatch(text)) {
+      return DateTime.wednesday;
+    }
+    if (text.contains('خميس') ||
+        text.contains('חמישי') ||
+        text.contains('thursday') ||
+        RegExp(r'\bthu\b').hasMatch(text)) {
+      return DateTime.thursday;
+    }
+    if (text.contains('جمعة') ||
+        text.contains('جمعه') ||
+        text.contains('שישי') ||
+        text.contains('friday') ||
+        RegExp(r'\bfri\b').hasMatch(text)) {
+      return DateTime.friday;
+    }
+    return null;
+  }
+
+  static String canonicalArabicDay(int weekday) {
+    switch (weekday) {
+      case DateTime.saturday:
+        return 'السبت';
+      case DateTime.sunday:
+        return 'الأحد';
+      case DateTime.monday:
+        return 'الاثنين';
+      case DateTime.tuesday:
+        return 'الثلاثاء';
+      case DateTime.wednesday:
+        return 'الأربعاء';
+      case DateTime.thursday:
+        return 'الخميس';
+      case DateTime.friday:
+        return 'الجمعة';
+      default:
+        return 'الأحد';
+    }
+  }
+
+  static String localizedDayName(int weekday, String langCode) {
+    switch (weekday) {
+      case DateTime.monday:
+        if (langCode == 'he') return 'יום שני';
+        if (langCode == 'en') return 'Monday';
+        return 'الاثنين';
+      case DateTime.tuesday:
+        if (langCode == 'he') return 'יום שלישי';
+        if (langCode == 'en') return 'Tuesday';
+        return 'الثلاثاء';
+      case DateTime.wednesday:
+        if (langCode == 'he') return 'יום רביעי';
+        if (langCode == 'en') return 'Wednesday';
+        return 'الأربعاء';
+      case DateTime.thursday:
+        if (langCode == 'he') return 'יום חמישי';
+        if (langCode == 'en') return 'Thursday';
+        return 'الخميس';
+      case DateTime.friday:
+        if (langCode == 'he') return 'יום שישי';
+        if (langCode == 'en') return 'Friday';
+        return 'الجمعة';
+      case DateTime.saturday:
+        if (langCode == 'he') return 'שבת';
+        if (langCode == 'en') return 'Saturday';
+        return 'السبت';
+      case DateTime.sunday:
+      default:
+        if (langCode == 'he') return 'יום ראשון';
+        if (langCode == 'en') return 'Sunday';
+        return 'الأحد';
+    }
+  }
+
+  static String localizedShortDayName(int weekday, String langCode) {
+    switch (weekday) {
+      case DateTime.monday:
+        if (langCode == 'he') return 'ב׳';
+        if (langCode == 'en') return 'Mon';
+        return 'إثنين';
+      case DateTime.tuesday:
+        if (langCode == 'he') return 'ג׳';
+        if (langCode == 'en') return 'Tue';
+        return 'ثلاثاء';
+      case DateTime.wednesday:
+        if (langCode == 'he') return 'ד׳';
+        if (langCode == 'en') return 'Wed';
+        return 'أربعاء';
+      case DateTime.thursday:
+        if (langCode == 'he') return 'ה׳';
+        if (langCode == 'en') return 'Thu';
+        return 'خميس';
+      case DateTime.friday:
+        if (langCode == 'he') return 'ו׳';
+        if (langCode == 'en') return 'Fri';
+        return 'جمعة';
+      case DateTime.saturday:
+        if (langCode == 'he') return 'ש׳';
+        if (langCode == 'en') return 'Sat';
+        return 'سبت';
+      case DateTime.sunday:
+      default:
+        if (langCode == 'he') return 'א׳';
+        if (langCode == 'en') return 'Sun';
+        return 'أحد';
+    }
+  }
+
+  static int parseTimeToMinutes(String raw) {
+    final normalized = normalizeDigits(raw);
+    final match = RegExp(r'(\d{1,2}):(\d{2})').firstMatch(normalized);
+    if (match == null) return 24 * 60;
+    final h = int.tryParse(match.group(1)!) ?? 0;
+    final m = int.tryParse(match.group(2)!) ?? 0;
+    return (h * 60) + m;
+  }
+
+  /// Parses an Enrollment `oneOnOneSlotTime` string (e.g. `'الخميس 17:15 (فردي)'`)
+  /// into `(weekday, timeLabel, sortMinutes)`.
+  static ({int? weekday, String timeLabel, int sortMinutes}) parseOneOnOneSlot(
+    String raw,
+  ) {
+    final trimmed = raw.trim();
+    final weekday = parseWeekday(trimmed);
+    final normalized = normalizeDigits(trimmed);
+    final timeMatch = RegExp(r'(\d{1,2}:\d{2})').firstMatch(normalized);
+    final timeLabel = timeMatch?.group(1) ?? trimmed;
+    final sortMinutes = parseTimeToMinutes(timeLabel);
+    return (weekday: weekday, timeLabel: timeLabel, sortMinutes: sortMinutes);
+  }
+}
+
+/// Represents a single day+time session slot for a [StudyGroup].
+class GroupScheduleSlot {
+  final String day;
+  final String startTime;
+  final String endTime;
+
+  const GroupScheduleSlot({
+    required this.day,
+    this.startTime = '',
+    this.endTime = '',
+  });
+
+  int? get weekday => ScheduleDayHelper.parseWeekday(day);
+
+  int get sortMinutes => ScheduleDayHelper.parseTimeToMinutes(startTime);
+
+  String formatTimeRange() {
+    final s = startTime.trim();
+    final e = endTime.trim();
+    if (s.isNotEmpty && e.isNotEmpty) return '$s - $e';
+    return s.isNotEmpty ? s : e;
+  }
+
+  GroupScheduleSlot copyWith({
+    String? day,
+    String? startTime,
+    String? endTime,
+  }) {
+    return GroupScheduleSlot(
+      day: day ?? this.day,
+      startTime: startTime ?? this.startTime,
+      endTime: endTime ?? this.endTime,
+    );
+  }
+
+  factory GroupScheduleSlot.fromMap(Map<String, dynamic> map) {
+    return GroupScheduleSlot(
+      day: (map['day'] ?? '') as String,
+      startTime: (map['startTime'] ?? map['start_time'] ?? '') as String,
+      endTime: (map['endTime'] ?? map['end_time'] ?? '') as String,
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'day': day,
+      'startTime': startTime,
+      'endTime': endTime,
+    };
+  }
+}
+
 /// Represents a class group in the `groups` Firestore collection.
 class StudyGroup {
   final String id;
@@ -227,6 +470,7 @@ class StudyGroup {
   final List<String> scheduleDays;
   final String startTime;
   final String endTime;
+  final List<GroupScheduleSlot> scheduleSlots;
   final int capacity;
   final DateTime? createdAt;
 
@@ -239,9 +483,92 @@ class StudyGroup {
     this.scheduleDays = const [],
     this.startTime = '',
     this.endTime = '',
+    this.scheduleSlots = const [],
     this.capacity = 15,
     this.createdAt,
   });
+
+  /// Returns per-day slots, synthesizing from legacy [scheduleDays]/[startTime]/[endTime]
+  /// when [scheduleSlots] is empty.
+  List<GroupScheduleSlot> get effectiveScheduleSlots {
+    if (scheduleSlots.isNotEmpty) return scheduleSlots;
+    return scheduleDays
+        .map(
+          (d) => GroupScheduleSlot(
+            day: d,
+            startTime: startTime,
+            endTime: endTime,
+          ),
+        )
+        .toList();
+  }
+
+  List<GroupScheduleSlot> slotsForWeekday(int weekday) {
+    return effectiveScheduleSlots
+        .where((s) => s.weekday == weekday)
+        .toList()
+      ..sort((a, b) => a.sortMinutes.compareTo(b.sortMinutes));
+  }
+
+  String formatScheduleSummary(String langCode, {bool multiline = false}) {
+    final slots = effectiveScheduleSlots;
+    if (slots.isEmpty) {
+      if (startTime.isEmpty) return '';
+      return endTime.isNotEmpty ? '$startTime - $endTime' : startTime;
+    }
+
+    String dayLabel(GroupScheduleSlot s) {
+      final wd = s.weekday;
+      return wd != null ? ScheduleDayHelper.localizedDayName(wd, langCode) : s.day;
+    }
+
+    final firstRange = slots.first.formatTimeRange();
+    final allSameRange =
+        slots.every((s) => s.formatTimeRange() == firstRange);
+
+    if (!multiline && allSameRange) {
+      final daysText = slots.map(dayLabel).join(' • ');
+      return firstRange.isNotEmpty ? '$daysText • $firstRange' : daysText;
+    }
+
+    final parts = slots.map((s) {
+      final d = dayLabel(s);
+      final r = s.formatTimeRange();
+      if (multiline) {
+        return r.isNotEmpty ? '$d • $r' : d;
+      }
+      return r.isNotEmpty ? '$d ($r)' : d;
+    }).toList();
+    return parts.join(multiline ? '\n' : ' • ');
+  }
+
+  StudyGroup copyWith({
+    String? id,
+    String? name,
+    CenterTrack? track,
+    String? teacherId,
+    String? teacherName,
+    List<String>? scheduleDays,
+    String? startTime,
+    String? endTime,
+    List<GroupScheduleSlot>? scheduleSlots,
+    int? capacity,
+    DateTime? createdAt,
+  }) {
+    return StudyGroup(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      track: track ?? this.track,
+      teacherId: teacherId ?? this.teacherId,
+      teacherName: teacherName ?? this.teacherName,
+      scheduleDays: scheduleDays ?? this.scheduleDays,
+      startTime: startTime ?? this.startTime,
+      endTime: endTime ?? this.endTime,
+      scheduleSlots: scheduleSlots ?? this.scheduleSlots,
+      capacity: capacity ?? this.capacity,
+      createdAt: createdAt ?? this.createdAt,
+    );
+  }
 
   factory StudyGroup.fromFirestore(
     DocumentSnapshot<Map<String, dynamic>> doc,
@@ -264,30 +591,59 @@ class StudyGroup {
         ? rawDays.map((e) => e.toString()).toList()
         : <String>[];
 
+    final rawSlots = map['scheduleSlots'] ?? map['schedule_slots'];
+    final slots = rawSlots is List
+        ? rawSlots
+            .whereType<Map>()
+            .map(
+              (m) => GroupScheduleSlot.fromMap(Map<String, dynamic>.from(m)),
+            )
+            .toList()
+        : <GroupScheduleSlot>[];
+
+    final resolvedDays =
+        days.isNotEmpty ? days : slots.map((s) => s.day).toList();
+    final rawStart = (map['startTime'] ?? map['start_time'] ?? '') as String;
+    final rawEnd = (map['endTime'] ?? map['end_time'] ?? '') as String;
+
     return StudyGroup(
       id: id ?? (map['id'] as String? ?? ''),
       name: (map['name'] ?? '') as String,
       track: CenterTrack.fromString(map['track'] as String?),
       teacherId: (map['teacherId'] ?? map['teacher_id'] ?? '') as String,
       teacherName: (map['teacherName'] ?? map['teacher_name'] ?? '') as String,
-      scheduleDays: days,
-      startTime: (map['startTime'] ?? map['start_time'] ?? '') as String,
-      endTime: (map['endTime'] ?? map['end_time'] ?? '') as String,
+      scheduleDays: resolvedDays,
+      startTime:
+          rawStart.isNotEmpty ? rawStart : (slots.firstOrNull?.startTime ?? ''),
+      endTime: rawEnd.isNotEmpty ? rawEnd : (slots.firstOrNull?.endTime ?? ''),
+      scheduleSlots: slots,
       capacity: (map['capacity'] as num?)?.toInt() ?? 15,
       createdAt: parsedCreatedAt,
     );
   }
 
   Map<String, dynamic> toMap() {
+    final resolvedSlots = effectiveScheduleSlots;
+    final resolvedDays = scheduleDays.isNotEmpty
+        ? scheduleDays
+        : resolvedSlots.map((s) => s.day).toList();
+    final resolvedStart = startTime.isNotEmpty
+        ? startTime
+        : (resolvedSlots.firstOrNull?.startTime ?? '');
+    final resolvedEnd = endTime.isNotEmpty
+        ? endTime
+        : (resolvedSlots.firstOrNull?.endTime ?? '');
+
     return {
       'id': id,
       'name': name,
       'track': track.toJson(),
       'teacherId': teacherId,
       'teacherName': teacherName,
-      'scheduleDays': scheduleDays,
-      'startTime': startTime,
-      'endTime': endTime,
+      'scheduleDays': resolvedDays,
+      'startTime': resolvedStart,
+      'endTime': resolvedEnd,
+      'scheduleSlots': resolvedSlots.map((s) => s.toMap()).toList(),
       'capacity': capacity,
       'createdAt': createdAt != null
           ? Timestamp.fromDate(createdAt!)

@@ -55,6 +55,16 @@ const List<String> adminWeekDaysAr = [
   'الجمعة',
 ];
 
+String formatAdminStudentCode(String studentId) {
+  final trimmed = studentId.trim();
+  if (trimmed.isEmpty) return '#ST-0000';
+  if (trimmed.toLowerCase().startsWith('st-')) {
+    return '#${trimmed.toUpperCase()}';
+  }
+  final shortId = trimmed.length >= 4 ? trimmed.substring(0, 4).toUpperCase() : trimmed.toUpperCase();
+  return '#ST-$shortId';
+}
+
 const List<AdminRosterRowData> adminSeedRosterRows = [
   AdminRosterRowData(
     id: 'st-1042',

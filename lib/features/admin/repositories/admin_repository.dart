@@ -5,6 +5,17 @@ import '../../auth/repositories/auth_repository.dart';
 import '../../hifz/models/teacher_models.dart';
 import '../models/admin_models.dart';
 
+class DuplicateEnrollmentException implements Exception {
+  final String studentId;
+  final String groupId;
+
+  const DuplicateEnrollmentException(this.studentId, this.groupId);
+
+  @override
+  String toString() =>
+      'Student $studentId is already enrolled in group $groupId.';
+}
+
 class AdminRepository {
   static const String usersCollection = 'users';
   static const String studentsCollection = 'students';
@@ -20,6 +31,28 @@ class AdminRepository {
     FirebaseFirestore? firestore,
     required this.authRepository,
   }) : _firestore = firestore ?? FirebaseFirestore.instance;
+
+  /// Generates the next sequential readable document ID (e.g. `st-1000`, `grp-100`)
+  /// by inspecting existing IDs in [collection] matching `<prefix>-<number>`.
+  Future<String> _nextSequentialId({
+    required String collection,
+    required String prefix,
+    required int startAt,
+  }) async {
+    final snapshot = await _firestore.collection(collection).get();
+    final pattern = RegExp('^${RegExp.escape(prefix)}-(\\d+)\$');
+    var maxNum = startAt - 1;
+    for (final doc in snapshot.docs) {
+      final match = pattern.firstMatch(doc.id);
+      if (match != null) {
+        final parsed = int.tryParse(match.group(1)!);
+        if (parsed != null && parsed > maxNum) {
+          maxNum = parsed;
+        }
+      }
+    }
+    return '$prefix-${maxNum + 1}';
+  }
 
   // ---------------------------------------------------------------------------
   // Users & Account Provisioning (Teachers, Parents, Students)
@@ -99,7 +132,12 @@ class AdminRepository {
       linkedUserId = user.uid;
     }
 
-    final docRef = _firestore.collection(studentsCollection).doc();
+    final nextStudentId = await _nextSequentialId(
+      collection: studentsCollection,
+      prefix: 'st',
+      startAt: 1000,
+    );
+    final docRef = _firestore.collection(studentsCollection).doc(nextStudentId);
     final student = StudentProfile(
       id: docRef.id,
       fullName: fullName.trim(),
@@ -140,24 +178,98 @@ class AdminRepository {
     List<String> scheduleDays = const [],
     String startTime = '',
     String endTime = '',
+    List<GroupScheduleSlot> scheduleSlots = const [],
     int capacity = 15,
   }) async {
-    final docRef = _firestore.collection(groupsCollection).doc();
+    final nextGroupId = await _nextSequentialId(
+      collection: groupsCollection,
+      prefix: 'grp',
+      startAt: 100,
+    );
+    final docRef = _firestore.collection(groupsCollection).doc(nextGroupId);
+    final resolvedSlots = scheduleSlots.isNotEmpty
+        ? scheduleSlots
+        : scheduleDays
+            .map(
+              (d) => GroupScheduleSlot(
+                day: d,
+                startTime: startTime.trim(),
+                endTime: endTime.trim(),
+              ),
+            )
+            .toList();
+    final resolvedDays = resolvedSlots.isNotEmpty
+        ? resolvedSlots.map((s) => s.day).toList()
+        : scheduleDays;
+    final resolvedStart = startTime.trim().isNotEmpty
+        ? startTime.trim()
+        : (resolvedSlots.firstOrNull?.startTime ?? '');
+    final resolvedEnd = endTime.trim().isNotEmpty
+        ? endTime.trim()
+        : (resolvedSlots.firstOrNull?.endTime ?? '');
+
     final group = StudyGroup(
       id: docRef.id,
       name: name.trim(),
       track: track,
       teacherId: teacherId,
       teacherName: teacherName.trim(),
-      scheduleDays: scheduleDays,
-      startTime: startTime.trim(),
-      endTime: endTime.trim(),
+      scheduleDays: resolvedDays,
+      startTime: resolvedStart,
+      endTime: resolvedEnd,
+      scheduleSlots: resolvedSlots,
       capacity: capacity,
       createdAt: DateTime.now(),
     );
 
     await docRef.set(group.toMap());
     return group;
+  }
+
+  Future<void> updateGroup({
+    required String groupId,
+    required String name,
+    required CenterTrack track,
+    required String teacherId,
+    String teacherName = '',
+    List<String> scheduleDays = const [],
+    String startTime = '',
+    String endTime = '',
+    List<GroupScheduleSlot> scheduleSlots = const [],
+    int capacity = 15,
+  }) async {
+    final resolvedSlots = scheduleSlots.isNotEmpty
+        ? scheduleSlots
+        : scheduleDays
+            .map(
+              (d) => GroupScheduleSlot(
+                day: d,
+                startTime: startTime.trim(),
+                endTime: endTime.trim(),
+              ),
+            )
+            .toList();
+    final resolvedDays = resolvedSlots.isNotEmpty
+        ? resolvedSlots.map((s) => s.day).toList()
+        : scheduleDays;
+    final resolvedStart = startTime.trim().isNotEmpty
+        ? startTime.trim()
+        : (resolvedSlots.firstOrNull?.startTime ?? '');
+    final resolvedEnd = endTime.trim().isNotEmpty
+        ? endTime.trim()
+        : (resolvedSlots.firstOrNull?.endTime ?? '');
+
+    await _firestore.collection(groupsCollection).doc(groupId).set({
+      'name': name.trim(),
+      'track': track.toJson(),
+      'teacherId': teacherId,
+      'teacherName': teacherName.trim(),
+      'scheduleDays': resolvedDays,
+      'startTime': resolvedStart,
+      'endTime': resolvedEnd,
+      'scheduleSlots': resolvedSlots.map((s) => s.toMap()).toList(),
+      'capacity': capacity,
+    }, SetOptions(merge: true));
   }
 
   Future<void> deleteGroup(String groupId) async {
@@ -185,7 +297,24 @@ class AdminRepository {
     String? oneOnOneSlotTime,
     String? groupArrivalTime,
   }) async {
-    final docRef = _firestore.collection(enrollmentsCollection).doc();
+    final existingQuery = await _firestore
+        .collection(enrollmentsCollection)
+        .where('studentId', isEqualTo: studentId)
+        .where('groupId', isEqualTo: groupId)
+        .limit(1)
+        .get();
+    if (existingQuery.docs.isNotEmpty) {
+      throw DuplicateEnrollmentException(studentId, groupId);
+    }
+
+    final enrollmentId = 'enr-${studentId}_$groupId';
+    final docRef =
+        _firestore.collection(enrollmentsCollection).doc(enrollmentId);
+    final existingDoc = await docRef.get();
+    if (existingDoc.exists) {
+      throw DuplicateEnrollmentException(studentId, groupId);
+    }
+
     final enrollment = Enrollment(
       id: docRef.id,
       studentId: studentId,

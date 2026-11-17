@@ -124,14 +124,36 @@ class _AdminShellScreenState extends ConsumerState<AdminShellScreen> {
       return;
     }
 
+    final enrollments = ref.read(adminEnrollmentsProvider).asData?.value ?? const [];
+    final isDuplicate = enrollments.any(
+      (e) => e.studentId == _selectedStudentId && e.groupId == _selectedGroupId,
+    );
+    if (isDuplicate) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            trByLang(
+              langCode,
+              ar: 'الطالب مسجل بالفعل في هذه الحلقة',
+              he: 'התלמיד כבר רשום לקבוצה זו',
+              en: 'Student is already enrolled in this group',
+            ),
+          ),
+          backgroundColor: Colors.red.shade700,
+        ),
+      );
+      return;
+    }
+
     final slotString = _hasOneOnOneSlot ? '$_selectedOneOnOneDay $_selectedOneOnOneTime (فردي)' : null;
     final groups = ref.read(adminGroupsProvider).value ?? [];
     final matchedGroup = groups.where((g) => g.id == _selectedGroupId).firstOrNull;
     final arrivalTime = matchedGroup != null
-        ? '${matchedGroup.scheduleDays.join('، ')} ${matchedGroup.startTime}'.trim()
+        ? matchedGroup.formatScheduleSummary(langCode)
         : (_isDemoFallback ? 'الأحد والثلاثاء والخميس 16:30' : '');
 
-    await ref.read(adminControllerProvider.notifier).assignStudentToGroup(
+    final created = await ref.read(adminControllerProvider.notifier).assignStudentToGroup(
           studentId: _selectedStudentId,
           studentName: _selectedStudentName,
           groupId: _selectedGroupId,
@@ -142,6 +164,22 @@ class _AdminShellScreenState extends ConsumerState<AdminShellScreen> {
         );
 
     if (!mounted) return;
+    if (created == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            trByLang(
+              langCode,
+              ar: 'تعذر حفظ التسجيل — قد يكون الطالب مسجلاً بالفعل في هذه الحلقة',
+              he: 'לא ניתן לשמור רישום — ייתכן שהתלמיד כבר רשום לקבוצה',
+              en: 'Could not save enrollment — student may already be enrolled',
+            ),
+          ),
+          backgroundColor: Colors.red.shade700,
+        ),
+      );
+      return;
+    }
     setState(() {
       _isEnrollDrawerOpen = false;
     });
@@ -173,11 +211,10 @@ class _AdminShellScreenState extends ConsumerState<AdminShellScreen> {
       final track = primaryEnrollment?.track ?? CenterTrack.hifz;
       final trimmedName = student.fullName.trim();
       final initial = trimmedName.isNotEmpty ? trimmedName.characters.first : 'ط';
-      final shortId = student.id.length >= 4 ? student.id.substring(0, 4).toUpperCase() : student.id.toUpperCase();
 
       return AdminRosterRowData(
         id: student.id,
-        code: '#ST-$shortId',
+        code: formatAdminStudentCode(student.id),
         fullName: student.fullName,
         initial: initial,
         parentName: student.parentName ?? 'ولي الأمر',
@@ -232,14 +269,15 @@ class _AdminShellScreenState extends ConsumerState<AdminShellScreen> {
 
     final isDemoMode = _isDemoFallback;
     if (!isDemoMode) {
-      if (_selectedStudentId.isEmpty && firestoreStudents.isNotEmpty) {
+      if (firestoreStudents.isNotEmpty &&
+          !firestoreStudents.any((s) => s.id == _selectedStudentId)) {
         final first = firestoreStudents.first;
         _selectedStudentId = first.id;
         _selectedStudentName = first.fullName;
-        final shortCode = first.id.length >= 4 ? first.id.substring(0, 4).toUpperCase() : first.id.toUpperCase();
-        _selectedStudentCode = '#ST-$shortCode';
+        _selectedStudentCode = formatAdminStudentCode(first.id);
       }
-      if (_selectedGroupId.isEmpty && firestoreGroups.isNotEmpty) {
+      if (firestoreGroups.isNotEmpty &&
+          !firestoreGroups.any((g) => g.id == _selectedGroupId)) {
         final firstGroup = firestoreGroups.first;
         _selectedGroupId = firstGroup.id;
         _selectedGroupLabel = firstGroup.name;
@@ -649,6 +687,9 @@ class _AdminShellScreenState extends ConsumerState<AdminShellScreen> {
                     selectedOneOnOneTime: _selectedOneOnOneTime,
                     isDemoFallback: isDemoMode,
                     hasQaidahTajweedConflict: _hasQaidahTajweedConflict(rosterRows),
+                    isAlreadyEnrolledInGroup: firestoreEnrollments.any(
+                      (e) => e.studentId == _selectedStudentId && e.groupId == _selectedGroupId,
+                    ),
                     onClose: () => setState(() => _isEnrollDrawerOpen = false),
                     onStudentSelected: (selected) {
                       setState(() {

@@ -8,7 +8,7 @@ class TeacherWelcomeStatCard extends StatelessWidget {
   final String displayTeacherName;
   final int activeGroupsCount;
   final int totalStudentsCount;
-  final int? masteryPercentage;
+  final int todaySessionsCount;
   final bool isDemoFallback;
 
   const TeacherWelcomeStatCard({
@@ -17,7 +17,7 @@ class TeacherWelcomeStatCard extends StatelessWidget {
     required this.displayTeacherName,
     required this.activeGroupsCount,
     required this.totalStudentsCount,
-    required this.masteryPercentage,
+    required this.todaySessionsCount,
     required this.isDemoFallback,
   });
 
@@ -166,10 +166,8 @@ class TeacherWelcomeStatCard extends StatelessWidget {
               const SizedBox(width: 8),
               Expanded(
                 child: _VitalStatBox(
-                  value: masteryPercentage != null
-                      ? '${formatTeacherNum(masteryPercentage!, langCode)}${langCode == 'ar' ? '٪' : '%'}'
-                      : (isDemoFallback ? (langCode == 'ar' ? '٩٦٪' : '96%') : '—'),
-                  label: trByLang(langCode, ar: 'نسبة الإتقان', he: 'אחוז שליטה', en: 'Mastery Rate'),
+                  value: formatTeacherNum(todaySessionsCount, langCode),
+                  label: trByLang(langCode, ar: 'جلسات اليوم', he: 'מפגשים להיום', en: "Today's Sessions"),
                   valueColor: TeacherHomeTokens.secondary,
                 ),
               ),

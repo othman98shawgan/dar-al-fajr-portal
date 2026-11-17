@@ -2,6 +2,7 @@ import 'package:dar_al_fajr_portal/features/admin/models/admin_models.dart';
 import 'package:dar_al_fajr_portal/features/admin/providers/admin_providers.dart';
 import 'package:dar_al_fajr_portal/features/admin/screens/admin_mobile_screen.dart';
 import 'package:dar_al_fajr_portal/features/admin/screens/admin_shell_screen.dart';
+import 'package:dar_al_fajr_portal/features/admin/widgets/admin_shell_models.dart';
 import 'package:dar_al_fajr_portal/features/auth/models/app_user.dart';
 import 'package:dar_al_fajr_portal/features/auth/providers/auth_providers.dart';
 import 'package:dar_al_fajr_portal/features/hifz/models/teacher_models.dart';
@@ -302,5 +303,94 @@ void main() {
       expect(find.text('94%'), findsNothing);
       expect(find.text('118 جزءاً'), findsNothing);
     });
+
+    test('StudyGroup supports per-day GroupScheduleSlot serialization and formatting', () {
+      const group = StudyGroup(
+        id: 'grp-multi-time',
+        name: 'حلقة المواعيد المتنوعة',
+        track: CenterTrack.hifz,
+        teacherId: 'teacher-1',
+        scheduleSlots: [
+          GroupScheduleSlot(day: 'الأحد', startTime: '16:30', endTime: '18:00'),
+          GroupScheduleSlot(day: 'الأربعاء', startTime: '17:30', endTime: '19:00'),
+        ],
+      );
+
+      final map = group.toMap();
+      final decoded = StudyGroup.fromMap(map, id: 'grp-multi-time');
+
+      expect(decoded.effectiveScheduleSlots.length, 2);
+      expect(decoded.slotsForWeekday(DateTime.sunday).first.startTime, '16:30');
+      expect(decoded.slotsForWeekday(DateTime.wednesday).first.startTime, '17:30');
+      expect(
+        decoded.formatScheduleSummary('en'),
+        'Sunday (16:30 - 18:00) • Wednesday (17:30 - 19:00)',
+      );
+      expect(
+        decoded.formatScheduleSummary('en', multiline: true),
+        'Sunday • 16:30 - 18:00\nWednesday • 17:30 - 19:00',
+      );
+
+      const uniformGroup = StudyGroup(
+        id: 'grp-uniform',
+        name: 'Uniform Group',
+        track: CenterTrack.hifz,
+        teacherId: 'teacher-1',
+        scheduleDays: ['السبت', 'الاثنين'],
+        startTime: '16:30',
+        endTime: '18:00',
+      );
+      expect(
+        uniformGroup.formatScheduleSummary('en', multiline: true),
+        'Saturday • 16:30 - 18:00\nMonday • 16:30 - 18:00',
+      );
+
+      final parsed = ScheduleDayHelper.parseOneOnOneSlot('الخميس 17:15 (فردي)');
+      expect(parsed.weekday, DateTime.thursday);
+      expect(parsed.timeLabel, '17:15');
+
+      expect(formatAdminStudentCode('st-1000'), '#ST-1000');
+      expect(formatAdminStudentCode('st-1042'), '#ST-1042');
+      expect(formatAdminStudentCode('abc123xyz'), '#ST-ABC1');
+    });
+
+    testWidgets(
+      'AdminShellScreen blocks duplicate enrollment for the same student and group',
+      (WidgetTester tester) async {
+        tester.view.physicalSize = const Size(1280, 900);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(() => tester.view.resetPhysicalSize());
+
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              currentAppUserProvider.overrideWith((ref) => Stream.value(adminUser)),
+              adminAllUsersProvider.overrideWith(
+                (ref) => Stream.value([adminUser, ...liveTeachers]),
+              ),
+              adminTeachersProvider.overrideWith((ref) => Stream.value(liveTeachers)),
+              adminStudentsProvider.overrideWith((ref) => Stream.value(liveStudents)),
+              adminGroupsProvider.overrideWith((ref) => Stream.value(liveGroups)),
+              adminEnrollmentsProvider.overrideWith((ref) => Stream.value(liveEnrollments)),
+              adminAttendanceLogsProvider.overrideWith((ref) => Stream.value(liveLogs)),
+              adminHifzAssignmentsProvider.overrideWith((ref) => Stream.value(liveAssignments)),
+            ],
+            child: const MaterialApp(
+              home: AdminShellScreen(),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        // stu-live-1 is already enrolled in grp-live-1; open Enroll drawer
+        await tester.tap(find.text('+ تسجيل في حلقة').first);
+        await tester.pumpAndSettle();
+
+        expect(
+          find.text('الطالب مسجل بالفعل في هذه الحلقة. لا يمكن تكرار التسجيل في نفس الحلقة.'),
+          findsOneWidget,
+        );
+      },
+    );
   });
 }

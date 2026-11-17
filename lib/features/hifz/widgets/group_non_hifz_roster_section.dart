@@ -11,6 +11,7 @@ class GroupNonHifzRosterSection extends StatelessWidget {
   final bool isLiveFirebase;
   final VoidCallback onLogAttendance;
   final void Function(String studentId, String studentName) onShowStudentStats;
+  final void Function(String studentId, String studentName)? onOpenStudentProfile;
 
   const GroupNonHifzRosterSection({
     super.key,
@@ -20,6 +21,7 @@ class GroupNonHifzRosterSection extends StatelessWidget {
     required this.isLiveFirebase,
     required this.onLogAttendance,
     required this.onShowStudentStats,
+    this.onOpenStudentProfile,
   });
 
   @override
@@ -92,65 +94,78 @@ class GroupNonHifzRosterSection extends StatelessWidget {
                     en: 'Group Attendance: $rate%',
                   );
 
-            return Container(
-              margin: const EdgeInsets.only(bottom: 12),
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Material(
                 color: GroupDetailTokens.surfaceContainerLowest,
                 borderRadius: BorderRadius.circular(12),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.02),
-                    blurRadius: 4,
-                    offset: const Offset(0, 1),
-                  ),
-                ],
-              ),
-              child: Row(
-                children: [
-                  CircleAvatar(
-                    radius: 22,
-                    backgroundColor: GroupDetailTokens.primaryFixed,
-                    child: Text(
-                      st.name.characters.first,
-                      style: const TextStyle(
-                        color: GroupDetailTokens.onPrimaryFixed,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          st.name,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 14,
-                            color: GroupDetailTokens.onSurface,
-                          ),
-                        ),
-                        const SizedBox(height: 3),
-                        Text(
-                          attendanceText,
-                          style: const TextStyle(fontSize: 11.5, color: GroupDetailTokens.onSurfaceVariant),
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(12),
+                  onTap: onOpenStudentProfile != null
+                      ? () => onOpenStudentProfile!(st.id, st.name)
+                      : () => onShowStudentStats(st.id, st.name),
+                  child: Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.02),
+                          blurRadius: 4,
+                          offset: const Offset(0, 1),
                         ),
                       ],
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  TextButton.icon(
-                    onPressed: () => onShowStudentStats(st.id, st.name),
-                    icon: const Icon(Icons.insights_rounded, size: 16),
-                    label: Text(
-                      trByLang(langCode, ar: 'الإحصائيات', he: 'סטטיסטיקה', en: 'Stats'),
-                      style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold),
+                    child: Row(
+                      children: [
+                        CircleAvatar(
+                          radius: 22,
+                          backgroundColor: GroupDetailTokens.primaryFixed,
+                          child: Text(
+                            st.name.characters.first,
+                            style: const TextStyle(
+                              color: GroupDetailTokens.onPrimaryFixed,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                st.name,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 14,
+                                  color: GroupDetailTokens.onSurface,
+                                ),
+                              ),
+                              const SizedBox(height: 3),
+                              Text(
+                                attendanceText,
+                                style: const TextStyle(fontSize: 11.5, color: GroupDetailTokens.onSurfaceVariant),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        TextButton.icon(
+                          onPressed: () => onShowStudentStats(st.id, st.name),
+                          icon: const Icon(Icons.insights_rounded, size: 16),
+                          label: Text(
+                            trByLang(langCode, ar: 'الإحصائيات', he: 'סטטיסטיקה', en: 'Stats'),
+                            style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                        if (onOpenStudentProfile != null)
+                          const Icon(Icons.chevron_right_rounded, color: GroupDetailTokens.onSurfaceVariant, size: 20),
+                      ],
                     ),
                   ),
-                ],
+                ),
               ),
             );
           }),

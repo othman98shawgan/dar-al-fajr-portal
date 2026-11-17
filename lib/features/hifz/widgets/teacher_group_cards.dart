@@ -7,6 +7,7 @@ import 'teacher_home_models.dart';
 class TeacherMyGroupsSection extends StatelessWidget {
   final String langCode;
   final List<StudyGroup> firestoreGroups;
+  final Map<String, int> groupStudentCounts;
   final bool isDemoFallback;
   final VoidCallback onSwitchToScheduleTab;
   final ValueChanged<String> onOpenGroupDetail;
@@ -17,6 +18,7 @@ class TeacherMyGroupsSection extends StatelessWidget {
     super.key,
     required this.langCode,
     required this.firestoreGroups,
+    this.groupStudentCounts = const {},
     required this.isDemoFallback,
     required this.onSwitchToScheduleTab,
     required this.onOpenGroupDetail,
@@ -80,6 +82,7 @@ class TeacherMyGroupsSection extends StatelessWidget {
               child: _DynamicGroupCard(
                 langCode: langCode,
                 group: group,
+                enrolledStudentsCount: groupStudentCounts[group.id] ?? 0,
                 onOpenGroupDetail: () => onOpenGroupDetail(group.id),
                 onOpenAttendanceLogging: () => onOpenAttendanceLogging(group.id),
               ),
@@ -145,12 +148,14 @@ class TeacherMyGroupsSection extends StatelessWidget {
 class _DynamicGroupCard extends StatelessWidget {
   final String langCode;
   final StudyGroup group;
+  final int enrolledStudentsCount;
   final VoidCallback onOpenGroupDetail;
   final VoidCallback onOpenAttendanceLogging;
 
   const _DynamicGroupCard({
     required this.langCode,
     required this.group,
+    required this.enrolledStudentsCount,
     required this.onOpenGroupDetail,
     required this.onOpenAttendanceLogging,
   });
@@ -189,24 +194,27 @@ class _DynamicGroupCard extends StatelessWidget {
         break;
     }
 
-    final scheduleText = StringBuffer();
-    if (group.scheduleDays.isNotEmpty) {
-      scheduleText.write(group.scheduleDays.join(' • '));
-    }
-    if (group.startTime.isNotEmpty) {
-      if (scheduleText.isNotEmpty) scheduleText.write(' • ');
-      scheduleText.write(group.startTime);
-      if (group.endTime.isNotEmpty) {
-        scheduleText.write(' - ${group.endTime}');
-      }
-    }
-    final displaySchedule = scheduleText.isNotEmpty
-        ? scheduleText.toString()
+    final formattedSummary = group.formatScheduleSummary(langCode, multiline: true);
+    final displaySchedule = formattedSummary.isNotEmpty
+        ? formattedSummary
         : trByLang(
             langCode,
             ar: 'مواعيد منتظمة بحسب الجدول الأسبوعي',
             he: 'זמנים קבועים לפי המערכת השבועית',
             en: 'Regular schedule per weekly calendar',
+          );
+    final studentsLabel = enrolledStudentsCount > 0
+        ? trByLang(
+            langCode,
+            ar: '${formatTeacherNum(enrolledStudentsCount, langCode)} طلاب مسجلين',
+            he: '$enrolledStudentsCount תלמידים רשומים',
+            en: '$enrolledStudentsCount enrolled students',
+          )
+        : trByLang(
+            langCode,
+            ar: 'لا يوجد طلاب مسجلون بعد',
+            he: 'אין תלמידים רשומים עדיין',
+            en: 'No enrolled students yet',
           );
 
     return Container(
@@ -261,13 +269,11 @@ class _DynamicGroupCard extends StatelessWidget {
                               ),
                             ],
                           ),
-                          if (group.teacherName.isNotEmpty) ...[
-                            const SizedBox(height: 4),
-                            Text(
-                              group.teacherName,
-                              style: Theme.of(context).textTheme.labelMedium?.copyWith(color: TeacherHomeTokens.onSurfaceVariant),
-                            ),
-                          ],
+                          const SizedBox(height: 4),
+                          Text(
+                            studentsLabel,
+                            style: Theme.of(context).textTheme.labelMedium?.copyWith(color: TeacherHomeTokens.onSurfaceVariant),
+                          ),
                         ],
                       ),
                     ),
@@ -288,13 +294,20 @@ class _DynamicGroupCard extends StatelessWidget {
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Icon(Icons.schedule_rounded, size: 18, color: trackColor),
+                      Padding(
+                        padding: const EdgeInsets.only(top: 2),
+                        child: Icon(Icons.schedule_rounded, size: 18, color: trackColor),
+                      ),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
                           displaySchedule,
-                          style: Theme.of(context).textTheme.labelMedium?.copyWith(color: TeacherHomeTokens.onSurfaceVariant),
+                          style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                                color: TeacherHomeTokens.onSurfaceVariant,
+                                height: 1.55,
+                              ),
                         ),
                       ),
                     ],
@@ -317,9 +330,9 @@ class _DynamicGroupCard extends StatelessWidget {
                           label: Text(
                             trByLang(
                               langCode,
-                              ar: 'فتح تفاصيل ومقررات الحلقة',
-                              he: 'פתח פרטי ומשימות קבוצה',
-                              en: 'Open Group & Assignments',
+                              ar: 'فتح الحلقة',
+                              he: 'פתח קבוצה',
+                              en: 'Open Group',
                             ),
                             style: const TextStyle(fontWeight: FontWeight.w600),
                           ),
@@ -547,9 +560,9 @@ class _HifzPrimaryGroupCard extends StatelessWidget {
                           label: Text(
                             trByLang(
                               langCode,
-                              ar: 'فتح الحلقة ورصد الحضور',
-                              he: 'פתח קבוצה ורשום נוכחות',
-                              en: 'Open Group & Log Attendance',
+                              ar: 'فتح الحلقة',
+                              he: 'פתח קבוצה',
+                              en: 'Open Group',
                             ),
                             style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
                           ),

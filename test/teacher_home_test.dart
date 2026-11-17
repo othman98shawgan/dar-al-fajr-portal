@@ -101,6 +101,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('الواجبات والتسميع'), findsOneWidget);
+    expect(find.text('قائمة الطلاب'), findsOneWidget);
     expect(find.text('خطة المراجعة'), findsOneWidget);
     expect(find.text('الحضور الشهري'), findsOneWidget);
 

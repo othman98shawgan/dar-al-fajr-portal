@@ -72,7 +72,7 @@ class GroupSummaryHeader extends StatelessWidget {
                 ],
               ),
             ),
-            if (isHifzGroup && effectiveTab == GroupModuleTab.assignments)
+            if (effectiveTab == GroupModuleTab.assignments || effectiveTab == GroupModuleTab.studentsRoster)
               Material(
                 color: GroupDetailTokens.surfaceContainer,
                 shape: const CircleBorder(),
@@ -99,18 +99,28 @@ class GroupSummaryHeader extends StatelessWidget {
               ? Row(
                   children: [
                     _ModuleTabButton(
+                      stacked: true,
+                      label: trByLang(langCode, ar: 'قائمة الطلاب', he: 'רשימת תלמידים', en: 'Students Roster'),
+                      icon: Icons.groups_rounded,
+                      isSelected: effectiveTab == GroupModuleTab.studentsRoster,
+                      onTap: () => onTabSelected(GroupModuleTab.studentsRoster),
+                    ),
+                    _ModuleTabButton(
+                      stacked: true,
                       label: trByLang(langCode, ar: 'الواجبات والتسميع', he: 'מטלות ושינון', en: 'Assignments'),
                       icon: Icons.menu_book_rounded,
                       isSelected: effectiveTab == GroupModuleTab.assignments,
                       onTap: () => onTabSelected(GroupModuleTab.assignments),
                     ),
                     _ModuleTabButton(
+                      stacked: true,
                       label: trByLang(langCode, ar: 'خطة المراجعة', he: 'תוכנית חזרה', en: 'Revision Plan'),
                       icon: Icons.calendar_view_week_rounded,
                       isSelected: effectiveTab == GroupModuleTab.weeklyRevision,
                       onTap: () => onTabSelected(GroupModuleTab.weeklyRevision),
                     ),
                     _ModuleTabButton(
+                      stacked: true,
                       label: trByLang(langCode, ar: 'الحضور الشهري', he: 'נוכחות חודשית', en: 'Monthly Attendance'),
                       icon: Icons.fact_check_rounded,
                       isSelected: effectiveTab == GroupModuleTab.monthlyAttendance,
@@ -145,48 +155,58 @@ class _ModuleTabButton extends StatelessWidget {
   final IconData icon;
   final bool isSelected;
   final VoidCallback onTap;
+  final bool stacked;
 
   const _ModuleTabButton({
     required this.label,
     required this.icon,
     required this.isSelected,
     required this.onTap,
+    this.stacked = false,
   });
 
   @override
   Widget build(BuildContext context) {
+    final fgColor = isSelected ? GroupDetailTokens.primary : GroupDetailTokens.onSurfaceVariant;
+    final textStyle = TextStyle(
+      fontSize: stacked ? 10.5 : 11.5,
+      fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+      color: fgColor,
+    );
+
     return Expanded(
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(8),
         child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 9, horizontal: 4),
+          padding: EdgeInsets.symmetric(vertical: stacked ? 8 : 9, horizontal: 4),
           decoration: BoxDecoration(
             color: isSelected ? GroupDetailTokens.surfaceContainerLowest : Colors.transparent,
             borderRadius: BorderRadius.circular(8),
           ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                icon,
-                size: 16,
-                color: isSelected ? GroupDetailTokens.primary : GroupDetailTokens.onSurfaceVariant,
-              ),
-              const SizedBox(width: 4),
-              Flexible(
-                child: Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: 11.5,
-                    fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
-                    color: isSelected ? GroupDetailTokens.primary : GroupDetailTokens.onSurfaceVariant,
-                  ),
-                  overflow: TextOverflow.ellipsis,
+          child: stacked
+              ? Column(
+                  mainAxisSize: MainAxisSize.min,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(icon, size: 17, color: fgColor),
+                    const SizedBox(height: 3),
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(label, style: textStyle, maxLines: 1, textAlign: TextAlign.center),
+                    ),
+                  ],
+                )
+              : Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(icon, size: 16, color: fgColor),
+                    const SizedBox(width: 4),
+                    Flexible(
+                      child: Text(label, style: textStyle, overflow: TextOverflow.ellipsis),
+                    ),
+                  ],
                 ),
-              ),
-            ],
-          ),
         ),
       ),
     );

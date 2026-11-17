@@ -21,6 +21,7 @@ class AdminEnrollmentDrawer extends ConsumerWidget {
   final String selectedOneOnOneTime;
   final bool isDemoFallback;
   final bool hasQaidahTajweedConflict;
+  final bool isAlreadyEnrolledInGroup;
   final VoidCallback onClose;
   final ValueChanged<AdminRosterRowData> onStudentSelected;
   final void Function(CenterTrack track, String groupId, String groupName) onGroupSelected;
@@ -44,6 +45,7 @@ class AdminEnrollmentDrawer extends ConsumerWidget {
     required this.selectedOneOnOneTime,
     required this.isDemoFallback,
     required this.hasQaidahTajweedConflict,
+    this.isAlreadyEnrolledInGroup = false,
     required this.onClose,
     required this.onStudentSelected,
     required this.onGroupSelected,
@@ -233,7 +235,7 @@ class AdminEnrollmentDrawer extends ConsumerWidget {
                                   .map(
                                     (g) => PopupMenuItem<(CenterTrack, String, String)>(
                                       value: (g.track, g.id, g.name),
-                                      child: Text('${g.name} (${g.scheduleDays.join('، ')} ${g.startTime})'),
+                                      child: Text('${g.name} (${g.formatScheduleSummary(langCode)})'),
                                     ),
                                   )
                                   .toList();
@@ -313,6 +315,39 @@ class AdminEnrollmentDrawer extends ConsumerWidget {
                           ),
                         ),
                         const SizedBox(height: 16),
+
+                        if (isAlreadyEnrolledInGroup) ...[
+                          Container(
+                            padding: const EdgeInsets.all(14),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFFFDAD6).withValues(alpha: 0.55),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Icon(Icons.block_rounded, color: Theme.of(context).colorScheme.error, size: 22),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Text(
+                                    trByLang(
+                                      langCode,
+                                      ar: 'الطالب مسجل بالفعل في هذه الحلقة. لا يمكن تكرار التسجيل في نفس الحلقة.',
+                                      he: 'התלמיד כבר רשום לקבוצה זו. לא ניתן לרשום פעמיים.',
+                                      en: 'This student is already enrolled in this group. Duplicate enrollment is not allowed.',
+                                    ),
+                                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                          color: Theme.of(context).colorScheme.error,
+                                          fontWeight: FontWeight.w600,
+                                          height: 1.4,
+                                        ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                        ],
 
                         if (hasQaidahTajweedConflict) ...[
                           Container(
@@ -562,7 +597,7 @@ class AdminEnrollmentDrawer extends ConsumerWidget {
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         ElevatedButton.icon(
-                          onPressed: onSaveEnrollment,
+                          onPressed: isAlreadyEnrolledInGroup ? null : onSaveEnrollment,
                           style: ElevatedButton.styleFrom(
                             backgroundColor: DarAlFajrTheme.primary,
                             foregroundColor: Colors.white,

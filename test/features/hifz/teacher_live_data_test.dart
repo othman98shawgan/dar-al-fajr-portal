@@ -3,6 +3,8 @@ import 'package:dar_al_fajr_portal/features/auth/models/app_user.dart';
 import 'package:dar_al_fajr_portal/features/auth/providers/auth_providers.dart';
 import 'package:dar_al_fajr_portal/features/hifz/models/teacher_models.dart';
 import 'package:dar_al_fajr_portal/features/hifz/providers/teacher_providers.dart';
+import 'package:dar_al_fajr_portal/features/hifz/repositories/teacher_repository.dart';
+import 'package:dar_al_fajr_portal/features/hifz/screens/attendance_logging_view.dart';
 import 'package:dar_al_fajr_portal/features/hifz/screens/group_detail_screen.dart';
 import 'package:dar_al_fajr_portal/features/hifz/screens/teacher_home_screen.dart';
 import 'package:flutter/material.dart';
@@ -69,11 +71,16 @@ void main() {
     });
 
     testWidgets(
-      'TeacherHomeScreen computes live Mastery Rate from group assignments and displays current year date',
+      'TeacherHomeScreen shows live Today Sessions, omits teacher name on group cards, uses Open Group, and renders Daily/Weekly schedule',
       (WidgetTester tester) async {
         tester.view.physicalSize = const Size(1280, 900);
         tester.view.devicePixelRatio = 1.0;
         addTearDown(() => tester.view.resetPhysicalSize());
+
+        final now = DateTime.now();
+        final todayAr = ScheduleDayHelper.canonicalArabicDay(now.weekday);
+        final nextWeekday = (now.weekday % 7) + 1;
+        final otherAr = ScheduleDayHelper.canonicalArabicDay(nextWeekday);
 
         const teacher = AppUser(
           uid: 't-live-1',
@@ -81,95 +88,44 @@ void main() {
           fullName: 'الشيخ سامي الحي',
           role: UserRole.teacher,
         );
-        const liveGroup = StudyGroup(
+        final liveGroup = StudyGroup(
           id: 'grp-live-1',
           name: 'حلقة النور المباشرة',
           track: CenterTrack.hifz,
           teacherId: 't-live-1',
           teacherName: 'الشيخ سامي الحي',
-          scheduleDays: ['الأحد', 'الثلاثاء'],
-          startTime: '16:30',
-          endTime: '18:00',
+          scheduleSlots: [
+            GroupScheduleSlot(day: todayAr, startTime: '16:30', endTime: '18:00'),
+            GroupScheduleSlot(day: otherAr, startTime: '17:45', endTime: '19:00'),
+          ],
         );
         final enrollments = [
-          const Enrollment(
+          Enrollment(
             id: 'enr-1',
             studentId: 'st-live-1',
             studentName: 'زيد المنصور',
             groupId: 'grp-live-1',
             groupName: 'حلقة النور المباشرة',
             track: CenterTrack.hifz,
+            oneOnOneSlotTime: '$todayAr 17:15 (فردي)',
           ),
-          const Enrollment(
+          Enrollment(
             id: 'enr-2',
             studentId: 'st-live-2',
             studentName: 'سعد التميمي',
             groupId: 'grp-live-1',
             groupName: 'حلقة النور المباشرة',
             track: CenterTrack.hifz,
+            oneOnOneSlotTime: '$todayAr 17:45 (فردي)',
           ),
-        ];
-        final now = DateTime.now();
-        // 2 passed (excellent, good), 1 needsRepeat, 1 pending (ignored) => 2/3 = 67%
-        final assignments = [
-          HifzAssignment(
-            id: 'a-1',
-            studentId: 'st-live-1',
-            studentName: 'زيد المنصور',
+          Enrollment(
+            id: 'enr-3',
+            studentId: 'st-live-3',
+            studentName: 'طارق العلي',
             groupId: 'grp-live-1',
-            teacherId: 't-live-1',
-            type: AssignmentType.newHifz,
-            surahId: 67,
-            surahName: 'الملك',
-            fromAyah: 1,
-            toAyah: 15,
-            grade: EvaluationGrade.excellent,
-            score: 98,
-            assignedAt: now,
-          ),
-          HifzAssignment(
-            id: 'a-2',
-            studentId: 'st-live-2',
-            studentName: 'سعد التميمي',
-            groupId: 'grp-live-1',
-            teacherId: 't-live-1',
-            type: AssignmentType.newHifz,
-            surahId: 68,
-            surahName: 'القلم',
-            fromAyah: 1,
-            toAyah: 20,
-            grade: EvaluationGrade.good,
-            score: 95,
-            assignedAt: now,
-          ),
-          HifzAssignment(
-            id: 'a-3',
-            studentId: 'st-live-2',
-            studentName: 'سعد التميمي',
-            groupId: 'grp-live-1',
-            teacherId: 't-live-1',
-            type: AssignmentType.revision,
-            surahId: 78,
-            surahName: 'النبأ',
-            fromAyah: 1,
-            toAyah: 40,
-            grade: EvaluationGrade.needsRepeat,
-            score: 70,
-            assignedAt: now,
-          ),
-          HifzAssignment(
-            id: 'a-4',
-            studentId: 'st-live-1',
-            studentName: 'زيد المنصور',
-            groupId: 'grp-live-1',
-            teacherId: 't-live-1',
-            type: AssignmentType.newHifz,
-            surahId: 67,
-            surahName: 'الملك',
-            fromAyah: 16,
-            toAyah: 30,
-            grade: EvaluationGrade.pending,
-            assignedAt: now,
+            groupName: 'حلقة النور المباشرة',
+            track: CenterTrack.hifz,
+            oneOnOneSlotTime: '$otherAr 18:15 (فردي)',
           ),
         ];
 
@@ -181,18 +137,44 @@ void main() {
                   .overrideWith((ref) => Stream.value([liveGroup])),
               allEnrollmentsStreamProvider
                   .overrideWith((ref) => Stream.value(enrollments)),
-              groupAssignmentsProvider('grp-live-1')
-                  .overrideWith((ref) => Stream.value(assignments)),
             ],
             child: const MaterialApp(home: TeacherHomeScreen()),
           ),
         );
         await tester.pumpAndSettle();
 
+        // Group card shows name and student count, NOT teacher name
         expect(find.text('حلقة النور المباشرة'), findsOneWidget);
-        expect(find.text('٦٧٪'), findsOneWidget);
+        expect(find.text('الشيخ سامي الحي'), findsNothing);
+        expect(find.text('٣ طلاب مسجلين'), findsOneWidget);
+
+        // Button label standardized to Open Group
+        expect(find.text('فتح الحلقة'), findsOneWidget);
+        expect(find.text('فتح تفاصيل ومقررات الحلقة'), findsNothing);
+
+        // Welcome card shows Today's Sessions (1 group + 2 today 1x1s = 3)
+        expect(find.text('جلسات اليوم'), findsOneWidget);
+        expect(find.text('نسبة الإتقان'), findsNothing);
         expect(find.textContaining('${now.year}'), findsOneWidget);
         expect(find.textContaining('١٤٤٦'), findsNothing);
+
+        // Today's 1-on-1 section excludes other day's slot
+        expect(find.text('زيد المنصور'), findsOneWidget);
+        expect(find.text('سعد التميمي'), findsOneWidget);
+        expect(find.text('طارق العلي'), findsNothing);
+
+        // Switch to Schedule tab (Daily view)
+        await tester.tap(find.text('الجدول'));
+        await tester.pumpAndSettle();
+        expect(find.text('16:30 - 18:00'), findsOneWidget);
+        expect(find.text('17:15'), findsOneWidget);
+        expect(find.text('طارق العلي'), findsNothing);
+
+        // Switch to Weekly view to verify full week including different day times
+        await tester.tap(find.text('أسبوعي'));
+        await tester.pumpAndSettle();
+        expect(find.text('17:45 - 19:00'), findsOneWidget);
+        expect(find.text('طارق العلي'), findsOneWidget);
       },
     );
 
@@ -259,8 +241,30 @@ void main() {
                   .overrideWith((ref) => Stream.value(assignments)),
               groupAttendanceProvider('grp-live-2')
                   .overrideWith((ref) => Stream.value(const [])),
-              studentWeeklyPlansProvider('st-live-99')
-                  .overrideWith((ref) => Stream.value(const [])),
+              studentWeeklyPlansProvider('st-live-99').overrideWith(
+                (ref) => Stream.value([
+                  WeeklyRevisionPlan(
+                    id: 'plan-99',
+                    studentId: 'st-live-99',
+                    studentName: 'خالد بن الوليد الحي',
+                    groupId: 'grp-live-2',
+                    teacherId: 't-live-1',
+                    weekStartDate: DateTime.now(),
+                    updatedAt: DateTime.now(),
+                    dailyTasks: const [
+                      DailyRevisionTask(
+                        dayIndex: 0,
+                        targetType: RevisionTargetType.juz,
+                        juzNumber: 30,
+                      ),
+                    ],
+                  ),
+                ]),
+              ),
+              studentProfileByIdProvider('st-live-99')
+                  .overrideWith((ref) => Stream.value(studentsMap['st-live-99'])),
+              studentAssignmentsProvider('st-live-99')
+                  .overrideWith((ref) => Stream.value(assignments)),
             ],
             child: const MaterialApp(
               home: GroupDetailScreen(groupId: 'grp-live-2'),
@@ -279,6 +283,189 @@ void main() {
 
         expect(find.textContaining('خالد بن الوليد الحي'), findsWidgets);
         expect(find.text('إبراهيم طه عثمان'), findsNothing);
+
+        // Switch to Students Roster tab in Hifz group and open Student Profile
+        await tester.tap(find.text('قائمة الطلاب'));
+        await tester.pumpAndSettle();
+
+        expect(find.text('خالد بن الوليد الحي'), findsOneWidget);
+        await tester.tap(find.text('خالد بن الوليد الحي'));
+        await tester.pumpAndSettle();
+
+        expect(find.text('ملف الطالب'), findsOneWidget);
+        expect(find.text('خطة المراجعة الأسبوعية الحالية'), findsOneWidget);
+        expect(find.textContaining('النبأ'), findsWidgets);
+      },
+    );
+
+    testWidgets(
+      'AttendanceLoggingView deduplicates duplicate enrollments for the same studentId',
+      (WidgetTester tester) async {
+        tester.view.physicalSize = const Size(1280, 900);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(() => tester.view.resetPhysicalSize());
+
+        const enrollments = [
+          Enrollment(
+            id: 'enr-1',
+            studentId: 'stu-1',
+            studentName: 'طالب أول',
+            groupId: 'grp-maali',
+            groupName: 'طلاب المعالي',
+            track: CenterTrack.hifz,
+          ),
+          Enrollment(
+            id: 'enr-1-dup',
+            studentId: 'stu-1',
+            studentName: 'طالب أول',
+            groupId: 'grp-maali',
+            groupName: 'طلاب المعالي',
+            track: CenterTrack.hifz,
+          ),
+          Enrollment(
+            id: 'enr-2',
+            studentId: 'stu-2',
+            studentName: 'طالب ثاني',
+            groupId: 'grp-maali',
+            groupName: 'طلاب المعالي',
+            track: CenterTrack.hifz,
+          ),
+          Enrollment(
+            id: 'enr-3',
+            studentId: 'stu-3',
+            studentName: 'طالب ثالث',
+            groupId: 'grp-maali',
+            groupName: 'طلاب المعالي',
+            track: CenterTrack.hifz,
+          ),
+        ];
+
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              teacherGroupsProvider.overrideWith(
+                (ref) => Stream.value(const [
+                  StudyGroup(
+                    id: 'grp-maali',
+                    name: 'طلاب المعالي',
+                    track: CenterTrack.hifz,
+                    teacherId: 't-1',
+                  ),
+                ]),
+              ),
+              groupEnrollmentsProvider('grp-maali')
+                  .overrideWith((ref) => Stream.value(enrollments)),
+              allStudentsMapProvider
+                  .overrideWith((ref) => Stream.value(const {})),
+            ],
+            child: const MaterialApp(
+              home: AttendanceLoggingView(groupId: 'grp-maali'),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.text('طالب أول'), findsOneWidget);
+        expect(find.text('طالب ثاني'), findsOneWidget);
+        expect(find.text('طالب ثالث'), findsOneWidget);
+        expect(find.textContaining('٣ متاحون'), findsOneWidget);
+
+        // Deterministic attendance doc ID enforces one log per student/day/mode
+        expect(
+          TeacherRepository.attendanceDocId(
+            groupId: 'grp-maali',
+            studentId: 'stu-1',
+            date: DateTime(2026, 11, 17, 9, 0),
+          ),
+          TeacherRepository.attendanceDocId(
+            groupId: 'grp-maali',
+            studentId: 'stu-1',
+            date: DateTime(2026, 11, 17, 21, 30),
+          ),
+        );
+        expect(
+          TeacherRepository.attendanceDocId(
+            groupId: 'grp-maali',
+            studentId: 'stu-1',
+            date: DateTime(2026, 11, 17),
+          ),
+          'att_grp-maali_stu-1_20261117_group',
+        );
+      },
+    );
+
+    testWidgets(
+      'AttendanceLoggingView loads existing logs for selected date and switches days with arrows',
+      (WidgetTester tester) async {
+        tester.view.physicalSize = const Size(1280, 900);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(() => tester.view.resetPhysicalSize());
+
+        final today = DateTime.now();
+        final todayLogs = [
+          AttendanceLog(
+            id: 'att_grp-maali_stu-1_today_group',
+            groupId: 'grp-maali',
+            studentId: 'stu-1',
+            studentName: 'طالب أول',
+            teacherId: 't-1',
+            sessionDate: today,
+            sessionMode: SessionMode.group,
+            status: AttendanceStatus.absent,
+          ),
+        ];
+
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              teacherGroupsProvider.overrideWith(
+                (ref) => Stream.value(const [
+                  StudyGroup(
+                    id: 'grp-maali',
+                    name: 'طلاب المعالي',
+                    track: CenterTrack.hifz,
+                    teacherId: 't-1',
+                  ),
+                ]),
+              ),
+              groupEnrollmentsProvider('grp-maali').overrideWith(
+                (ref) => Stream.value(const [
+                  Enrollment(
+                    id: 'enr-1',
+                    studentId: 'stu-1',
+                    studentName: 'طالب أول',
+                    groupId: 'grp-maali',
+                    groupName: 'طلاب المعالي',
+                    track: CenterTrack.hifz,
+                  ),
+                ]),
+              ),
+              allStudentsMapProvider
+                  .overrideWith((ref) => Stream.value(const {})),
+              groupAttendanceProvider('grp-maali')
+                  .overrideWith((ref) => Stream.value(todayLogs)),
+            ],
+            child: const MaterialApp(
+              home: AttendanceLoggingView(groupId: 'grp-maali'),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        // Today badge and existing-log update state are shown
+        expect(find.text('اليوم'), findsOneWidget);
+        expect(find.text('تحديث سجل الحضور'), findsOneWidget);
+        expect(
+          find.text('تم رصد حضور هذا اليوم مسبقاً — عند الحفظ سيتم تحديث السجل الحالي'),
+          findsOneWidget,
+        );
+
+        // Step to previous day using arrow button
+        await tester.tap(find.byTooltip('اليوم السابق'));
+        await tester.pumpAndSettle();
+
+        expect(find.text('اليوم'), findsNothing);
+        expect(find.text('حفظ الحضور واعتماد السجل'), findsOneWidget);
       },
     );
   });
