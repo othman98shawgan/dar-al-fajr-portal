@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../../auth/models/app_user.dart';
 import '../../auth/repositories/auth_repository.dart';
+import '../../hifz/models/teacher_models.dart';
 import '../models/admin_models.dart';
 
 class AdminRepository {
@@ -9,6 +10,8 @@ class AdminRepository {
   static const String studentsCollection = 'students';
   static const String groupsCollection = 'groups';
   static const String enrollmentsCollection = 'enrollments';
+  static const String attendanceCollection = 'attendance_logs';
+  static const String assignmentsCollection = 'hifz_assignments';
 
   final FirebaseFirestore _firestore;
   final AuthRepository authRepository;
@@ -137,6 +140,7 @@ class AdminRepository {
     List<String> scheduleDays = const [],
     String startTime = '',
     String endTime = '',
+    int capacity = 15,
   }) async {
     final docRef = _firestore.collection(groupsCollection).doc();
     final group = StudyGroup(
@@ -148,6 +152,7 @@ class AdminRepository {
       scheduleDays: scheduleDays,
       startTime: startTime.trim(),
       endTime: endTime.trim(),
+      capacity: capacity,
       createdAt: DateTime.now(),
     );
 
@@ -202,5 +207,32 @@ class AdminRepository {
         .collection(enrollmentsCollection)
         .doc(enrollmentId)
         .delete();
+  }
+
+  // ---------------------------------------------------------------------------
+  // Center-wide Attendance Audit & Academic Reports
+  // ---------------------------------------------------------------------------
+
+  Stream<List<AttendanceLog>> watchAllAttendanceLogs() {
+    return _firestore.collection(attendanceCollection).snapshots().map(
+      (snapshot) {
+        final list =
+            snapshot.docs.map((doc) => AttendanceLog.fromFirestore(doc)).toList();
+        list.sort((a, b) => b.sessionDate.compareTo(a.sessionDate));
+        return list;
+      },
+    );
+  }
+
+  Stream<List<HifzAssignment>> watchAllHifzAssignments() {
+    return _firestore.collection(assignmentsCollection).snapshots().map(
+      (snapshot) {
+        final list = snapshot.docs
+            .map((doc) => HifzAssignment.fromFirestore(doc))
+            .toList();
+        list.sort((a, b) => b.assignedAt.compareTo(a.assignedAt));
+        return list;
+      },
+    );
   }
 }

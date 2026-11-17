@@ -6,7 +6,9 @@ import '../../../core/routing/app_router.dart';
 
 import '../../../core/services/locale_provider.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../l10n/app_localizations_tr.dart';
 import '../../auth/models/app_user.dart';
+import '../../hifz/models/teacher_models.dart';
 import '../models/admin_models.dart';
 import '../providers/admin_providers.dart';
 
@@ -199,16 +201,36 @@ class _AdminMobileScreenState extends ConsumerState<AdminMobileScreen> {
     super.dispose();
   }
 
-  String _tr(String langCode, {required String ar, required String he, required String en}) {
-    switch (langCode) {
-      case 'he':
-        return he;
-      case 'en':
-        return en;
-      case 'ar':
-      default:
-        return ar;
+  static const List<String> _weekDaysAr = ['السبت', 'الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة'];
+
+  bool get _isDemoFallback {
+    if (Firebase.apps.isNotEmpty) return false;
+    final studentsState = ref.read(adminStudentsProvider);
+    final groupsState = ref.read(adminGroupsProvider);
+    final enrollmentsState = ref.read(adminEnrollmentsProvider);
+    final usersState = ref.read(adminAllUsersProvider);
+    final logsState = ref.read(adminAttendanceLogsProvider);
+    final assignmentsState = ref.read(adminHifzAssignmentsProvider);
+    if (studentsState.isLoading ||
+        groupsState.isLoading ||
+        enrollmentsState.isLoading ||
+        usersState.isLoading ||
+        logsState.isLoading ||
+        assignmentsState.isLoading) {
+      return false;
     }
+    final students = studentsState.asData?.value ?? const [];
+    final groups = groupsState.asData?.value ?? const [];
+    final enrollments = enrollmentsState.asData?.value ?? const [];
+    final users = usersState.asData?.value ?? const [];
+    final logs = logsState.asData?.value ?? const [];
+    final assignments = assignmentsState.asData?.value ?? const [];
+    return students.isEmpty &&
+        groups.isEmpty &&
+        enrollments.isEmpty &&
+        users.isEmpty &&
+        logs.isEmpty &&
+        assignments.isEmpty;
   }
 
   List<_MobileStudentCardData> _mergeStudents(
@@ -217,6 +239,7 @@ class _AdminMobileScreenState extends ConsumerState<AdminMobileScreen> {
     CenterTrack? trackFilter,
     String query,
   ) {
+    final isDemoMode = _isDemoFallback;
     final firestoreCards = firestoreStudents.map((s) {
       final enrollments = firestoreEnrollments.where((e) => e.studentId == s.id).toList();
       final primary = enrollments.firstOrNull;
@@ -240,7 +263,7 @@ class _AdminMobileScreenState extends ConsumerState<AdminMobileScreen> {
         primaryTrackLabel: track.localizedName('ar'),
         primaryTrackIcon: Icons.auto_stories_rounded,
         primaryTrackColor: DarAlFajrTheme.primary,
-        scheduleBadgeText: primary?.groupArrivalTime ?? 'الأحد والثلاثاء 16:30',
+        scheduleBadgeText: primary?.groupArrivalTime ?? (isDemoMode ? 'الأحد والثلاثاء 16:30' : null),
         scheduleBadgeIcon: Icons.schedule_rounded,
         scheduleBadgeBg: const Color(0xFFE6E8EA),
         scheduleBadgeFg: const Color(0xFF3D4947),
@@ -250,7 +273,7 @@ class _AdminMobileScreenState extends ConsumerState<AdminMobileScreen> {
     }).toList();
 
     // Combine Firestore students with Stitch Seed Cards only in test/demo mode
-    final combined = Firebase.apps.isEmpty
+    final combined = isDemoMode
         ? [...firestoreCards, ..._seedStudentCards]
         : firestoreCards;
 
@@ -306,7 +329,7 @@ class _AdminMobileScreenState extends ConsumerState<AdminMobileScreen> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
-                        _tr(langCode, ar: 'إجراء إداري جديد', he: 'פעולה ניהולית חדשה', en: 'New Administrative Action'),
+                        trByLang(langCode, ar: 'إجراء إداري جديد', he: 'פעולה ניהולית חדשה', en: 'New Administrative Action'),
                         style: Theme.of(context).textTheme.titleLarge?.copyWith(
                           fontWeight: FontWeight.bold,
                           color: DarAlFajrTheme.onSurface,
@@ -324,7 +347,7 @@ class _AdminMobileScreenState extends ConsumerState<AdminMobileScreen> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    _tr(
+                    trByLang(
                       langCode,
                       ar: 'اختر نوع التسجيل للبدء في إدخال بيانات المسار وحجز المواعيد التعليمية:',
                       he: 'בחר סוג רישום כדי להתחיל בהזנת נתוני מסלול ומועדים:',
@@ -365,7 +388,7 @@ class _AdminMobileScreenState extends ConsumerState<AdminMobileScreen> {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    _tr(langCode, ar: 'تسجيل طالب جديد', he: 'רישום תלמיד חדש', en: 'Register New Student'),
+                                    trByLang(langCode, ar: 'تسجيل طالب جديد', he: 'רישום תלמיד חדש', en: 'Register New Student'),
                                     style: Theme.of(context).textTheme.titleSmall?.copyWith(
                                       fontWeight: FontWeight.bold,
                                       color: DarAlFajrTheme.onSurface,
@@ -373,7 +396,7 @@ class _AdminMobileScreenState extends ConsumerState<AdminMobileScreen> {
                                   ),
                                   const SizedBox(height: 2),
                                   Text(
-                                    _tr(
+                                    trByLang(
                                       langCode,
                                       ar: 'إضافة طالب وربط ولي أمره واختيار المسار',
                                       he: 'הוספת תלמיד, קישור הורה ובחירת מסלול',
@@ -423,7 +446,7 @@ class _AdminMobileScreenState extends ConsumerState<AdminMobileScreen> {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    _tr(langCode, ar: 'إنشاء حلقة جديدة', he: 'יצירת קבוצה חדשה', en: 'Create New Study Group'),
+                                    trByLang(langCode, ar: 'إنشاء حلقة جديدة', he: 'יצירת קבוצה חדשה', en: 'Create New Study Group'),
                                     style: Theme.of(context).textTheme.titleSmall?.copyWith(
                                       fontWeight: FontWeight.bold,
                                       color: DarAlFajrTheme.onSurface,
@@ -431,7 +454,7 @@ class _AdminMobileScreenState extends ConsumerState<AdminMobileScreen> {
                                   ),
                                   const SizedBox(height: 2),
                                   Text(
-                                    _tr(
+                                    trByLang(
                                       langCode,
                                       ar: 'تحديد المعلم المشرف والأيام ومسار الحفظ',
                                       he: 'הגדרת מורה אחראי, ימים ומסלול שינון',
@@ -470,7 +493,7 @@ class _AdminMobileScreenState extends ConsumerState<AdminMobileScreen> {
     showDialog<void>(
       context: context,
       builder: (dlgCtx) => AlertDialog(
-        title: Text(_tr(langCode, ar: 'تسجيل طالب جديد', he: 'רישום תלמיד', en: 'New Student Registration')),
+        title: Text(trByLang(langCode, ar: 'تسجيل طالب جديد', he: 'רישום תלמיד', en: 'New Student Registration')),
         content: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -478,14 +501,14 @@ class _AdminMobileScreenState extends ConsumerState<AdminMobileScreen> {
               TextField(
                 controller: nameCtrl,
                 decoration: InputDecoration(
-                  labelText: _tr(langCode, ar: 'اسم الطالب الرباعي *', he: 'שם מלא *', en: 'Student Full Name *'),
+                  labelText: trByLang(langCode, ar: 'اسم الطالب الرباعي *', he: 'שם מלא *', en: 'Student Full Name *'),
                 ),
               ),
               const SizedBox(height: 10),
               TextField(
                 controller: parentNameCtrl,
                 decoration: InputDecoration(
-                  labelText: _tr(langCode, ar: 'اسم ولي الأمر *', he: 'שם ההורה *', en: 'Parent Name *'),
+                  labelText: trByLang(langCode, ar: 'اسم ولي الأمر *', he: 'שם ההורה *', en: 'Parent Name *'),
                 ),
               ),
               const SizedBox(height: 10),
@@ -493,7 +516,7 @@ class _AdminMobileScreenState extends ConsumerState<AdminMobileScreen> {
                 controller: phoneCtrl,
                 keyboardType: TextInputType.phone,
                 decoration: InputDecoration(
-                  labelText: _tr(langCode, ar: 'رقم هاتف ولي الأمر', he: 'טלפון', en: 'Parent Phone'),
+                  labelText: trByLang(langCode, ar: 'رقم هاتف ولي الأمر', he: 'טלפון', en: 'Parent Phone'),
                 ),
               ),
               const SizedBox(height: 10),
@@ -501,14 +524,14 @@ class _AdminMobileScreenState extends ConsumerState<AdminMobileScreen> {
                 controller: emailCtrl,
                 keyboardType: TextInputType.emailAddress,
                 decoration: InputDecoration(
-                  labelText: _tr(langCode, ar: 'البريد الإلكتروني', he: 'דוא״ל', en: 'Email Address'),
+                  labelText: trByLang(langCode, ar: 'البريد الإلكتروني', he: 'דוא״ל', en: 'Email Address'),
                 ),
               ),
               const SizedBox(height: 10),
               TextField(
                 controller: tempPassCtrl,
                 decoration: InputDecoration(
-                  labelText: _tr(langCode, ar: 'كلمة المرور المؤقتة', he: 'סיסמה ראשונית', en: 'Temporary Password'),
+                  labelText: trByLang(langCode, ar: 'كلمة المرور المؤقتة', he: 'סיסמה ראשונית', en: 'Temporary Password'),
                 ),
               ),
             ],
@@ -517,7 +540,7 @@ class _AdminMobileScreenState extends ConsumerState<AdminMobileScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dlgCtx).pop(),
-            child: Text(_tr(langCode, ar: 'إلغاء', he: 'ביטול', en: 'Cancel')),
+            child: Text(trByLang(langCode, ar: 'إلغاء', he: 'ביטול', en: 'Cancel')),
           ),
           ElevatedButton(
             onPressed: () async {
@@ -539,12 +562,12 @@ class _AdminMobileScreenState extends ConsumerState<AdminMobileScreen> {
               if (!context.mounted) return;
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
-                  content: Text(_tr(langCode, ar: 'تم تسجيل الطالب بنجاح!', he: 'התלמיד נרשם בהצלחה!', en: 'Student registered successfully!')),
+                  content: Text(trByLang(langCode, ar: 'تم تسجيل الطالب بنجاح!', he: 'התלמיד נרשם בהצלחה!', en: 'Student registered successfully!')),
                   backgroundColor: DarAlFajrTheme.primary,
                 ),
               );
             },
-            child: Text(_tr(langCode, ar: 'تسجيل الطالب', he: 'רישום', en: 'Register')),
+            child: Text(trByLang(langCode, ar: 'تسجيل الطالب', he: 'רישום', en: 'Register')),
           ),
         ],
       ),
@@ -552,32 +575,42 @@ class _AdminMobileScreenState extends ConsumerState<AdminMobileScreen> {
   }
 
   void _showCreateGroupDialog(BuildContext context, String langCode) {
+    final teachers = ref.read(adminTeachersProvider).asData?.value ?? const <AppUser>[];
+    final isDemoMode = _isDemoFallback;
     final groupNameCtrl = TextEditingController();
-    final teacherNameCtrl = TextEditingController(text: 'الشيخ عبد الرحمن');
-    final scheduleCtrl = TextEditingController(text: 'الأحد والثلاثاء والخميس 16:30');
+    final teacherNameCtrl = TextEditingController(
+      text: isDemoMode ? 'الشيخ عبد الرحمن' : '',
+    );
+    final startTimeCtrl = TextEditingController(text: '16:30');
+    final endTimeCtrl = TextEditingController(text: '18:00');
+    final capacityCtrl = TextEditingController(text: '15');
     CenterTrack selectedTrack = CenterTrack.hifz;
+    String? selectedTeacherId = teachers.isNotEmpty ? teachers.first.uid : null;
+    final selectedDays = <String>{'الأحد', 'الثلاثاء', 'الخميس'};
 
     showDialog<void>(
       context: context,
       builder: (dlgCtx) => StatefulBuilder(
         builder: (context, setDlgState) => AlertDialog(
-          title: Text(_tr(langCode, ar: 'إنشاء حلقة جديدة', he: 'יצירת קבוצה חדשה', en: 'Create New Study Group')),
+          title: Text(trByLang(langCode, ar: 'إنشاء حلقة جديدة', he: 'יצירת קבוצה חדשה', en: 'Create New Study Group')),
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 TextField(
                   controller: groupNameCtrl,
                   decoration: InputDecoration(
-                    labelText: _tr(langCode, ar: 'اسم الحلقة *', he: 'שם קבוצה *', en: 'Group Name *'),
+                    labelText: trByLang(langCode, ar: 'اسم الحلقة *', he: 'שם קבוצה *', en: 'Group Name *'),
                     hintText: 'مثال: حلقة أبي بكر الصديق',
                   ),
                 ),
                 const SizedBox(height: 10),
                 DropdownButtonFormField<CenterTrack>(
                   initialValue: selectedTrack,
+                  isExpanded: true,
                   decoration: InputDecoration(
-                    labelText: _tr(langCode, ar: 'المسار التعليمي', he: 'מסלול', en: 'Educational Track'),
+                    labelText: trByLang(langCode, ar: 'المسار التعليمي', he: 'מסלול', en: 'Educational Track'),
                   ),
                   items: CenterTrack.values
                       .map((t) => DropdownMenuItem(value: t, child: Text(t.localizedName(langCode))))
@@ -587,17 +620,91 @@ class _AdminMobileScreenState extends ConsumerState<AdminMobileScreen> {
                   },
                 ),
                 const SizedBox(height: 10),
-                TextField(
-                  controller: teacherNameCtrl,
-                  decoration: InputDecoration(
-                    labelText: _tr(langCode, ar: 'المعلم المشرف', he: 'מורה', en: 'Teacher Name'),
+                if (teachers.isNotEmpty)
+                  DropdownButtonFormField<String>(
+                    initialValue: selectedTeacherId,
+                    isExpanded: true,
+                    decoration: InputDecoration(
+                      labelText: trByLang(langCode, ar: 'المعلم المشرف', he: 'מורה', en: 'Assigned Teacher'),
+                    ),
+                    items: teachers
+                        .map((t) => DropdownMenuItem(value: t.uid, child: Text(t.fullName)))
+                        .toList(),
+                    onChanged: (val) {
+                      setDlgState(() => selectedTeacherId = val);
+                    },
+                  )
+                else if (isDemoMode)
+                  TextField(
+                    controller: teacherNameCtrl,
+                    decoration: InputDecoration(
+                      labelText: trByLang(langCode, ar: 'المعلم المشرف', he: 'מורה', en: 'Teacher Name'),
+                    ),
+                  )
+                else
+                  Text(
+                    trByLang(
+                      langCode,
+                      ar: 'لا يوجد معلمون مسجلون — يمكنك تعيين المعلم لاحقاً',
+                      he: 'אין מורים רשומים עדיין — ניתן לשבץ בהמשך',
+                      en: 'No registered teachers yet — you can assign a teacher later',
+                    ),
+                    style: const TextStyle(fontSize: 12, color: Color(0xFF6D7A77)),
                   ),
+                const SizedBox(height: 12),
+                Text(
+                  trByLang(langCode, ar: 'أيام الحلقة', he: 'ימי הקבוצה', en: 'Schedule Days'),
+                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: 6),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 4,
+                  children: _weekDaysAr.map((day) {
+                    final isSelected = selectedDays.contains(day);
+                    return FilterChip(
+                      label: Text(day, style: const TextStyle(fontSize: 11)),
+                      selected: isSelected,
+                      onSelected: (checked) {
+                        setDlgState(() {
+                          if (checked) {
+                            selectedDays.add(day);
+                          } else {
+                            selectedDays.remove(day);
+                          }
+                        });
+                      },
+                    );
+                  }).toList(),
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: startTimeCtrl,
+                        decoration: InputDecoration(
+                          labelText: trByLang(langCode, ar: 'وقت البداية', he: 'שעת התחלה', en: 'Start Time'),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: TextField(
+                        controller: endTimeCtrl,
+                        decoration: InputDecoration(
+                          labelText: trByLang(langCode, ar: 'وقت النهاية', he: 'שעת סיום', en: 'End Time'),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 10),
                 TextField(
-                  controller: scheduleCtrl,
+                  controller: capacityCtrl,
+                  keyboardType: TextInputType.number,
                   decoration: InputDecoration(
-                    labelText: _tr(langCode, ar: 'المواعيد والأيام', he: 'מועדים', en: 'Weekly Schedule'),
+                    labelText: trByLang(langCode, ar: 'السعة القصوى للحلقة', he: 'קיבולת קבוצה', en: 'Group Capacity'),
                   ),
                 ),
               ],
@@ -606,11 +713,16 @@ class _AdminMobileScreenState extends ConsumerState<AdminMobileScreen> {
           actions: [
             TextButton(
               onPressed: () => Navigator.of(dlgCtx).pop(),
-              child: Text(_tr(langCode, ar: 'إلغاء', he: 'ביטול', en: 'Cancel')),
+              child: Text(trByLang(langCode, ar: 'إلغاء', he: 'ביטול', en: 'Cancel')),
             ),
             ElevatedButton(
               onPressed: () async {
                 if (groupNameCtrl.text.trim().isEmpty) return;
+                final pickedTeacher = teachers.where((t) => t.uid == selectedTeacherId).firstOrNull;
+                final resolvedTeacherId = pickedTeacher?.uid ?? (isDemoMode ? 'teacher_default' : '');
+                final resolvedTeacherName = pickedTeacher?.fullName ?? teacherNameCtrl.text.trim();
+                final parsedCapacity = int.tryParse(capacityCtrl.text.trim()) ?? 15;
+                final scheduleDays = _weekDaysAr.where(selectedDays.contains).toList();
                 Navigator.of(dlgCtx).pop();
 
                 try {
@@ -618,23 +730,24 @@ class _AdminMobileScreenState extends ConsumerState<AdminMobileScreen> {
                   await repo.createGroup(
                     name: groupNameCtrl.text.trim(),
                     track: selectedTrack,
-                    teacherId: 'teacher_default',
-                    teacherName: teacherNameCtrl.text.trim(),
-                    scheduleDays: const ['الأحد', 'الثلاثاء', 'الخميس'],
-                    startTime: '16:30',
-                    endTime: '18:00',
+                    teacherId: resolvedTeacherId,
+                    teacherName: resolvedTeacherName,
+                    scheduleDays: scheduleDays.isNotEmpty ? scheduleDays : const ['الأحد', 'الثلاثاء', 'الخميس'],
+                    startTime: startTimeCtrl.text.trim().isNotEmpty ? startTimeCtrl.text.trim() : '16:30',
+                    endTime: endTimeCtrl.text.trim().isNotEmpty ? endTimeCtrl.text.trim() : '18:00',
+                    capacity: parsedCapacity > 0 ? parsedCapacity : 15,
                   );
                 } catch (_) {}
 
                 if (!context.mounted) return;
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
-                    content: Text(_tr(langCode, ar: 'تم إنشاء الحلقة بنجاح!', he: 'הקבוצה נוצרה בהצלחה!', en: 'Group created successfully!')),
+                    content: Text(trByLang(langCode, ar: 'تم إنشاء الحلقة بنجاح!', he: 'הקבוצה נוצרה בהצלחה!', en: 'Group created successfully!')),
                     backgroundColor: DarAlFajrTheme.primary,
                   ),
                 );
               },
-              child: Text(_tr(langCode, ar: 'حفظ الحلقة', he: 'שמור', en: 'Save Group')),
+              child: Text(trByLang(langCode, ar: 'حفظ الحلقة', he: 'שמור', en: 'Save Group')),
             ),
           ],
         ),
@@ -649,12 +762,13 @@ class _AdminMobileScreenState extends ConsumerState<AdminMobileScreen> {
     List<StudyGroup> firestoreGroups,
   ) {
     CenterTrack selectedTrack = student.primaryTrack;
+    final isDemoMode = _isDemoFallback;
     String selectedGroupId = firestoreGroups.isNotEmpty
         ? firestoreGroups.first.id
-        : (Firebase.apps.isEmpty ? 'grp-tajweed-1' : '');
+        : (isDemoMode ? 'grp-tajweed-1' : '');
     String selectedGroupName = firestoreGroups.isNotEmpty
         ? firestoreGroups.first.name
-        : (Firebase.apps.isEmpty ? 'حلقة الإتقان والتجويد (مسار التجويد)' : '');
+        : (isDemoMode ? 'حلقة الإتقان والتجويد (مسار التجويد)' : '');
     bool hasOneOnOne = true;
     String oneOnOneDay = 'الخميس';
     String oneOnOneTime = '17:15';
@@ -704,7 +818,7 @@ class _AdminMobileScreenState extends ConsumerState<AdminMobileScreen> {
                                 ),
                                 const SizedBox(width: 10),
                                 Text(
-                                  _tr(langCode, ar: 'تسجيل في حلقة', he: 'רישום לקבוצה', en: 'Enroll in Group'),
+                                  trByLang(langCode, ar: 'تسجيل في حلقة', he: 'רישום לקבוצה', en: 'Enroll in Group'),
                                   style: Theme.of(context).textTheme.titleLarge?.copyWith(
                                     fontWeight: FontWeight.bold,
                                   ),
@@ -763,7 +877,7 @@ class _AdminMobileScreenState extends ConsumerState<AdminMobileScreen> {
 
                         // Select Track
                         Text(
-                          _tr(langCode, ar: 'المسار التعليمي المستهدف', he: 'מסלול חינוכי', en: 'Target Educational Track'),
+                          trByLang(langCode, ar: 'المسار التعليمي المستهدف', he: 'מסלול חינוכי', en: 'Target Educational Track'),
                           style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
                         ),
                         const SizedBox(height: 6),
@@ -781,19 +895,19 @@ class _AdminMobileScreenState extends ConsumerState<AdminMobileScreen> {
 
                         // Select Group
                         Text(
-                          _tr(langCode, ar: 'الحلقة التعليمية', he: 'קבוצת לימוד', en: 'Study Group'),
+                          trByLang(langCode, ar: 'الحلقة التعليمية', he: 'קבוצת לימוד', en: 'Study Group'),
                           style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
                         ),
                         const SizedBox(height: 6),
                         DropdownButtonFormField<String>(
                           initialValue: selectedGroupId.isEmpty ? null : selectedGroupId,
-                          hint: Text(_tr(langCode, ar: 'اختر الحلقة', he: 'בחר קבוצה', en: 'Select group')),
+                          hint: Text(trByLang(langCode, ar: 'اختر الحلقة', he: 'בחר קבוצה', en: 'Select group')),
                           decoration: const InputDecoration(contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8)),
                           items: firestoreGroups.isNotEmpty
                               ? firestoreGroups
                                   .map((g) => DropdownMenuItem(value: g.id, child: Text('${g.name} (${g.scheduleDays.join("، ")} ${g.startTime})')))
                                   .toList()
-                              : (Firebase.apps.isEmpty
+                              : (isDemoMode
                                   ? const [
                                       DropdownMenuItem(
                                         value: 'grp-tajweed-1',
@@ -825,11 +939,11 @@ class _AdminMobileScreenState extends ConsumerState<AdminMobileScreen> {
                         CheckboxListTile(
                           contentPadding: EdgeInsets.zero,
                           title: Text(
-                            _tr(langCode, ar: 'تخصيص موعد تسميع فردي (1-on-1)', he: 'הקצאת תור אישי', en: 'Assign 1-on-1 Recitation Slot'),
+                            trByLang(langCode, ar: 'تخصيص موعد تسميع فردي (1-on-1)', he: 'הקצאת תור אישי', en: 'Assign 1-on-1 Recitation Slot'),
                             style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
                           ),
                           subtitle: Text(
-                            _tr(langCode, ar: 'تحديد وقت دقيق لوصول الطالب للتسميع الفردي', he: 'שעת הגעה מדויקת', en: 'Precise individual arrival slot'),
+                            trByLang(langCode, ar: 'تحديد وقت دقيق لوصول الطالب للتسميع الفردي', he: 'שעת הגעה מדויקת', en: 'Precise individual arrival slot'),
                             style: const TextStyle(color: Color(0xFF6D7A77), fontSize: 11),
                           ),
                           value: hasOneOnOne,
@@ -844,7 +958,7 @@ class _AdminMobileScreenState extends ConsumerState<AdminMobileScreen> {
                                 child: DropdownButtonFormField<String>(
                                   initialValue: oneOnOneDay,
                                   decoration: InputDecoration(
-                                    labelText: _tr(langCode, ar: 'اليوم', he: 'יום', en: 'Day'),
+                                    labelText: trByLang(langCode, ar: 'اليوم', he: 'יום', en: 'Day'),
                                     contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                                   ),
                                   items: const ['السبت', 'الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة']
@@ -860,7 +974,7 @@ class _AdminMobileScreenState extends ConsumerState<AdminMobileScreen> {
                                 child: DropdownButtonFormField<String>(
                                   initialValue: oneOnOneTime,
                                   decoration: InputDecoration(
-                                    labelText: _tr(langCode, ar: 'وقت الوصول', he: 'שעה', en: 'Time'),
+                                    labelText: trByLang(langCode, ar: 'وقت الوصول', he: 'שעה', en: 'Time'),
                                     contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                                   ),
                                   items: const ['16:00', '16:30', '17:00', '17:15', '17:45', '18:15', '18:45']
@@ -888,7 +1002,7 @@ class _AdminMobileScreenState extends ConsumerState<AdminMobileScreen> {
                                       .firstOrNull;
                                   final arrivalTime = matchedGroup != null
                                       ? '${matchedGroup.scheduleDays.join("، ")} ${matchedGroup.startTime}'.trim()
-                                      : (Firebase.apps.isEmpty ? 'الأحد والثلاثاء والخميس 16:30' : '');
+                                      : (isDemoMode ? 'الأحد والثلاثاء والخميس 16:30' : '');
 
                                   try {
                                     final repo = ref.read(adminRepositoryProvider);
@@ -906,13 +1020,13 @@ class _AdminMobileScreenState extends ConsumerState<AdminMobileScreen> {
                                   if (!mounted) return;
                                   ScaffoldMessenger.of(this.context).showSnackBar(
                                     SnackBar(
-                                      content: Text(_tr(langCode, ar: 'تم تثبيت التسجيل بنجاح!', he: 'הרישום נשמר בהצלחה!', en: 'Enrollment confirmed!')),
+                                      content: Text(trByLang(langCode, ar: 'تم تثبيت التسجيل بنجاح!', he: 'הרישום נשמר בהצלחה!', en: 'Enrollment confirmed!')),
                                       backgroundColor: DarAlFajrTheme.primary,
                                     ),
                                   );
                                 },
                           icon: const Icon(Icons.check_circle_rounded),
-                          label: Text(_tr(langCode, ar: 'حفظ وتثبيت التسجيل', he: 'שמור רישום', en: 'Confirm Enrollment')),
+                          label: Text(trByLang(langCode, ar: 'حفظ وتثبيت التسجيل', he: 'שמור רישום', en: 'Confirm Enrollment')),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: DarAlFajrTheme.primary,
                             foregroundColor: Colors.white,
@@ -948,11 +1062,16 @@ class _AdminMobileScreenState extends ConsumerState<AdminMobileScreen> {
 
     final studentCards = _mergeStudents(firestoreStudents, firestoreEnrollments, selectedTrackFilter, _searchQuery);
 
-    final totalStudentsCount = firestoreStudents.isNotEmpty ? firestoreStudents.length : 142;
-    final totalGroupsCount = firestoreGroups.isNotEmpty ? firestoreGroups.length : 12;
+    final isDemoMode = _isDemoFallback;
+    final totalStudentsCount = firestoreStudents.isNotEmpty
+        ? firestoreStudents.length
+        : (isDemoMode ? 142 : 0);
+    final totalGroupsCount = firestoreGroups.isNotEmpty
+        ? firestoreGroups.length
+        : (isDemoMode ? 12 : 0);
     final totalOneOnOneCount = firestoreEnrollments.isNotEmpty
         ? firestoreEnrollments.where((e) => e.oneOnOneSlotTime != null && e.oneOnOneSlotTime!.isNotEmpty).length
-        : 68;
+        : (isDemoMode ? 68 : 0);
 
     return Directionality(
       textDirection: isRtl ? TextDirection.rtl : TextDirection.ltr,
@@ -1004,7 +1123,7 @@ class _AdminMobileScreenState extends ConsumerState<AdminMobileScreen> {
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             Text(
-                              _tr(langCode, ar: 'إدارة دار الفجر', he: 'הנהלת דאר אל-פג׳ר', en: 'Dar al-Fajr Admin'),
+                              trByLang(langCode, ar: 'إدارة دار الفجر', he: 'הנהלת דאר אל-פג׳ר', en: 'Dar al-Fajr Admin'),
                               style: Theme.of(context).textTheme.titleSmall?.copyWith(
                                 fontWeight: FontWeight.bold,
                                 color: DarAlFajrTheme.primary,
@@ -1040,7 +1159,7 @@ class _AdminMobileScreenState extends ConsumerState<AdminMobileScreen> {
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   SnackBar(
                                     content: Text(
-                                      _tr(
+                                      trByLang(
                                         langCode,
                                         ar: 'لا توجد تنبيهات جديدة حالياً',
                                         he: 'אין התראות חדשות',
@@ -1110,16 +1229,18 @@ class _AdminMobileScreenState extends ConsumerState<AdminMobileScreen> {
               totalOneOnOneCount,
               selectedTrackFilter,
               firestoreGroups,
+              firestoreStudents,
+              firestoreEnrollments,
             ),
 
             // TAB 2: Groups / الحلقات
-            _buildGroupsTab(context, langCode, firestoreGroups),
+            _buildGroupsTab(context, langCode, firestoreGroups, firestoreEnrollments),
 
             // TAB 0: Users / المستخدمين
             _buildUsersTab(context, langCode, allUsers),
 
             // TAB 3: Reports / التقارير
-            _buildReportsTab(context, langCode, totalStudentsCount, totalGroupsCount, totalOneOnOneCount),
+            _buildReportsTab(context, langCode, firestoreStudents, firestoreEnrollments),
           ],
         ),
 
@@ -1134,7 +1255,7 @@ class _AdminMobileScreenState extends ConsumerState<AdminMobileScreen> {
             elevation: 4,
             icon: const Icon(Icons.person_add_rounded, size: 22),
             label: Text(
-              _tr(langCode, ar: 'إضافة طالب / حلقة', he: 'הוספת תלמיד / קבוצה', en: 'Add Student / Group'),
+              trByLang(langCode, ar: 'إضافة طالب / حلقة', he: 'הוספת תלמיד / קבוצה', en: 'Add Student / Group'),
               style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
             ),
           ),
@@ -1159,29 +1280,37 @@ class _AdminMobileScreenState extends ConsumerState<AdminMobileScreen> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
-                  _buildBottomNavItem(
-                    icon: Icons.school_rounded,
-                    label: _tr(langCode, ar: 'الطلاب', he: 'תלמידים', en: 'Students'),
-                    isSelected: selectedTab == 1,
-                    onTap: () => ref.read(adminSelectedTabProvider.notifier).setTab(1),
+                  Expanded(
+                    child: _buildBottomNavItem(
+                      icon: Icons.school_rounded,
+                      label: trByLang(langCode, ar: 'الطلاب', he: 'תלמידים', en: 'Students'),
+                      isSelected: selectedTab == 1,
+                      onTap: () => ref.read(adminSelectedTabProvider.notifier).setTab(1),
+                    ),
                   ),
-                  _buildBottomNavItem(
-                    icon: Icons.groups_rounded,
-                    label: _tr(langCode, ar: 'الحلقات', he: 'קבוצות', en: 'Groups'),
-                    isSelected: selectedTab == 2,
-                    onTap: () => ref.read(adminSelectedTabProvider.notifier).setTab(2),
+                  Expanded(
+                    child: _buildBottomNavItem(
+                      icon: Icons.groups_rounded,
+                      label: trByLang(langCode, ar: 'الحلقات', he: 'קבוצות', en: 'Groups'),
+                      isSelected: selectedTab == 2,
+                      onTap: () => ref.read(adminSelectedTabProvider.notifier).setTab(2),
+                    ),
                   ),
-                  _buildBottomNavItem(
-                    icon: Icons.manage_accounts_rounded,
-                    label: _tr(langCode, ar: 'المستخدمين', he: 'משתמשים', en: 'Users'),
-                    isSelected: selectedTab == 0,
-                    onTap: () => ref.read(adminSelectedTabProvider.notifier).setTab(0),
+                  Expanded(
+                    child: _buildBottomNavItem(
+                      icon: Icons.manage_accounts_rounded,
+                      label: trByLang(langCode, ar: 'المستخدمين', he: 'משתמשים', en: 'Users'),
+                      isSelected: selectedTab == 0,
+                      onTap: () => ref.read(adminSelectedTabProvider.notifier).setTab(0),
+                    ),
                   ),
-                  _buildBottomNavItem(
-                    icon: Icons.query_stats_rounded,
-                    label: _tr(langCode, ar: 'التقارير', he: 'דוחות', en: 'Reports'),
-                    isSelected: selectedTab == 3,
-                    onTap: () => ref.read(adminSelectedTabProvider.notifier).setTab(3),
+                  Expanded(
+                    child: _buildBottomNavItem(
+                      icon: Icons.query_stats_rounded,
+                      label: trByLang(langCode, ar: 'التقارير', he: 'דוחות', en: 'Reports'),
+                      isSelected: selectedTab == 3,
+                      onTap: () => ref.read(adminSelectedTabProvider.notifier).setTab(3),
+                    ),
                   ),
                 ],
               ),
@@ -1204,7 +1333,7 @@ class _AdminMobileScreenState extends ConsumerState<AdminMobileScreen> {
       onTap: onTap,
       borderRadius: BorderRadius.circular(12),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           mainAxisAlignment: MainAxisAlignment.center,
@@ -1217,6 +1346,8 @@ class _AdminMobileScreenState extends ConsumerState<AdminMobileScreen> {
             const SizedBox(height: 3),
             Text(
               label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
               style: TextStyle(
                 fontSize: 11,
                 fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
@@ -1241,7 +1372,25 @@ class _AdminMobileScreenState extends ConsumerState<AdminMobileScreen> {
     int totalOneOnOne,
     CenterTrack? trackFilter,
     List<StudyGroup> firestoreGroups,
+    List<StudentProfile> firestoreStudents,
+    List<Enrollment> firestoreEnrollments,
   ) {
+    final isDemoMode = _isDemoFallback;
+    int trackCount(CenterTrack track) {
+      if (isDemoMode) {
+        return switch (track) {
+          CenterTrack.hifz => 54,
+          CenterTrack.qaidahNouraniah => 38,
+          CenterTrack.readingTajweed => 26,
+          CenterTrack.tarbawi => 24,
+        };
+      }
+      return firestoreStudents.where((s) {
+        final primary = firestoreEnrollments.where((e) => e.studentId == s.id).firstOrNull;
+        final studentTrack = primary?.track ?? CenterTrack.hifz;
+        return studentTrack == track;
+      }).length;
+    }
     return CustomScrollView(
       slivers: [
         SliverToBoxAdapter(
@@ -1267,7 +1416,7 @@ class _AdminMobileScreenState extends ConsumerState<AdminMobileScreen> {
                     controller: _searchController,
                     onChanged: (val) => setState(() => _searchQuery = val),
                     decoration: InputDecoration(
-                      hintText: _tr(
+                      hintText: trByLang(
                         langCode,
                         ar: 'بحث باسم الطالب، الحلقة، أو ولي الأمر...',
                         he: 'חיפוש תלמיד, קבוצה או הורה...',
@@ -1295,33 +1444,33 @@ class _AdminMobileScreenState extends ConsumerState<AdminMobileScreen> {
                     Expanded(
                       child: _buildKpiCard(
                         icon: Icons.school_rounded,
-                        tagText: _tr(langCode, ar: 'نشط', he: 'פעיל', en: 'Active'),
+                        tagText: trByLang(langCode, ar: 'نشط', he: 'פעיל', en: 'Active'),
                         tagBg: DarAlFajrTheme.primary.withValues(alpha: 0.1),
                         tagFg: DarAlFajrTheme.primary,
                         count: '$totalStudents',
-                        label: _tr(langCode, ar: 'إجمالي الطلاب', he: 'סה״כ תלמידים', en: 'Total Students'),
+                        label: trByLang(langCode, ar: 'إجمالي الطلاب', he: 'סה״כ תלמידים', en: 'Total Students'),
                       ),
                     ),
                     const SizedBox(width: 8),
                     Expanded(
                       child: _buildKpiCard(
                         icon: Icons.menu_book_rounded,
-                        tagText: _tr(langCode, ar: 'حلقات', he: 'קבוצות', en: 'Groups'),
+                        tagText: trByLang(langCode, ar: 'حلقات', he: 'קבוצות', en: 'Groups'),
                         tagBg: const Color(0xFFFE932C).withValues(alpha: 0.15),
                         tagFg: const Color(0xFF904D00),
                         count: '$totalGroups',
-                        label: _tr(langCode, ar: 'الحلقات النشطة', he: 'קבוצות פעילות', en: 'Active Groups'),
+                        label: trByLang(langCode, ar: 'الحلقات النشطة', he: 'קבוצות פעילות', en: 'Active Groups'),
                       ),
                     ),
                     const SizedBox(width: 8),
                     Expanded(
                       child: _buildKpiCard(
                         icon: Icons.record_voice_over_rounded,
-                        tagText: _tr(langCode, ar: 'اليوم', he: 'היום', en: 'Today'),
+                        tagText: trByLang(langCode, ar: 'اليوم', he: 'היום', en: 'Today'),
                         tagBg: const Color(0xFF3B7F7A).withValues(alpha: 0.15),
                         tagFg: const Color(0xFF1E6661),
                         count: '$totalOneOnOne',
-                        label: _tr(langCode, ar: 'تسميع فردي', he: 'תור אישי', en: '1-on-1 Slots'),
+                        label: trByLang(langCode, ar: 'تسميع فردي', he: 'תור אישי', en: '1-on-1 Slots'),
                       ),
                     ),
                   ],
@@ -1334,36 +1483,36 @@ class _AdminMobileScreenState extends ConsumerState<AdminMobileScreen> {
                   child: Row(
                     children: [
                       _buildTrackChip(
-                        label: _tr(langCode, ar: 'الكل', he: 'הכל', en: 'All'),
+                        label: trByLang(langCode, ar: 'الكل', he: 'הכל', en: 'All'),
                         count: '$totalStudents',
                         isSelected: trackFilter == null,
                         onTap: () => ref.read(adminTrackFilterProvider.notifier).setTrack(null),
                       ),
                       const SizedBox(width: 8),
                       _buildTrackChip(
-                        label: _tr(langCode, ar: 'حفظ', he: 'חיפז', en: 'Hifz'),
-                        count: '54',
+                        label: trByLang(langCode, ar: 'حفظ', he: 'חיפז', en: 'Hifz'),
+                        count: '${trackCount(CenterTrack.hifz)}',
                         isSelected: trackFilter == CenterTrack.hifz,
                         onTap: () => ref.read(adminTrackFilterProvider.notifier).setTrack(CenterTrack.hifz),
                       ),
                       const SizedBox(width: 8),
                       _buildTrackChip(
-                        label: _tr(langCode, ar: 'نورانية', he: 'נוראניה', en: 'Nouraniah'),
-                        count: '38',
+                        label: trByLang(langCode, ar: 'نورانية', he: 'נוראניה', en: 'Nouraniah'),
+                        count: '${trackCount(CenterTrack.qaidahNouraniah)}',
                         isSelected: trackFilter == CenterTrack.qaidahNouraniah,
                         onTap: () => ref.read(adminTrackFilterProvider.notifier).setTrack(CenterTrack.qaidahNouraniah),
                       ),
                       const SizedBox(width: 8),
                       _buildTrackChip(
-                        label: _tr(langCode, ar: 'تجويد', he: 'טג׳וויד', en: 'Tajweed'),
-                        count: '26',
+                        label: trByLang(langCode, ar: 'تجويد', he: 'טג׳וויד', en: 'Tajweed'),
+                        count: '${trackCount(CenterTrack.readingTajweed)}',
                         isSelected: trackFilter == CenterTrack.readingTajweed,
                         onTap: () => ref.read(adminTrackFilterProvider.notifier).setTrack(CenterTrack.readingTajweed),
                       ),
                       const SizedBox(width: 8),
                       _buildTrackChip(
-                        label: _tr(langCode, ar: 'تربوي', he: 'חינוכי', en: 'Tarbawi'),
-                        count: '24',
+                        label: trByLang(langCode, ar: 'تربوي', he: 'חינוכי', en: 'Tarbawi'),
+                        count: '${trackCount(CenterTrack.tarbawi)}',
                         isSelected: trackFilter == CenterTrack.tarbawi,
                         onTap: () => ref.read(adminTrackFilterProvider.notifier).setTrack(CenterTrack.tarbawi),
                       ),
@@ -1376,30 +1525,35 @@ class _AdminMobileScreenState extends ConsumerState<AdminMobileScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Row(
-                      children: [
-                        Text(
-                          _tr(langCode, ar: 'قائمة الطلاب المسجلين', he: 'רשימת תלמידים', en: 'Enrolled Students'),
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-                        ),
-                        const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFE6E8EA),
-                            borderRadius: BorderRadius.circular(12),
+                    Expanded(
+                      child: Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              trByLang(langCode, ar: 'قائمة الطلاب المسجلين', he: 'רשימת תלמידים', en: 'Enrolled Students'),
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                              overflow: TextOverflow.ellipsis,
+                            ),
                           ),
-                          child: Text(
-                            '${studentCards.length} ${_tr(langCode, ar: "معروض", he: "מוצגים", en: "shown")}',
-                            style: const TextStyle(fontSize: 11, color: Color(0xFF3D4947), fontWeight: FontWeight.w600),
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFE6E8EA),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Text(
+                              '${studentCards.length} ${trByLang(langCode, ar: "معروض", he: "מוצגים", en: "shown")}',
+                              style: const TextStyle(fontSize: 11, color: Color(0xFF3D4947), fontWeight: FontWeight.w600),
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                     TextButton.icon(
                       onPressed: () => setState(() => _isAscendingOrder = !_isAscendingOrder),
                       icon: const Icon(Icons.swap_vert_rounded, size: 18),
-                      label: Text(_tr(langCode, ar: 'ترتيب', he: 'מיון', en: 'Sort')),
+                      label: Text(trByLang(langCode, ar: 'ترتيب', he: 'מיון', en: 'Sort')),
                       style: TextButton.styleFrom(
                         foregroundColor: DarAlFajrTheme.primary,
                         textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
@@ -1643,7 +1797,7 @@ class _AdminMobileScreenState extends ConsumerState<AdminMobileScreen> {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      '${_tr(langCode, ar: "رقم القيد", he: "מס׳ מזהה", en: "ID")}: ${student.code}',
+                      '${trByLang(langCode, ar: "رقم القيد", he: "מס׳ מזהה", en: "ID")}: ${student.code}',
                       style: const TextStyle(color: Color(0xFF6D7A77), fontSize: 11),
                     ),
                   ],
@@ -1696,37 +1850,56 @@ class _AdminMobileScreenState extends ConsumerState<AdminMobileScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Row(
-                      children: [
-                        const Icon(Icons.family_restroom_rounded, size: 16, color: Color(0xFF6D7A77)),
-                        const SizedBox(width: 6),
-                        Text(
-                          student.parentName,
-                          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
-                        ),
-                      ],
-                    ),
-                    if (student.parentEmail != null)
-                      Row(
+                    Flexible(
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
                         children: [
-                          Text(
-                            student.parentEmail!,
-                            style: const TextStyle(color: DarAlFajrTheme.primary, fontSize: 11),
+                          const Icon(Icons.family_restroom_rounded, size: 16, color: Color(0xFF6D7A77)),
+                          const SizedBox(width: 6),
+                          Flexible(
+                            child: Text(
+                              student.parentName,
+                              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
+                              overflow: TextOverflow.ellipsis,
+                            ),
                           ),
-                          const SizedBox(width: 4),
-                          const Icon(Icons.mail_rounded, size: 13, color: DarAlFajrTheme.primary),
                         ],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    if (student.parentEmail != null)
+                      Flexible(
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Flexible(
+                              child: Text(
+                                student.parentEmail!,
+                                style: const TextStyle(color: DarAlFajrTheme.primary, fontSize: 11),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            const Icon(Icons.mail_rounded, size: 13, color: DarAlFajrTheme.primary),
+                          ],
+                        ),
                       )
                     else if (student.parentPhone != null)
-                      Row(
-                        children: [
-                          Text(
-                            student.parentPhone!,
-                            style: const TextStyle(color: DarAlFajrTheme.primary, fontSize: 11),
-                          ),
-                          const SizedBox(width: 4),
-                          const Icon(Icons.call_rounded, size: 13, color: DarAlFajrTheme.primary),
-                        ],
+                      Flexible(
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Flexible(
+                              child: Text(
+                                student.parentPhone!,
+                                style: const TextStyle(color: DarAlFajrTheme.primary, fontSize: 11),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            const Icon(Icons.call_rounded, size: 13, color: DarAlFajrTheme.primary),
+                          ],
+                        ),
                       ),
                   ],
                 ),
@@ -1813,7 +1986,7 @@ class _AdminMobileScreenState extends ConsumerState<AdminMobileScreen> {
                     );
                   },
                   icon: const Icon(Icons.edit_note_rounded, size: 16),
-                  label: Text(_tr(langCode, ar: 'تعديل', he: 'ערוך', en: 'Edit')),
+                  label: Text(trByLang(langCode, ar: 'تعديل', he: 'ערוך', en: 'Edit')),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: const Color(0xFF3D4947),
                     backgroundColor: const Color(0xFFE6E8EA),
@@ -1831,7 +2004,7 @@ class _AdminMobileScreenState extends ConsumerState<AdminMobileScreen> {
                 child: ElevatedButton.icon(
                   onPressed: () => _showEnrollmentSheet(context, student, langCode, firestoreGroups),
                   icon: const Icon(Icons.group_add_rounded, size: 16),
-                  label: Text(_tr(langCode, ar: 'تسجيل في حلقة', he: 'רישום לקבוצה', en: 'Enroll in Group')),
+                  label: Text(trByLang(langCode, ar: 'تسجيل في حلقة', he: 'רישום לקבוצה', en: 'Enroll in Group')),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: DarAlFajrTheme.primary,
                     foregroundColor: Colors.white,
@@ -1851,17 +2024,25 @@ class _AdminMobileScreenState extends ConsumerState<AdminMobileScreen> {
   // ===========================================================================
   // TAB 2: GROUPS VIEW (الحلقات والمجموعات)
   // ===========================================================================
-  Widget _buildGroupsTab(BuildContext context, String langCode, List<StudyGroup> firestoreGroups) {
-    final firestoreEnrollments = ref.watch(adminEnrollmentsProvider).value ?? [];
+  Widget _buildGroupsTab(
+    BuildContext context,
+    String langCode,
+    List<StudyGroup> firestoreGroups,
+    List<Enrollment> firestoreEnrollments,
+  ) {
+    final isDemoMode = _isDemoFallback;
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
       children: [
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(
-              _tr(langCode, ar: 'الحلقات والمجموعات التعليمية', he: 'קבוצות לימוד', en: 'Study Groups'),
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            Expanded(
+              child: Text(
+                trByLang(langCode, ar: 'الحلقات والمجموعات التعليمية', he: 'קבוצות לימוד', en: 'Study Groups'),
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
             IconButton(
               icon: const Icon(Icons.add_circle_outline_rounded, color: DarAlFajrTheme.primary),
@@ -1875,12 +2056,13 @@ class _AdminMobileScreenState extends ConsumerState<AdminMobileScreen> {
         if (firestoreGroups.isNotEmpty)
           ...firestoreGroups.map((g) => _buildGroupCard(
                 name: g.name,
-                teacher: g.teacherName,
+                teacher: g.teacherName.isNotEmpty ? g.teacherName : '—',
                 trackName: g.track.localizedName(langCode),
                 schedule: '${g.scheduleDays.join("، ")} • ${g.startTime}',
                 studentsCount: firestoreEnrollments.where((e) => e.groupId == g.id).length,
+                capacity: g.capacity,
               ))
-        else if (Firebase.apps.isEmpty) ...[
+        else if (isDemoMode) ...[
           _buildGroupCard(
             name: 'حلقة أبي بكر الصديق (حفظ مكثف)',
             teacher: 'الشيخ عبد الرحمن',
@@ -1907,7 +2089,7 @@ class _AdminMobileScreenState extends ConsumerState<AdminMobileScreen> {
             padding: const EdgeInsets.symmetric(vertical: 24),
             child: Center(
               child: Text(
-                _tr(langCode, ar: 'لا توجد حلقات مسجلة بعد', he: 'אין קבוצות רשומות עדיין', en: 'No study groups registered yet'),
+                trByLang(langCode, ar: 'لا توجد حلقات مسجلة بعد', he: 'אין קבוצות רשומות עדיין', en: 'No study groups registered yet'),
                 style: const TextStyle(color: Color(0xFF6D7A77), fontSize: 13),
               ),
             ),
@@ -1922,6 +2104,7 @@ class _AdminMobileScreenState extends ConsumerState<AdminMobileScreen> {
     required String trackName,
     required String schedule,
     required int studentsCount,
+    int? capacity,
   }) {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -1971,7 +2154,10 @@ class _AdminMobileScreenState extends ConsumerState<AdminMobileScreen> {
               const Spacer(),
               const Icon(Icons.school_rounded, size: 16, color: Color(0xFF6D7A77)),
               const SizedBox(width: 4),
-              Text('$studentsCount طلاب', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+              Text(
+                capacity != null ? '$studentsCount / $capacity' : '$studentsCount طلاب',
+                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+              ),
             ],
           ),
           const SizedBox(height: 6),
@@ -2005,7 +2191,7 @@ class _AdminMobileScreenState extends ConsumerState<AdminMobileScreen> {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text(
-              _tr(langCode, ar: 'إدارة حسابات المستخدمين', he: 'ניהול משתמשים', en: 'User Accounts'),
+              trByLang(langCode, ar: 'إدارة حسابات المستخدمين', he: 'ניהול משתמשים', en: 'User Accounts'),
               style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
             ),
             IconButton(
@@ -2023,7 +2209,7 @@ class _AdminMobileScreenState extends ConsumerState<AdminMobileScreen> {
                 role: u.role.displayName,
                 isPendingFirstLogin: u.isFirstLogin,
               ))
-        else if (Firebase.apps.isEmpty) ...[
+        else if (_isDemoFallback) ...[
           _buildUserCard(name: 'الشيخ عبد الرحمن', email: 'abdulrahman@daralfajr.org', role: 'معلم', isPendingFirstLogin: false),
           _buildUserCard(name: 'الأستاذ طارق', email: 'tariq@daralfajr.org', role: 'معلم', isPendingFirstLogin: false),
           _buildUserCard(name: 'طه عثمان', email: 'taha.osman@email.com', role: 'ولي أمر', isPendingFirstLogin: false),
@@ -2034,7 +2220,7 @@ class _AdminMobileScreenState extends ConsumerState<AdminMobileScreen> {
             padding: const EdgeInsets.symmetric(vertical: 24),
             child: Center(
               child: Text(
-                _tr(langCode, ar: 'لا يوجد مستخدمون مسجلون بعد', he: 'אין משתמשים רשומים עדיין', en: 'No users registered yet'),
+                trByLang(langCode, ar: 'لا يوجد مستخدمون مسجلون بعد', he: 'אין משתמשים רשומים עדיין', en: 'No users registered yet'),
                 style: const TextStyle(color: Color(0xFF6D7A77), fontSize: 13),
               ),
             ),
@@ -2108,12 +2294,43 @@ class _AdminMobileScreenState extends ConsumerState<AdminMobileScreen> {
   // ===========================================================================
   // TAB 3: REPORTS VIEW (التقارير والإحصائيات)
   // ===========================================================================
-  Widget _buildReportsTab(BuildContext context, String langCode, int students, int groups, int oneOnOne) {
+  Widget _buildReportsTab(
+    BuildContext context,
+    String langCode,
+    List<StudentProfile> students,
+    List<Enrollment> enrollments,
+  ) {
+    final logs = ref.watch(adminAttendanceLogsProvider).asData?.value ?? const <AttendanceLog>[];
+    final assignments = ref.watch(adminHifzAssignmentsProvider).asData?.value ?? const <HifzAssignment>[];
+    final isDemoMode = _isDemoFallback;
+
+    final attendedLogsCount =
+        logs.where((l) => l.status == AttendanceStatus.present || l.status == AttendanceStatus.late).length;
+    final absentLogsCount = logs.where((l) => l.status == AttendanceStatus.absent).length;
+    final attendancePercent = logs.isNotEmpty
+        ? ((attendedLogsCount / logs.length) * 100).round()
+        : (isDemoMode ? 94 : 0);
+
+    final totalJuzCompleted = isDemoMode
+        ? 118
+        : students.fold<int>(0, (sum, s) => sum + s.completedJuz.length);
+    final totalPagesMemorized = isDemoMode
+        ? 134
+        : students.fold<int>(0, (sum, s) => sum + s.memorizedCenterPagesCount);
+
+    final gradedAssignments = assignments.where((a) => a.grade != EvaluationGrade.pending).toList();
+    final passedAssignments = gradedAssignments
+        .where((a) => a.grade == EvaluationGrade.excellent || a.grade == EvaluationGrade.good)
+        .length;
+    final masteryPercent = gradedAssignments.isNotEmpty
+        ? ((passedAssignments / gradedAssignments.length) * 100).round()
+        : (isDemoMode ? 88 : 0);
+
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
       children: [
         Text(
-          _tr(langCode, ar: 'لوحة التقارير والتحليلات', he: 'דוחות וניתוחים', en: 'Reports & Analytics'),
+          trByLang(langCode, ar: 'لوحة التقارير والتحليلات', he: 'דוחות וניתוחים', en: 'Reports & Analytics'),
           style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
         ),
         const SizedBox(height: 14),
@@ -2134,31 +2351,45 @@ class _AdminMobileScreenState extends ConsumerState<AdminMobileScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
-                    _tr(langCode, ar: 'نسبة الحضور الأسبوعية', he: 'נוכחות שבועית', en: 'Weekly Attendance Rate'),
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                  Expanded(
+                    child: Text(
+                      trByLang(langCode, ar: 'نسبة الحضور الأسبوعية', he: 'נוכחות שבועית', en: 'Weekly Attendance Rate'),
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
-                  const Text('94%', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: DarAlFajrTheme.primary)),
+                  const SizedBox(width: 8),
+                  Text(
+                    '$attendancePercent%',
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: DarAlFajrTheme.primary),
+                  ),
                 ],
               ),
               const SizedBox(height: 10),
               ClipRRect(
                 borderRadius: BorderRadius.circular(6),
-                child: const LinearProgressIndicator(
-                  value: 0.94,
+                child: LinearProgressIndicator(
+                  value: (attendancePercent / 100).clamp(0.0, 1.0),
                   minHeight: 8,
-                  backgroundColor: Color(0xFFE6E8EA),
-                  valueColor: AlwaysStoppedAnimation<Color>(DarAlFajrTheme.primary),
+                  backgroundColor: const Color(0xFFE6E8EA),
+                  valueColor: const AlwaysStoppedAnimation<Color>(DarAlFajrTheme.primary),
                 ),
               ),
               const SizedBox(height: 8),
               Text(
-                _tr(
-                  langCode,
-                  ar: 'سجل 134 طالباً حضوراً منتظماً هذا الأسبوع مقابل 8 حالات غياب بعذر',
-                  he: '134 תלמידים נכחו כסדרם',
-                  en: '134 students attended regularly this week',
-                ),
+                isDemoMode
+                    ? trByLang(
+                        langCode,
+                        ar: 'سجل 134 طالباً حضوراً منتظماً هذا الأسبوع مقابل 8 حالات غياب بعذر',
+                        he: '134 תלמידים נכחו כסדרם',
+                        en: '134 students attended regularly this week',
+                      )
+                    : trByLang(
+                        langCode,
+                        ar: '$attendedLogsCount سجل حضور مقابل $absentLogsCount غياب من أصل ${logs.length}',
+                        he: '$attendedLogsCount רשומות נוכחות מול $absentLogsCount היעדרות מתוך ${logs.length}',
+                        en: '$attendedLogsCount attended vs $absentLogsCount absent out of ${logs.length} logs',
+                      ),
                 style: const TextStyle(color: Color(0xFF6D7A77), fontSize: 11),
               ),
             ],
@@ -2182,21 +2413,37 @@ class _AdminMobileScreenState extends ConsumerState<AdminMobileScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
-                    _tr(langCode, ar: 'إجمالي الأجزاء المنجزة', he: 'סה״כ ג׳וז הושלמו', en: 'Total Juz Completed'),
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                  Expanded(
+                    child: Text(
+                      trByLang(langCode, ar: 'إجمالي الأجزاء المنجزة', he: 'סה״כ ג׳וז הושלמו', en: 'Total Juz Completed'),
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
-                  const Text('118 جزءاً', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xFF904D00))),
+                  const SizedBox(width: 8),
+                  Text(
+                    isDemoMode
+                        ? '118 جزءاً'
+                        : '$totalJuzCompleted ${trByLang(langCode, ar: 'جزءاً', he: 'ג׳וז', en: 'Juz')}',
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xFF904D00)),
+                  ),
                 ],
               ),
               const SizedBox(height: 8),
               Text(
-                _tr(
-                  langCode,
-                  ar: 'أتم 18 طالباً حفظ الجزء المخصص لهم خلال الشهر الجاري بنجاح وتميز.',
-                  he: '18 תלמידים השלימו שינון החודש',
-                  en: '18 students completed their monthly assigned Juz successfully.',
-                ),
+                isDemoMode
+                    ? trByLang(
+                        langCode,
+                        ar: 'أتم 18 طالباً حفظ الجزء المخصص لهم خلال الشهر الجاري بنجاح وتميز.',
+                        he: '18 תלמידים השלימו שינון החודש',
+                        en: '18 students completed their monthly assigned Juz successfully.',
+                      )
+                    : trByLang(
+                        langCode,
+                        ar: '$totalPagesMemorized صفحة محفوظة • نسبة الإتقان $masteryPercent% (${enrollments.length} تسجيل)',
+                        he: '$totalPagesMemorized עמודים נלמדו • הצלחה $masteryPercent% (${enrollments.length} רישומים)',
+                        en: '$totalPagesMemorized pages memorized • Mastery rate $masteryPercent% (${enrollments.length} enrollments)',
+                      ),
                 style: const TextStyle(color: Color(0xFF6D7A77), fontSize: 11),
               ),
             ],

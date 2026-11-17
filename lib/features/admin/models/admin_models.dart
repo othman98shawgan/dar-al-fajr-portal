@@ -227,6 +227,7 @@ class StudyGroup {
   final List<String> scheduleDays;
   final String startTime;
   final String endTime;
+  final int capacity;
   final DateTime? createdAt;
 
   const StudyGroup({
@@ -238,6 +239,7 @@ class StudyGroup {
     this.scheduleDays = const [],
     this.startTime = '',
     this.endTime = '',
+    this.capacity = 15,
     this.createdAt,
   });
 
@@ -271,6 +273,7 @@ class StudyGroup {
       scheduleDays: days,
       startTime: (map['startTime'] ?? map['start_time'] ?? '') as String,
       endTime: (map['endTime'] ?? map['end_time'] ?? '') as String,
+      capacity: (map['capacity'] as num?)?.toInt() ?? 15,
       createdAt: parsedCreatedAt,
     );
   }
@@ -285,6 +288,7 @@ class StudyGroup {
       'scheduleDays': scheduleDays,
       'startTime': startTime,
       'endTime': endTime,
+      'capacity': capacity,
       'createdAt': createdAt != null
           ? Timestamp.fromDate(createdAt!)
           : FieldValue.serverTimestamp(),
