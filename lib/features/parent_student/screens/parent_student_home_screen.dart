@@ -713,7 +713,7 @@ class _ParentStudentHomeScreenState
             dayAbbrev: enr.groupName.isNotEmpty ? enr.groupName.characters.first : 'ح',
             dayName: enr.groupName,
             dateLabel: enr.groupArrivalTime!.trim(),
-            statusLabel: trackLabel,
+            statusLabel: '',
             isCompleted: false,
             trackBadgeLabel: trackLabel,
             isTertiaryTrackBadge: false,
@@ -734,12 +734,7 @@ class _ParentStudentHomeScreenState
             dayAbbrev: '1:1',
             dayName: enr.groupName,
             dateLabel: enr.oneOnOneSlotTime!.trim(),
-            statusLabel: _tr(
-              langCode,
-              ar: 'موعد فردي',
-              he: 'מועד אישי',
-              en: '1-on-1 Slot',
-            ),
+            statusLabel: '',
             isCompleted: false,
             trackBadgeLabel: trackLabel,
             isTertiaryTrackBadge: true,
@@ -1044,73 +1039,82 @@ class _ParentStudentHomeScreenState
                                       mainAxisAlignment:
                                           MainAxisAlignment.spaceBetween,
                                       children: [
-                                        Row(
-                                          children: [
-                                            Container(
-                                              width: 36,
-                                              height: 36,
-                                              decoration: BoxDecoration(
-                                                color: Colors.white,
-                                                shape: BoxShape.circle,
-                                                border: Border.all(
-                                                  color: _primary.withValues(alpha: 0.15),
-                                                  width: 1.5,
+                                        Expanded(
+                                          child: Row(
+                                            children: [
+                                              Container(
+                                                width: 36,
+                                                height: 36,
+                                                decoration: BoxDecoration(
+                                                  color: Colors.white,
+                                                  shape: BoxShape.circle,
+                                                  border: Border.all(
+                                                    color: _primary.withValues(alpha: 0.15),
+                                                    width: 1.5,
+                                                  ),
+                                                ),
+                                                padding: const EdgeInsets.all(4),
+                                                child: Image.asset(
+                                                  'assets/logo.png',
+                                                  fit: BoxFit.contain,
                                                 ),
                                               ),
-                                              padding: const EdgeInsets.all(4),
-                                              child: Image.asset(
-                                                'assets/logo.png',
-                                                fit: BoxFit.contain,
-                                              ),
-                                            ),
-                                            const SizedBox(width: 8),
-                                            Column(
-                                              mainAxisAlignment:
-                                                  MainAxisAlignment.center,
-                                              crossAxisAlignment:
-                                                  CrossAxisAlignment.start,
-                                              children: [
-                                                Text(
-                                                  isStudentRole
-                                                      ? _tr(
-                                                          langCode,
-                                                          ar: 'بوابة الطالب',
-                                                          he: 'פורטל תלמיד',
-                                                          en: 'Student Portal',
-                                                        )
-                                                      : _tr(
-                                                          langCode,
-                                                          ar: 'بوابة ولي الأمر',
-                                                          he: 'פורטל הורים',
-                                                          en: 'Parent Portal',
-                                                        ),
-                                                  style: Theme.of(context)
-                                                      .textTheme
-                                                      .titleMedium
-                                                      ?.copyWith(
-                                                        color: _primary,
-                                                        fontWeight:
-                                                            FontWeight.w600,
-                                                        height: 1.2,
+                                              const SizedBox(width: 8),
+                                              Expanded(
+                                                child: Column(
+                                                  mainAxisAlignment:
+                                                      MainAxisAlignment.center,
+                                                  crossAxisAlignment:
+                                                      CrossAxisAlignment.start,
+                                                  children: [
+                                                    Text(
+                                                      isStudentRole
+                                                          ? _tr(
+                                                              langCode,
+                                                              ar: 'بوابة الطالب',
+                                                              he: 'פורטל תלמיד',
+                                                              en: 'Student Portal',
+                                                            )
+                                                          : _tr(
+                                                              langCode,
+                                                              ar: 'بوابة ولي الأمر',
+                                                              he: 'פורטל הורים',
+                                                              en: 'Parent Portal',
+                                                            ),
+                                                      maxLines: 1,
+                                                      overflow: TextOverflow.ellipsis,
+                                                      style: Theme.of(context)
+                                                          .textTheme
+                                                          .titleMedium
+                                                          ?.copyWith(
+                                                            color: _primary,
+                                                            fontWeight:
+                                                                FontWeight.w600,
+                                                            height: 1.2,
+                                                          ),
+                                                    ),
+                                                    Text(
+                                                      _tr(
+                                                        langCode,
+                                                        ar: 'دار الفجر لتعليم القرآن',
+                                                        he: 'דאר אל-פג׳ר ללימוד הקוראן',
+                                                        en: 'Dar al-Fajr Quran Center',
                                                       ),
+                                                      maxLines: 1,
+                                                      overflow: TextOverflow.ellipsis,
+                                                      style: const TextStyle(
+                                                        color: _outline,
+                                                        fontSize: 11,
+                                                        fontWeight: FontWeight.w500,
+                                                      ),
+                                                    ),
+                                                  ],
                                                 ),
-                                                Text(
-                                                  _tr(
-                                                    langCode,
-                                                    ar: 'دار الفجر لتعليم القرآن',
-                                                    he: 'דאר אל-פג׳ר ללימוד הקוראן',
-                                                    en: 'Dar al-Fajr Quran Center',
-                                                  ),
-                                                  style: const TextStyle(
-                                                    color: _outline,
-                                                    fontSize: 11,
-                                                    fontWeight: FontWeight.w500,
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          ],
+                                              ),
+                                            ],
+                                          ),
                                         ),
+                                        const SizedBox(width: 8),
 
                                         // Right Actions: Notifications + Account Avatar
                                         Row(
@@ -1541,12 +1545,16 @@ class _ParentStudentHomeScreenState
                           ),
                         ),
                         const SizedBox(width: 8),
-                        Text(
-                          child.periodLabel,
-                          style: const TextStyle(
-                            fontSize: 11,
-                            color: _outline,
-                            fontWeight: FontWeight.w500,
+                        Flexible(
+                          child: Text(
+                            child.periodLabel,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 11,
+                              color: _outline,
+                              fontWeight: FontWeight.w500,
+                            ),
                           ),
                         ),
                       ],
@@ -1868,6 +1876,7 @@ class _ParentStudentHomeScreenState
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
                               Row(
+                                mainAxisSize: MainAxisSize.min,
                                 children: [
                                   Container(
                                     width: 8,
@@ -1888,12 +1897,17 @@ class _ParentStudentHomeScreenState
                                   ),
                                 ],
                               ),
-                              Text(
-                                child.newHifzPagesLabel,
-                                style: const TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.bold,
-                                  color: _primary,
+                              const SizedBox(width: 8),
+                              Flexible(
+                                child: Text(
+                                  child.newHifzPagesLabel,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                    color: _primary,
+                                  ),
                                 ),
                               ),
                             ],
@@ -1902,19 +1916,28 @@ class _ParentStudentHomeScreenState
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Text(
-                                child.newHifzSurah,
-                                style: const TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.w600,
-                                  color: _primary,
+                              Expanded(
+                                child: Text(
+                                  child.newHifzSurah,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w600,
+                                    color: _primary,
+                                  ),
                                 ),
                               ),
-                              Text(
-                                child.newHifzAyahRange,
-                                style: const TextStyle(
-                                  fontSize: 13,
-                                  color: _onSurfaceVariant,
+                              const SizedBox(width: 8),
+                              Flexible(
+                                child: Text(
+                                  child.newHifzAyahRange,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontSize: 13,
+                                    color: _onSurfaceVariant,
+                                  ),
                                 ),
                               ),
                             ],
@@ -1935,18 +1958,27 @@ class _ParentStudentHomeScreenState
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Text(
-                                child.newHifzStatusLeft,
-                                style: const TextStyle(
-                                  fontSize: 11,
-                                  color: _outline,
+                              Expanded(
+                                child: Text(
+                                  child.newHifzStatusLeft,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    color: _outline,
+                                  ),
                                 ),
                               ),
-                              Text(
-                                child.newHifzStatusRight,
-                                style: const TextStyle(
-                                  fontSize: 11,
-                                  color: _outline,
+                              const SizedBox(width: 8),
+                              Flexible(
+                                child: Text(
+                                  child.newHifzStatusRight,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    color: _outline,
+                                  ),
                                 ),
                               ),
                             ],
@@ -2009,19 +2041,28 @@ class _ParentStudentHomeScreenState
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Text(
-                                child.revisionSurah,
-                                style: const TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.w600,
-                                  color: _onSurface,
+                              Expanded(
+                                child: Text(
+                                  child.revisionSurah,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w600,
+                                    color: _onSurface,
+                                  ),
                                 ),
                               ),
-                              Text(
-                                child.revisionAyahRange,
-                                style: const TextStyle(
-                                  fontSize: 13,
-                                  color: _onSurfaceVariant,
+                              const SizedBox(width: 8),
+                              Flexible(
+                                child: Text(
+                                  child.revisionAyahRange,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontSize: 13,
+                                    color: _onSurfaceVariant,
+                                  ),
                                 ),
                               ),
                             ],
@@ -2042,19 +2083,28 @@ class _ParentStudentHomeScreenState
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Text(
-                                child.revisionStatusLeft,
-                                style: const TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w600,
-                                  color: _secondary,
+                              Expanded(
+                                child: Text(
+                                  child.revisionStatusLeft,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                    color: _secondary,
+                                  ),
                                 ),
                               ),
-                              Text(
-                                child.revisionStatusRight,
-                                style: const TextStyle(
-                                  fontSize: 11,
-                                  color: _outline,
+                              const SizedBox(width: 8),
+                              Flexible(
+                                child: Text(
+                                  child.revisionStatusRight,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    color: _outline,
+                                  ),
                                 ),
                               ),
                             ],
@@ -2080,38 +2130,48 @@ class _ParentStudentHomeScreenState
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Row(
-                      children: [
-                        const Icon(
-                          Icons.workspace_premium_rounded,
-                          color: _primary,
-                          size: 24,
-                        ),
-                        const SizedBox(width: 8),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'درجة الإتقان الأسبوعية',
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w500,
-                                color: _primary,
-                              ),
+                    Expanded(
+                      child: Row(
+                        children: [
+                          const Icon(
+                            Icons.workspace_premium_rounded,
+                            color: _primary,
+                            size: 24,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'درجة الإتقان الأسبوعية',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w500,
+                                    color: _primary,
+                                  ),
+                                ),
+                                Text(
+                                  child.weeklyGradeLabel,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                    color: _onSurface,
+                                  ),
+                                ),
+                              ],
                             ),
-                            Text(
-                              child.weeklyGradeLabel,
-                              style: const TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                                color: _onSurface,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
+                          ),
+                        ],
+                      ),
                     ),
+                    const SizedBox(width: 8),
                     Row(
+                      mainAxisSize: MainAxisSize.min,
                       children: List.generate(
                         child.weeklyStarsCount,
                         (_) => const Icon(
@@ -2144,12 +2204,16 @@ class _ParentStudentHomeScreenState
                           size: 20,
                         ),
                         const SizedBox(width: 6),
-                        Text(
-                          'ملاحظة المعلم (${child.teacherNoteAuthor}):',
-                          style: const TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.bold,
-                            color: _primary,
+                        Expanded(
+                          child: Text(
+                            'ملاحظة المعلم (${child.teacherNoteAuthor}):',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.bold,
+                              color: _primary,
+                            ),
                           ),
                         ),
                       ],
@@ -2178,59 +2242,69 @@ class _ParentStudentHomeScreenState
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Row(
-                            children: [
-                              Material(
-                                color: _isPlayingTeacherVoice
-                                    ? _secondary
-                                    : _primary,
-                                shape: const CircleBorder(),
-                                child: InkWell(
-                                  customBorder: const CircleBorder(),
-                                  onTap: () {
-                                    setState(() {
-                                      _isPlayingTeacherVoice =
-                                          !_isPlayingTeacherVoice;
-                                    });
-                                  },
-                                  child: SizedBox(
-                                    width: 36,
-                                    height: 36,
-                                    child: Icon(
-                                      _isPlayingTeacherVoice
-                                          ? Icons.pause_rounded
-                                          : Icons.play_arrow_rounded,
-                                      color: Colors.white,
-                                      size: 20,
+                          Expanded(
+                            child: Row(
+                              children: [
+                                Material(
+                                  color: _isPlayingTeacherVoice
+                                      ? _secondary
+                                      : _primary,
+                                  shape: const CircleBorder(),
+                                  child: InkWell(
+                                    customBorder: const CircleBorder(),
+                                    onTap: () {
+                                      setState(() {
+                                        _isPlayingTeacherVoice =
+                                            !_isPlayingTeacherVoice;
+                                      });
+                                    },
+                                    child: SizedBox(
+                                      width: 36,
+                                      height: 36,
+                                      child: Icon(
+                                        _isPlayingTeacherVoice
+                                            ? Icons.pause_rounded
+                                            : Icons.play_arrow_rounded,
+                                        color: Colors.white,
+                                        size: 20,
+                                      ),
                                     ),
                                   ),
                                 ),
-                              ),
-                              const SizedBox(width: 10),
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Text(
-                                    'توجيه صوتي من المعلم',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w600,
-                                      color: _onSurface,
-                                    ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      const Text(
+                                        'توجيه صوتي من المعلم',
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w600,
+                                          color: _onSurface,
+                                        ),
+                                      ),
+                                      Text(
+                                        'المدة: ${child.teacherVoiceDuration}',
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(
+                                          fontSize: 11,
+                                          color: _outline,
+                                        ),
+                                      ),
+                                    ],
                                   ),
-                                  Text(
-                                    'المدة: ${child.teacherVoiceDuration}',
-                                    style: const TextStyle(
-                                      fontSize: 11,
-                                      color: _outline,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
+                                ),
+                              ],
+                            ),
                           ),
+                          const SizedBox(width: 8),
                           // Waveform indicator bars
                           Row(
+                            mainAxisSize: MainAxisSize.min,
                             children: [
                               _buildWaveBar(height: 12),
                               const SizedBox(width: 3),
@@ -2660,149 +2734,173 @@ class _ParentStudentHomeScreenState
         borderRadius: BorderRadius.circular(12),
       ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
-                children: [
-                  Container(
-                    width: 34,
-                    height: 34,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: slot.isCompleted
-                          ? _primaryFixedDim.withValues(alpha: 0.30)
-                          : _surfaceContainerHighest,
-                      borderRadius: BorderRadius.circular(9),
-                    ),
-                    child: Text(
-                      slot.dayAbbrev,
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                        color:
-                            slot.isCompleted ? _primary : _onSurfaceVariant,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        slot.dayName,
-                        style: const TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
-                          color: _onSurface,
-                        ),
-                      ),
-                      Text(
-                        slot.dateLabel,
-                        style: const TextStyle(
-                          fontSize: 11,
-                          color: _outline,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 4,
-                ),
-                decoration: BoxDecoration(
-                  color: slot.isCompleted ? _primaryFixed : _surfaceContainer,
-                  borderRadius: BorderRadius.circular(999),
-                ),
+              Expanded(
                 child: Row(
-                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(
-                      slot.isCompleted
-                          ? Icons.check_circle_rounded
-                          : Icons.schedule_rounded,
-                      size: 14,
-                      color: slot.isCompleted
-                          ? _onPrimaryFixed
-                          : _onSurfaceVariant,
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      slot.statusLabel,
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
+                    Container(
+                      width: 34,
+                      height: 34,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
                         color: slot.isCompleted
-                            ? _onPrimaryFixed
-                            : _onSurfaceVariant,
+                            ? _primaryFixedDim.withValues(alpha: 0.30)
+                            : _surfaceContainerHighest,
+                        borderRadius: BorderRadius.circular(9),
+                      ),
+                      child: Text(
+                        slot.dayAbbrev,
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color:
+                              slot.isCompleted ? _primary : _onSurfaceVariant,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            slot.dayName,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                              color: _onSurface,
+                            ),
+                          ),
+                          Text(
+                            slot.dateLabel,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 11,
+                              color: _outline,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ],
                 ),
               ),
+              if (slot.statusLabel.isNotEmpty &&
+                  slot.statusLabel != slot.trackBadgeLabel) ...[
+                const SizedBox(width: 8),
+                Flexible(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: slot.isCompleted ? _primaryFixed : _surfaceContainer,
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          slot.isCompleted
+                              ? Icons.check_circle_rounded
+                              : Icons.schedule_rounded,
+                          size: 14,
+                          color: slot.isCompleted
+                              ? _onPrimaryFixed
+                              : _onSurfaceVariant,
+                        ),
+                        const SizedBox(width: 4),
+                        Flexible(
+                          child: Text(
+                            slot.statusLabel,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: slot.isCompleted
+                                  ? _onPrimaryFixed
+                                  : _onSurfaceVariant,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
             ],
           ),
           const SizedBox(height: 10),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 8,
+            runSpacing: 6,
             children: [
-              Expanded(
-                child: Wrap(
-                  spacing: 6,
-                  runSpacing: 4,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 3,
-                      ),
-                      decoration: BoxDecoration(
+              Wrap(
+                spacing: 6,
+                runSpacing: 4,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 3,
+                    ),
+                    decoration: BoxDecoration(
+                      color: slot.isTertiaryTrackBadge
+                          ? _tertiaryFixed
+                          : _surfaceContainerHighest,
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      slot.trackBadgeLabel,
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w500,
                         color: slot.isTertiaryTrackBadge
-                            ? _tertiaryFixed
-                            : _surfaceContainerHighest,
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Text(
-                        slot.trackBadgeLabel,
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w500,
-                          color: slot.isTertiaryTrackBadge
-                              ? _onTertiaryFixed
-                              : _primary,
-                        ),
+                            ? _onTertiaryFixed
+                            : _primary,
                       ),
                     ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 3,
-                      ),
-                      decoration: BoxDecoration(
-                        color: slot.isOneOnOne
-                            ? _secondaryFixed
-                            : _surfaceContainerHigh,
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            slot.isOneOnOne
-                                ? Icons.person_rounded
-                                : Icons.groups_rounded,
-                            size: 13,
-                            color: slot.isOneOnOne
-                                ? _onSecondaryFixed
-                                : _onSurfaceVariant,
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 3,
+                    ),
+                    decoration: BoxDecoration(
+                      color: slot.isOneOnOne
+                          ? _secondaryFixed
+                          : _surfaceContainerHigh,
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          slot.isOneOnOne
+                              ? Icons.person_rounded
+                              : Icons.groups_rounded,
+                          size: 13,
+                          color: slot.isOneOnOne
+                              ? _onSecondaryFixed
+                              : _onSurfaceVariant,
+                        ),
+                        const SizedBox(width: 4),
+                        Flexible(
+                          child: Text(
                             slot.sessionModeLabel,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                             style: TextStyle(
                               fontSize: 11,
                               fontWeight: FontWeight.w500,
@@ -2811,11 +2909,11 @@ class _ParentStudentHomeScreenState
                                   : _onSurfaceVariant,
                             ),
                           ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
               Container(
                 padding: const EdgeInsets.symmetric(
@@ -2835,14 +2933,18 @@ class _ParentStudentHomeScreenState
                       color: _outline,
                     ),
                     const SizedBox(width: 4),
-                    Directionality(
-                      textDirection: TextDirection.ltr,
-                      child: Text(
-                        slot.arrivalTime,
-                        style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: _onSurface,
+                    Flexible(
+                      child: Directionality(
+                        textDirection: TextDirection.ltr,
+                        child: Text(
+                          slot.arrivalTime,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: _onSurface,
+                          ),
                         ),
                       ),
                     ),
@@ -2914,7 +3016,10 @@ class _ParentStudentHomeScreenState
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 4,
+                      crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
                         Container(
                           padding: const EdgeInsets.symmetric(
@@ -2945,7 +3050,6 @@ class _ParentStudentHomeScreenState
                             ],
                           ),
                         ),
-                        const SizedBox(width: 6),
                         const Text(
                           'محدث اليوم',
                           style: TextStyle(
@@ -3078,39 +3182,50 @@ class _ParentStudentHomeScreenState
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Row(
-                    children: [
-                      Icon(
-                        Icons.headphones_rounded,
-                        color: _primaryFixed,
-                        size: 20,
-                      ),
-                      SizedBox(width: 8),
-                      Text(
-                        'آخر تسميع مسجّل',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.white,
+                  const Expanded(
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.headphones_rounded,
+                          color: _primaryFixed,
+                          size: 20,
                         ),
-                      ),
-                    ],
+                        SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'آخر تسميع مسجّل',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 3,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(999),
-                    ),
-                    child: Text(
-                      child.lastRecitationWhen,
-                      style: const TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w500,
-                        color: _primaryFixed,
+                  const SizedBox(width: 8),
+                  Flexible(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 3,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: Text(
+                        child.lastRecitationWhen,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w500,
+                          color: _primaryFixed,
+                        ),
                       ),
                     ),
                   ),
@@ -3225,32 +3340,39 @@ class _ParentStudentHomeScreenState
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Row(
-                    children: [
-                      Container(
-                        width: 32,
-                        height: 32,
-                        decoration: BoxDecoration(
-                          color: _surfaceContainer,
-                          borderRadius: BorderRadius.circular(8),
+                  Expanded(
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 32,
+                          height: 32,
+                          decoration: BoxDecoration(
+                            color: _surfaceContainer,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Icon(
+                            Icons.cached_rounded,
+                            color: _primary,
+                            size: 18,
+                          ),
                         ),
-                        child: const Icon(
-                          Icons.cached_rounded,
-                          color: _primary,
-                          size: 18,
+                        const SizedBox(width: 8),
+                        const Expanded(
+                          child: Text(
+                            'السور قيد الحفظ',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 17,
+                              fontWeight: FontWeight.w600,
+                              color: _onSurface,
+                            ),
+                          ),
                         ),
-                      ),
-                      const SizedBox(width: 8),
-                      const Text(
-                        'السور قيد الحفظ',
-                        style: TextStyle(
-                          fontSize: 17,
-                          fontWeight: FontWeight.w600,
-                          color: _onSurface,
-                        ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
+                  const SizedBox(width: 8),
                   Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 8,
@@ -3297,8 +3419,9 @@ class _ParentStudentHomeScreenState
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Expanded(
+                          Flexible(
                             child: Row(
+                              mainAxisSize: MainAxisSize.min,
                               children: [
                                 Container(
                                   width: 24,
@@ -3318,9 +3441,10 @@ class _ParentStudentHomeScreenState
                                   ),
                                 ),
                                 const SizedBox(width: 8),
-                                Expanded(
+                                Flexible(
                                   child: Text(
                                     surah.surahName,
+                                    maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
                                     style: const TextStyle(
                                       fontSize: 16,
@@ -3333,12 +3457,16 @@ class _ParentStudentHomeScreenState
                             ),
                           ),
                           const SizedBox(width: 8),
-                          Text(
-                            '${surah.progressPercent}% (الآية ${surah.fromAyah} إلى ${surah.toAyah})',
-                            style: const TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                              color: _primary,
+                          Flexible(
+                            child: Text(
+                              '${surah.progressPercent}% (الآية ${surah.fromAyah} إلى ${surah.toAyah})',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                                color: _primary,
+                              ),
                             ),
                           ),
                         ],
@@ -3359,40 +3487,55 @@ class _ParentStudentHomeScreenState
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Row(
-                            children: [
-                              const Icon(
-                                Icons.edit_calendar_rounded,
-                                size: 14,
-                                color: _outline,
-                              ),
-                              const SizedBox(width: 4),
-                              Text(
-                                'المتبقي: ${surah.remainingVerses} آية',
-                                style: const TextStyle(
-                                  fontSize: 11,
+                          Flexible(
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(
+                                  Icons.edit_calendar_rounded,
+                                  size: 14,
                                   color: _outline,
                                 ),
-                              ),
-                            ],
+                                const SizedBox(width: 4),
+                                Flexible(
+                                  child: Text(
+                                    'المتبقي: ${surah.remainingVerses} آية',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      fontSize: 11,
+                                      color: _outline,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
-                          Row(
-                            children: [
-                              const Icon(
-                                Icons.event_available_rounded,
-                                size: 14,
-                                color: _secondary,
-                              ),
-                              const SizedBox(width: 4),
-                              Text(
-                                'المتوقع: ${surah.expectedCompletionLabel}',
-                                style: const TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w600,
+                          const SizedBox(width: 8),
+                          Flexible(
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(
+                                  Icons.event_available_rounded,
+                                  size: 14,
                                   color: _secondary,
                                 ),
-                              ),
-                            ],
+                                const SizedBox(width: 4),
+                                Flexible(
+                                  child: Text(
+                                    'المتوقع: ${surah.expectedCompletionLabel}',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w600,
+                                      color: _secondary,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ],
                       ),
@@ -3445,6 +3588,7 @@ class _ParentStudentHomeScreenState
                         const Expanded(
                           child: Text(
                             'الأجزاء قيد الحفظ',
+                            maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
                               fontSize: 17,
@@ -3456,16 +3600,6 @@ class _ParentStudentHomeScreenState
                       ],
                     ),
                   ),
-                  if (Firebase.apps.isEmpty) ...[
-                    const SizedBox(width: 8),
-                    const Text(
-                      'مخطط الإتمام لعام 1446هـ',
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: _outline,
-                      ),
-                    ),
-                  ],
                 ],
               ),
               const SizedBox(height: 12),
@@ -3545,19 +3679,28 @@ class _ParentStudentHomeScreenState
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Text(
-                                juz.startedDateLabel,
-                                style: const TextStyle(
-                                  fontSize: 11,
-                                  color: _outline,
+                              Flexible(
+                                child: Text(
+                                  juz.startedDateLabel,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    color: _outline,
+                                  ),
                                 ),
                               ),
-                              Text(
-                                'متبقي ${juz.remainingPages} صفحات فقط',
-                                style: const TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w600,
-                                  color: _primary,
+                              const SizedBox(width: 8),
+                              Flexible(
+                                child: Text(
+                                  'متبقي ${juz.remainingPages} صفحات فقط',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                    color: _primary,
+                                  ),
                                 ),
                               ),
                             ],
@@ -3646,32 +3789,39 @@ class _ParentStudentHomeScreenState
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Row(
-                    children: [
-                      Container(
-                        width: 32,
-                        height: 32,
-                        decoration: BoxDecoration(
-                          color: _surfaceContainer,
-                          borderRadius: BorderRadius.circular(8),
+                  Expanded(
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 32,
+                          height: 32,
+                          decoration: BoxDecoration(
+                            color: _surfaceContainer,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Icon(
+                            Icons.verified_rounded,
+                            color: _primary,
+                            size: 18,
+                          ),
                         ),
-                        child: const Icon(
-                          Icons.verified_rounded,
-                          color: _primary,
-                          size: 18,
+                        const SizedBox(width: 8),
+                        const Expanded(
+                          child: Text(
+                            'السور المكتملة',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 17,
+                              fontWeight: FontWeight.w600,
+                              color: _onSurface,
+                            ),
+                          ),
                         ),
-                      ),
-                      const SizedBox(width: 8),
-                      const Text(
-                        'السور المكتملة',
-                        style: TextStyle(
-                          fontSize: 17,
-                          fontWeight: FontWeight.w600,
-                          color: _onSurface,
-                        ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
+                  const SizedBox(width: 8),
                   Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 10,
@@ -3811,45 +3961,54 @@ class _ParentStudentHomeScreenState
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
-                children: [
-                  Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: _secondaryFixed,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: const Icon(
-                      Icons.event_repeat_rounded,
-                      color: _secondary,
-                      size: 20,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  const Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'جلسة مراجعة الحزب الأخير',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
-                          color: _onSurface,
-                        ),
+              Expanded(
+                child: Row(
+                  children: [
+                    Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: _secondaryFixed,
+                        borderRadius: BorderRadius.circular(12),
                       ),
-                      SizedBox(height: 2),
-                      Text(
-                        'الخميس القادم بعد صلاة العصر',
-                        style: TextStyle(
-                          fontSize: 12.5,
-                          color: _outline,
-                        ),
+                      child: const Icon(
+                        Icons.event_repeat_rounded,
+                        color: _secondary,
+                        size: 20,
                       ),
-                    ],
-                  ),
-                ],
+                    ),
+                    const SizedBox(width: 12),
+                    const Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'جلسة مراجعة الحزب الأخير',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                              color: _onSurface,
+                            ),
+                          ),
+                          SizedBox(height: 2),
+                          Text(
+                            'الخميس القادم بعد صلاة العصر',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 12.5,
+                              color: _outline,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
               ),
+              const SizedBox(width: 8),
               Material(
                 color: _isReminderEnabled ? _primaryFixed : _surfaceContainer,
                 borderRadius: BorderRadius.circular(12),
