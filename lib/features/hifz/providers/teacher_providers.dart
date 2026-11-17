@@ -149,6 +149,14 @@ class TeacherController extends AsyncNotifier<void> {
   @override
   FutureOr<void> build() {}
 
+  String _requireTeacherId() {
+    final uid = ref.read(currentAppUserProvider).asData?.value?.uid.trim();
+    if (uid == null || uid.isEmpty) {
+      throw StateError('Authentication required: missing teacher UID.');
+    }
+    return uid;
+  }
+
   Future<bool> logAttendance({
     required String groupId,
     required String studentId,
@@ -160,8 +168,7 @@ class TeacherController extends AsyncNotifier<void> {
   }) async {
     state = const AsyncLoading();
     state = await AsyncValue.guard(() async {
-      final teacherId =
-          ref.read(currentAppUserProvider).asData?.value?.uid ?? 'teacher-1';
+      final teacherId = _requireTeacherId();
       await ref.read(teacherRepositoryProvider).logAttendance(
             groupId: groupId,
             studentId: studentId,
@@ -185,8 +192,7 @@ class TeacherController extends AsyncNotifier<void> {
   }) async {
     state = const AsyncLoading();
     state = await AsyncValue.guard(() async {
-      final teacherId =
-          ref.read(currentAppUserProvider).asData?.value?.uid ?? 'teacher-1';
+      final teacherId = _requireTeacherId();
       await ref.read(teacherRepositoryProvider).saveBatchAttendance(
             groupId: groupId,
             teacherId: teacherId,
@@ -231,8 +237,7 @@ class TeacherController extends AsyncNotifier<void> {
     state = const AsyncLoading();
     HifzAssignment? created;
     state = await AsyncValue.guard(() async {
-      final teacherId =
-          ref.read(currentAppUserProvider).asData?.value?.uid ?? 'teacher-1';
+      final teacherId = _requireTeacherId();
       created = await ref.read(teacherRepositoryProvider).saveHifzAssignment(
             existingAssignmentId: existingAssignmentId,
             studentId: studentId,
@@ -278,8 +283,7 @@ class TeacherController extends AsyncNotifier<void> {
     state = const AsyncLoading();
     WeeklyRevisionPlan? saved;
     state = await AsyncValue.guard(() async {
-      final teacherId =
-          ref.read(currentAppUserProvider).asData?.value?.uid ?? 'teacher-1';
+      final teacherId = _requireTeacherId();
       saved = await ref.read(teacherRepositoryProvider).saveWeeklyRevisionPlan(
             existingPlanId: existingPlanId,
             studentId: studentId,

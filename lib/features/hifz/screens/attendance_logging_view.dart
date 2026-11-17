@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/routing/app_router.dart';
 import '../../../core/services/locale_provider.dart';
+import '../../../l10n/app_localizations_tr.dart';
 import '../models/teacher_models.dart';
 import '../providers/teacher_providers.dart';
 
@@ -38,7 +39,7 @@ class AttendanceLoggingView extends ConsumerStatefulWidget {
 }
 
 class _AttendanceLoggingViewState extends ConsumerState<AttendanceLoggingView> {
-  DateTime _selectedDate = DateTime(2026, 10, 18);
+  DateTime _selectedDate = DateTime.now();
   bool _isSaving = false;
   bool _showSuccessBanner = false;
 
@@ -122,23 +123,6 @@ class _AttendanceLoggingViewState extends ConsumerState<AttendanceLoggingView> {
     }
   }
 
-  String _tr(
-    String langCode, {
-    required String ar,
-    required String he,
-    required String en,
-  }) {
-    switch (langCode) {
-      case 'he':
-        return he;
-      case 'en':
-        return en;
-      case 'ar':
-      default:
-        return ar;
-    }
-  }
-
   String _toArabicDigits(int number) {
     const western = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
     const eastern = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
@@ -169,11 +153,12 @@ class _AttendanceLoggingViewState extends ConsumerState<AttendanceLoggingView> {
   }
 
   Future<void> _pickDate() async {
+    final now = DateTime.now();
     final picked = await showDatePicker(
       context: context,
       initialDate: _selectedDate,
       firstDate: DateTime(2024),
-      lastDate: DateTime(2030),
+      lastDate: DateTime(now.year + 5),
     );
     if (picked != null && mounted) {
       setState(() {
@@ -230,13 +215,13 @@ class _AttendanceLoggingViewState extends ConsumerState<AttendanceLoggingView> {
       SnackBar(
         content: Text(
           ok
-              ? _tr(
+              ? trByLang(
                   langCode,
                   ar: 'تم حفظ الحضور واعتماد السجل بنجاح (${students.length} طلاب)',
                   he: 'נוכחות נשמרה ואושרה בהצלחה (${students.length} תלמידים)',
                   en: 'Attendance saved and approved (${students.length} students)',
                 )
-              : _tr(
+              : trByLang(
                   langCode,
                   ar: 'حدث خطأ أثناء حفظ الحضور',
                   he: 'אירעה שגיאה בשמירת הנוכחות',
@@ -278,7 +263,7 @@ class _AttendanceLoggingViewState extends ConsumerState<AttendanceLoggingView> {
 
     final groupTitle = matchedGroup?.name.isNotEmpty == true
         ? matchedGroup!.name
-        : _tr(
+        : trByLang(
             langCode,
             ar: 'حلقة أبي بكر الصديق',
             he: 'קבוצת אבו בכר אל-סידיק',
@@ -403,7 +388,7 @@ class _AttendanceLoggingViewState extends ConsumerState<AttendanceLoggingView> {
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             Text(
-                              _tr(
+                              trByLang(
                                 langCode,
                                 ar: 'قائمة الطلاب (${_formatNum(students.length, langCode)} متاحون الآن)',
                                 he: 'רשימת תלמידים (${students.length} זמינים כעת)',
@@ -435,7 +420,7 @@ class _AttendanceLoggingViewState extends ConsumerState<AttendanceLoggingView> {
                                 ),
                                 const SizedBox(height: 12),
                                 Text(
-                                  _tr(
+                                  trByLang(
                                     langCode,
                                     ar: 'لا يوجد طلاب مسجلون في هذه الحلقة حالياً',
                                     he: 'אין תלמידים רשומים לקבוצה זו כעת',
@@ -516,7 +501,7 @@ class _AttendanceLoggingViewState extends ConsumerState<AttendanceLoggingView> {
                                           );
                                         }
                                       },
-                                      tooltip: _tr(
+                                      tooltip: trByLang(
                                         langCode,
                                         ar: 'العودة للخلف',
                                         he: 'חזור',
@@ -530,7 +515,7 @@ class _AttendanceLoggingViewState extends ConsumerState<AttendanceLoggingView> {
                                     ),
                                     const SizedBox(width: 4),
                                     Text(
-                                      _tr(
+                                      trByLang(
                                         langCode,
                                         ar: 'رصد الحضور اليومي',
                                         he: 'רישום נוכחות יומי',
@@ -634,20 +619,20 @@ class _AttendanceLoggingViewState extends ConsumerState<AttendanceLoggingView> {
                                     ),
                                     label: Text(
                                       _isSaving
-                                          ? _tr(
+                                          ? trByLang(
                                               langCode,
                                               ar: 'جاري حفظ الحضور...',
                                               he: 'שומר נוכחות...',
                                               en: 'Saving attendance...',
                                             )
                                           : (_showSuccessBanner
-                                              ? _tr(
+                                              ? trByLang(
                                                   langCode,
                                                   ar: 'تم الحفظ والاعتماد بنجاح',
                                                   he: 'נשמר ואושר בהצלחה',
                                                   en: 'Saved & Approved Successfully',
                                                 )
-                                              : _tr(
+                                              : trByLang(
                                                   langCode,
                                                   ar: 'حفظ الحضور واعتماد السجل',
                                                   he: 'שמור נוכחות ואשר יומן',
@@ -700,7 +685,7 @@ class _AttendanceLoggingViewState extends ConsumerState<AttendanceLoggingView> {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  _tr(
+                  trByLang(
                     langCode,
                     ar: 'رصد الحضور اليومي السريع',
                     he: 'רישום נוכחות יומי מהיר',
@@ -806,7 +791,7 @@ class _AttendanceLoggingViewState extends ConsumerState<AttendanceLoggingView> {
                   ),
                   const SizedBox(width: 6),
                   Text(
-                    _tr(
+                    trByLang(
                       langCode,
                       ar: 'إجراء سريع',
                       he: 'פעולה מהירה',
@@ -840,7 +825,7 @@ class _AttendanceLoggingViewState extends ConsumerState<AttendanceLoggingView> {
                         ),
                         const SizedBox(width: 4),
                         Text(
-                          _tr(
+                          trByLang(
                             langCode,
                             ar: 'تحضير الكل حاضر',
                             he: 'סמן הכל כנוכח',
@@ -865,7 +850,7 @@ class _AttendanceLoggingViewState extends ConsumerState<AttendanceLoggingView> {
               Expanded(
                 child: _MetricStatPill(
                   dotColor: _primary,
-                  label: _tr(langCode, ar: 'حاضر', he: 'נוכח', en: 'Present'),
+                  label: trByLang(langCode, ar: 'حاضر', he: 'נוכח', en: 'Present'),
                   valueText: _formatNum(presentCount, langCode),
                   valueColor: _primary,
                 ),
@@ -874,7 +859,7 @@ class _AttendanceLoggingViewState extends ConsumerState<AttendanceLoggingView> {
               Expanded(
                 child: _MetricStatPill(
                   dotColor: _secondary,
-                  label: _tr(langCode, ar: 'متأخر', he: 'איחור', en: 'Late'),
+                  label: trByLang(langCode, ar: 'متأخر', he: 'איחור', en: 'Late'),
                   valueText: _formatNum(lateCount, langCode),
                   valueColor: _secondary,
                 ),
@@ -883,7 +868,7 @@ class _AttendanceLoggingViewState extends ConsumerState<AttendanceLoggingView> {
               Expanded(
                 child: _MetricStatPill(
                   dotColor: _error,
-                  label: _tr(langCode, ar: 'غائب/معذور', he: 'חיסור', en: 'Absent'),
+                  label: trByLang(langCode, ar: 'غائب/معذور', he: 'חיסור', en: 'Absent'),
                   valueText: _formatNum(absentCount, langCode),
                   valueColor: _error,
                 ),
@@ -973,7 +958,7 @@ class _AttendanceLoggingViewState extends ConsumerState<AttendanceLoggingView> {
               children: [
                 Expanded(
                   child: _StatusSegmentButton(
-                    label: _tr(langCode, ar: 'حاضر', he: 'נוכח', en: 'Present'),
+                    label: trByLang(langCode, ar: 'حاضر', he: 'נוכח', en: 'Present'),
                     icon: Icons.check_rounded,
                     isActive: isPresent,
                     activeColor: _primary,
@@ -986,7 +971,7 @@ class _AttendanceLoggingViewState extends ConsumerState<AttendanceLoggingView> {
                 const SizedBox(width: 4),
                 Expanded(
                   child: _StatusSegmentButton(
-                    label: _tr(langCode, ar: 'متأخر', he: 'איחור', en: 'Late'),
+                    label: trByLang(langCode, ar: 'متأخر', he: 'איחור', en: 'Late'),
                     icon: Icons.schedule_rounded,
                     isActive: isLate,
                     activeColor: _secondary,
@@ -999,7 +984,7 @@ class _AttendanceLoggingViewState extends ConsumerState<AttendanceLoggingView> {
                 const SizedBox(width: 4),
                 Expanded(
                   child: _StatusSegmentButton(
-                    label: _tr(langCode, ar: 'غائب', he: 'חיסור', en: 'Absent'),
+                    label: trByLang(langCode, ar: 'غائب', he: 'חיסור', en: 'Absent'),
                     icon: Icons.close_rounded,
                     isActive: isAbsent,
                     activeColor: _error,
@@ -1012,7 +997,7 @@ class _AttendanceLoggingViewState extends ConsumerState<AttendanceLoggingView> {
                 const SizedBox(width: 4),
                 Expanded(
                   child: _StatusSegmentButton(
-                    label: _tr(langCode, ar: 'معذور', he: 'מוצדק', en: 'Excused'),
+                    label: trByLang(langCode, ar: 'معذور', he: 'מוצדק', en: 'Excused'),
                     icon: Icons.verified_user_outlined,
                     isActive: isExcused,
                     activeColor: _tertiary,

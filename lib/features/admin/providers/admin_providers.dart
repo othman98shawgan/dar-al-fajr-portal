@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../auth/models/app_user.dart';
 import '../../auth/providers/auth_providers.dart';
+import '../../hifz/models/teacher_models.dart';
 import '../models/admin_models.dart';
 import '../repositories/admin_repository.dart';
 
@@ -59,6 +60,20 @@ final adminEnrollmentsProvider = StreamProvider<List<Enrollment>>((ref) {
     return Stream<List<Enrollment>>.value(const []);
   }
   return ref.watch(adminRepositoryProvider).watchEnrollments();
+});
+
+final adminAttendanceLogsProvider = StreamProvider<List<AttendanceLog>>((ref) {
+  if (Firebase.apps.isEmpty) {
+    return Stream<List<AttendanceLog>>.value(const []);
+  }
+  return ref.watch(adminRepositoryProvider).watchAllAttendanceLogs();
+});
+
+final adminHifzAssignmentsProvider = StreamProvider<List<HifzAssignment>>((ref) {
+  if (Firebase.apps.isEmpty) {
+    return Stream<List<HifzAssignment>>.value(const []);
+  }
+  return ref.watch(adminRepositoryProvider).watchAllHifzAssignments();
 });
 
 /// Selected navigation tab index in the Admin Shell.
@@ -148,6 +163,7 @@ class AdminController extends AsyncNotifier<void> {
     List<String> scheduleDays = const [],
     String startTime = '',
     String endTime = '',
+    int capacity = 15,
   }) async {
     state = const AsyncLoading();
     StudyGroup? created;
@@ -160,6 +176,7 @@ class AdminController extends AsyncNotifier<void> {
             scheduleDays: scheduleDays,
             startTime: startTime,
             endTime: endTime,
+            capacity: capacity,
           );
     });
     return created;

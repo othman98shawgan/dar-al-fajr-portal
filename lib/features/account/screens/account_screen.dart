@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/routing/app_router.dart';
 import '../../../core/services/locale_provider.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../l10n/app_localizations_tr.dart';
 import '../../auth/models/app_user.dart';
 import '../../auth/providers/auth_providers.dart';
 
@@ -20,18 +21,6 @@ class AccountScreen extends ConsumerStatefulWidget {
 
 class _AccountScreenState extends ConsumerState<AccountScreen> {
   bool _isChangingLocale = false;
-
-  String _tr(String langCode, {required String ar, required String he, required String en}) {
-    switch (langCode) {
-      case 'he':
-        return he;
-      case 'en':
-        return en;
-      case 'ar':
-      default:
-        return ar;
-    }
-  }
 
   String _currentLanguageDisplayName(String langCode) {
     switch (langCode) {
@@ -87,7 +76,7 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            _tr(
+            trByLang(
               code,
               ar: 'تم تغيير لغة التطبيق إلى العربية بنجاح',
               he: 'שפת המערכת עודכנה לעברית בהצלחה',
@@ -154,11 +143,11 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              _tr(currentLang, ar: 'اختر لغة التطبيق', he: 'בחר שפת ממשק', en: 'Select App Language'),
+                              trByLang(currentLang, ar: 'اختر لغة التطبيق', he: 'בחר שפת ממשק', en: 'Select App Language'),
                               style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
                             ),
                             Text(
-                              _tr(
+                              trByLang(
                                 currentLang,
                                 ar: 'تتغير لغة الواجهة والاتجاهات فوراً',
                                 he: 'שפת הממשק וכיוון הטקסט יתעדכנו מיד',
@@ -323,7 +312,7 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
-                    _tr(langCode, ar: 'تعديل الملف الشخصي', he: 'עריכת פרופיל', en: 'Edit Profile'),
+                    trByLang(langCode, ar: 'تعديل الملف الشخصي', he: 'עריכת פרופיל', en: 'Edit Profile'),
                     style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
                   ),
                 ),
@@ -338,7 +327,7 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      _tr(
+                      trByLang(
                         langCode,
                         ar: 'قم بتحديث اسمك ورقم الهاتف للتواصل وإدارة الحساب بسهولة.',
                         he: 'עדכן את שמך ומספר הטלפון שלך ליצירת קשר נוחה.',
@@ -351,8 +340,8 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
                     TextFormField(
                       controller: nameCtrl,
                       decoration: InputDecoration(
-                        labelText: _tr(langCode, ar: 'الاسم الكامل', he: 'שם מלא', en: 'Full Name'),
-                        hintText: _tr(langCode, ar: 'أدخل الاسم الكامل', he: 'הזן שם מלא', en: 'Enter full name'),
+                        labelText: trByLang(langCode, ar: 'الاسم الكامل', he: 'שם מלא', en: 'Full Name'),
+                        hintText: trByLang(langCode, ar: 'أدخل الاسم الكامل', he: 'הזן שם מלא', en: 'Enter full name'),
                         prefixIcon: const Icon(Icons.badge_outlined, color: DarAlFajrTheme.primary, size: 20),
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                         filled: true,
@@ -360,7 +349,7 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
                       ),
                       validator: (val) {
                         if (val == null || val.trim().isEmpty) {
-                          return _tr(
+                          return trByLang(
                             langCode,
                             ar: 'يرجى إدخال الاسم الكامل',
                             he: 'נא להזין שם מלא',
@@ -368,7 +357,7 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
                           );
                         }
                         if (val.trim().length < 2) {
-                          return _tr(langCode, ar: 'الاسم قصير جداً', he: 'השם קצר מדי', en: 'Name is too short');
+                          return trByLang(langCode, ar: 'الاسم قصير جداً', he: 'השם קצר מדי', en: 'Name is too short');
                         }
                         return null;
                       },
@@ -380,7 +369,7 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
                       keyboardType: TextInputType.phone,
                       textDirection: TextDirection.ltr,
                       decoration: InputDecoration(
-                        labelText: _tr(langCode, ar: 'رقم الهاتف', he: 'מספר טלפון', en: 'Phone Number'),
+                        labelText: trByLang(langCode, ar: 'رقم الهاتف', he: 'מספר טלפון', en: 'Phone Number'),
                         hintText: '05xxxxxxxx',
                         prefixIcon: const Icon(Icons.phone_outlined, color: DarAlFajrTheme.primary, size: 20),
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
@@ -397,7 +386,7 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
               TextButton(
                 onPressed: isSaving ? null : () => Navigator.of(dlgCtx).pop(),
                 child: Text(
-                  _tr(langCode, ar: 'إلغاء', he: 'ביטול', en: 'Cancel'),
+                  trByLang(langCode, ar: 'إلغاء', he: 'ביטול', en: 'Cancel'),
                   style: const TextStyle(color: Color(0xFF6D7A77)),
                 ),
               ),
@@ -435,7 +424,7 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
                           messenger.showSnackBar(
                             SnackBar(
                               content: Text(
-                                _tr(
+                                trByLang(
                                   langCode,
                                   ar: 'تم تحديث الملف الشخصي بنجاح!',
                                   he: 'הפרופיל עודכן בהצלחה!',
@@ -464,7 +453,7 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
                         child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                       )
                     : Text(
-                        _tr(langCode, ar: 'حفظ التعديلات', he: 'שמור שינויים', en: 'Save Changes'),
+                        trByLang(langCode, ar: 'حفظ التعديلات', he: 'שמור שינויים', en: 'Save Changes'),
                         style: const TextStyle(fontWeight: FontWeight.bold),
                       ),
               ),
@@ -482,7 +471,7 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
     showDialog<void>(
       context: context,
       builder: (dlgCtx) => AlertDialog(
-        title: Text(_tr(langCode, ar: 'تغيير كلمة المرور', he: 'שינוי סיסמה', en: 'Change Password')),
+        title: Text(trByLang(langCode, ar: 'تغيير كلمة المرور', he: 'שינוי סיסמה', en: 'Change Password')),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -490,7 +479,7 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
               controller: newPassCtrl,
               obscureText: true,
               decoration: InputDecoration(
-                labelText: _tr(langCode, ar: 'كلمة المرور الجديدة', he: 'סיסמה חדשה', en: 'New Password'),
+                labelText: trByLang(langCode, ar: 'كلمة المرور الجديدة', he: 'סיסמה חדשה', en: 'New Password'),
               ),
             ),
             const SizedBox(height: 12),
@@ -498,7 +487,7 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
               controller: confirmPassCtrl,
               obscureText: true,
               decoration: InputDecoration(
-                labelText: _tr(langCode, ar: 'تأكيد كلمة المرور', he: 'אימות סיסמה', en: 'Confirm Password'),
+                labelText: trByLang(langCode, ar: 'تأكيد كلمة المرور', he: 'אימות סיסמה', en: 'Confirm Password'),
               ),
             ),
           ],
@@ -506,7 +495,7 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dlgCtx).pop(),
-            child: Text(_tr(langCode, ar: 'إلغاء', he: 'ביטול', en: 'Cancel')),
+            child: Text(trByLang(langCode, ar: 'إلغاء', he: 'ביטול', en: 'Cancel')),
           ),
           ElevatedButton(
             onPressed: () async {
@@ -515,7 +504,7 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
                     content: Text(
-                      _tr(
+                      trByLang(
                         langCode,
                         ar: 'كلمات المرور غير متطابقة أو أقل من ٦ خانات',
                         he: 'הסיסמאות אינן תואמות או קצרות מדי',
@@ -537,7 +526,7 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
                 messenger.showSnackBar(
                   SnackBar(
                     content: Text(
-                      _tr(
+                      trByLang(
                         langCode,
                         ar: 'تم تحديث كلمة المرور بنجاح!',
                         he: 'הסיסמה עודכנה בהצלחה!',
@@ -552,7 +541,7 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
                 messenger.showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: DarAlFajrTheme.error));
               }
             },
-            child: Text(_tr(langCode, ar: 'تحديث', he: 'עדכן', en: 'Update')),
+            child: Text(trByLang(langCode, ar: 'تحديث', he: 'עדכן', en: 'Update')),
           ),
         ],
       ),
@@ -563,9 +552,9 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
     showDialog<void>(
       context: context,
       builder: (dlgCtx) => AlertDialog(
-        title: Text(_tr(langCode, ar: 'تسجيل الخروج', he: 'התנתקות', en: 'Sign Out')),
+        title: Text(trByLang(langCode, ar: 'تسجيل الخروج', he: 'התנתקות', en: 'Sign Out')),
         content: Text(
-          _tr(
+          trByLang(
             langCode,
             ar: 'هل أنت متأكد من رغبتك في تسجيل الخروج من دار الفجر؟',
             he: 'האם אתה בטוח שברצונך להתנתק?',
@@ -575,7 +564,7 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dlgCtx).pop(),
-            child: Text(_tr(langCode, ar: 'إلغاء', he: 'ביטול', en: 'Cancel')),
+            child: Text(trByLang(langCode, ar: 'إلغاء', he: 'ביטול', en: 'Cancel')),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: DarAlFajrTheme.error, foregroundColor: Colors.white),
@@ -586,7 +575,7 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
                 context.go(AppRoutes.login);
               }
             },
-            child: Text(_tr(langCode, ar: 'تسجيل الخروج', he: 'התנתק', en: 'Sign Out')),
+            child: Text(trByLang(langCode, ar: 'تسجيل الخروج', he: 'התנתק', en: 'Sign Out')),
           ),
         ],
       ),
@@ -602,7 +591,7 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
 
     final displayName = appUser?.fullName.isNotEmpty == true
         ? appUser!.fullName
-        : _tr(langCode, ar: 'مستخدم دار الفجر', he: 'משتמש דאר אל-פג׳ר', en: 'Dar al-Fajr User');
+        : trByLang(langCode, ar: 'مستخدم دار الفجر', he: 'משتמש דאר אל-פג׳ר', en: 'Dar al-Fajr User');
 
     final displayEmail = appUser?.email.isNotEmpty == true ? appUser!.email : 'user@daralfajr.org';
     final displayPhone = appUser?.phoneNumber;
@@ -631,7 +620,7 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
             },
           ),
           title: Text(
-            _tr(langCode, ar: 'حسابي الشخصي', he: 'החשבון שלי', en: 'My Account'),
+            trByLang(langCode, ar: 'حسابي الشخصي', he: 'החשבון שלי', en: 'My Account'),
             style: Theme.of(
               context,
             ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold, color: DarAlFajrTheme.onSurface),
@@ -703,7 +692,7 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
                                             color: DarAlFajrTheme.primary,
                                             size: 20,
                                           ),
-                                          tooltip: _tr(
+                                          tooltip: trByLang(
                                             langCode,
                                             ar: 'تعديل الملف الشخصي',
                                             he: 'עריכת פרופיל',
@@ -754,7 +743,7 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
                                               const Icon(Icons.add_call, size: 13, color: DarAlFajrTheme.accent),
                                               const SizedBox(width: 4),
                                               Text(
-                                                _tr(
+                                                trByLang(
                                                   langCode,
                                                   ar: '+ إضافة رقم هاتف',
                                                   he: '+ הוסף מספר טלפון',
@@ -781,7 +770,7 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
                                       child: Text(
                                         appUser != null
                                             ? appUser.role.localizedName(langCode)
-                                            : _tr(langCode, ar: 'مدير النظام', he: 'מנהל מערכת', en: 'Administrator'),
+                                            : trByLang(langCode, ar: 'مدير النظام', he: 'מנהל מערכת', en: 'Administrator'),
                                         style: const TextStyle(
                                           fontSize: 11,
                                           fontWeight: FontWeight.bold,
@@ -828,7 +817,7 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
                               ),
                               const SizedBox(width: 10),
                               Text(
-                                _tr(
+                                trByLang(
                                   langCode,
                                   ar: 'إعدادات الحساب والتطبيق',
                                   he: 'הגדרות חשבון ואפליקציה',
@@ -858,7 +847,7 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
                                 child: const Icon(Icons.language_rounded, color: DarAlFajrTheme.primary, size: 20),
                               ),
                               title: Text(
-                                _tr(langCode, ar: 'لغة التطبيق', he: 'שפת האפליקציה', en: 'App Language'),
+                                trByLang(langCode, ar: 'لغة التطبيق', he: 'שפת האפליקציה', en: 'App Language'),
                                 style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
                               ),
                               subtitle: Text(
@@ -910,7 +899,7 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
                                 child: const Icon(Icons.person_outline_rounded, color: Color(0xFF3D4947), size: 20),
                               ),
                               title: Text(
-                                _tr(
+                                trByLang(
                                   langCode,
                                   ar: 'تعديل البيانات الشخصية',
                                   he: 'עריכת פרטים אישיים',
@@ -919,7 +908,7 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
                                 style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
                               ),
                               subtitle: Text(
-                                _tr(
+                                trByLang(
                                   langCode,
                                   ar: 'الاسم ورقم الهاتف للتواصل',
                                   he: 'שם ומספר טלפון',
@@ -950,11 +939,11 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
                                 child: const Icon(Icons.lock_reset_rounded, color: Color(0xFF3D4947), size: 20),
                               ),
                               title: Text(
-                                _tr(langCode, ar: 'تغيير كلمة المرور', he: 'שינוי סיסמה', en: 'Change Password'),
+                                trByLang(langCode, ar: 'تغيير كلمة المرور', he: 'שינוי סיסמה', en: 'Change Password'),
                                 style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
                               ),
                               subtitle: Text(
-                                _tr(
+                                trByLang(
                                   langCode,
                                   ar: 'تحديث كلمة المرور الخاصة بحسابك',
                                   he: 'עדכון סיסמת החשבון',
@@ -981,7 +970,7 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
                         onPressed: () => _showSignOutDialog(context, langCode),
                         icon: const Icon(Icons.logout_rounded, color: DarAlFajrTheme.error, size: 20),
                         label: Text(
-                          _tr(langCode, ar: 'تسجيل الخروج', he: 'התנתקות', en: 'Sign Out'),
+                          trByLang(langCode, ar: 'تسجيل الخروج', he: 'התנתקות', en: 'Sign Out'),
                           style: const TextStyle(
                             color: DarAlFajrTheme.error,
                             fontWeight: FontWeight.bold,
@@ -1013,7 +1002,7 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
                           ),
                           const SizedBox(height: 8),
                           Text(
-                            _tr(
+                            trByLang(
                               langCode,
                               ar: 'بوابة دار الفجر لتعليم القرآن الكريم',
                               he: 'פורטל דאר אל-פג׳ר ללימוד הקוראן',
@@ -1023,7 +1012,7 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            _tr(langCode, ar: 'الإصدار 1.0.0', he: 'גרסה 1.0.0', en: 'Version 1.0.0'),
+                            trByLang(langCode, ar: 'الإصدار 1.0.0', he: 'גרסה 1.0.0', en: 'Version 1.0.0'),
                             style: const TextStyle(fontSize: 11, color: Color(0xFF8E9B97), fontWeight: FontWeight.w400),
                           ),
                         ],
@@ -1063,7 +1052,7 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
                         ),
                         const SizedBox(height: 16),
                         Text(
-                          _tr(
+                          trByLang(
                             langCode,
                             ar: 'جاري تحديث لغة التطبيق...',
                             he: 'מעדכן את שפת המערכת...',

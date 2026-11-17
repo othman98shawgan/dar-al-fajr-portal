@@ -6,6 +6,7 @@ import 'package:intl/intl.dart' hide TextDirection;
 
 import '../../../core/services/locale_provider.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../l10n/app_localizations_tr.dart';
 import '../providers/auth_providers.dart';
 
 class FirstLoginSetupScreen extends ConsumerStatefulWidget {
@@ -65,32 +66,20 @@ class _FirstLoginSetupScreenState extends ConsumerState<FirstLoginSetupScreen> {
     return score;
   }
 
-  String _tr(String langCode, {required String ar, required String he, required String en}) {
-    switch (langCode) {
-      case 'he':
-        return he;
-      case 'en':
-        return en;
-      case 'ar':
-      default:
-        return ar;
-    }
-  }
-
   String _strengthLabel(String langCode) {
     if (_newPasswordController.text.isEmpty) {
-      return _tr(langCode, ar: 'مطلوبة', he: 'חובה', en: 'Required');
+      return trByLang(langCode, ar: 'مطلوبة', he: 'חובה', en: 'Required');
     }
     switch (_passwordScore) {
       case 0:
       case 1:
-        return _tr(langCode, ar: 'ضعيفة جداً', he: 'חלשה מאוד', en: 'Very Weak');
+        return trByLang(langCode, ar: 'ضعيفة جداً', he: 'חלשה מאוד', en: 'Very Weak');
       case 2:
-        return _tr(langCode, ar: 'متوسطة', he: 'בינונית', en: 'Fair');
+        return trByLang(langCode, ar: 'متوسطة', he: 'בינונית', en: 'Fair');
       case 3:
-        return _tr(langCode, ar: 'جيدة', he: 'טובה', en: 'Good');
+        return trByLang(langCode, ar: 'جيدة', he: 'טובה', en: 'Good');
       default:
-        return _tr(langCode, ar: 'قوية وممتازة', he: 'חזקה ומצוינת', en: 'Strong & Excellent');
+        return trByLang(langCode, ar: 'قوية وممتازة', he: 'חזקה ומצוינת', en: 'Strong & Excellent');
     }
   }
 
@@ -134,7 +123,7 @@ class _FirstLoginSetupScreenState extends ConsumerState<FirstLoginSetupScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            _tr(
+            trByLang(
               langCode,
               ar: 'يرجى إدخال كلمة مرور لا تقل عن 8 أحرف.',
               he: 'נא להזין סיסמה בת 8 תווים לפחות.',
@@ -152,7 +141,7 @@ class _FirstLoginSetupScreenState extends ConsumerState<FirstLoginSetupScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            _tr(
+            trByLang(
               langCode,
               ar: 'كلمتا المرور غير متطابقتين.',
               he: 'הסיסמאות אינן תואמות.',
@@ -170,7 +159,7 @@ class _FirstLoginSetupScreenState extends ConsumerState<FirstLoginSetupScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            _tr(
+            trByLang(
               langCode,
               ar: 'يرجى إدخال رقم الهاتف المعتمد.',
               he: 'נא להזין מספר טלפון.',
@@ -188,7 +177,7 @@ class _FirstLoginSetupScreenState extends ConsumerState<FirstLoginSetupScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            _tr(
+            trByLang(
               langCode,
               ar: 'يرجى الموافقة على سياسة الخصوصية وشروط الاستخدام.',
               he: 'נא לאשר את מדיניות הפרטיות ותנאי השימוש.',
@@ -218,7 +207,7 @@ class _FirstLoginSetupScreenState extends ConsumerState<FirstLoginSetupScreen> {
 
     if (!success) {
       final error = ref.read(authControllerProvider).error;
-      String message = _tr(
+      String message = trByLang(
         langCode,
         ar: 'حدث خطأ أثناء حفظ الإعدادات. يرجى المحاولة مرة أخرى.',
         he: 'אירעה שגיאה בשמירת ההגדרות. אנא נסה שוב.',
@@ -238,7 +227,7 @@ class _FirstLoginSetupScreenState extends ConsumerState<FirstLoginSetupScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            _tr(
+            trByLang(
               langCode,
               ar: 'تم حفظ الإعدادات بنجاح!',
               he: 'ההגדרות נשמרו בהצלחה!',
@@ -298,7 +287,7 @@ class _FirstLoginSetupScreenState extends ConsumerState<FirstLoginSetupScreen> {
                           ref.read(authControllerProvider.notifier).signOut();
                         }
                       },
-                      tooltip: _tr(langCode, ar: 'رجوع', he: 'חזרה', en: 'Back'),
+                      tooltip: trByLang(langCode, ar: 'رجوع', he: 'חזרה', en: 'Back'),
                       icon: const Icon(Icons.arrow_back_rounded, color: DarAlFajrTheme.primaryDark),
                       style: IconButton.styleFrom(backgroundColor: Colors.white, padding: const EdgeInsets.all(8)),
                     ),
@@ -430,7 +419,7 @@ class _FirstLoginSetupScreenState extends ConsumerState<FirstLoginSetupScreen> {
                                     ),
                                     const SizedBox(height: 14),
                                     Text(
-                                      _tr(
+                                      trByLang(
                                         langCode,
                                         ar: 'إعداد الحساب وكلمة المرور',
                                         he: 'הגדרת חשבון וסיסמה',
@@ -445,7 +434,7 @@ class _FirstLoginSetupScreenState extends ConsumerState<FirstLoginSetupScreen> {
                                     ),
                                     const SizedBox(height: 4),
                                     Text(
-                                      _tr(
+                                      trByLang(
                                         langCode,
                                         ar: 'يرجى تعيين كلمة مرور جديدة وإكمال بيانات ملفك للمتابعة',
                                         he: 'נא להגדיר סיסמה חדשה ולהשלים את פרטי הפרופיל כדי להמשיך',
@@ -464,7 +453,7 @@ class _FirstLoginSetupScreenState extends ConsumerState<FirstLoginSetupScreen> {
                                           mainAxisSize: MainAxisSize.min,
                                           children: [
                                             Text(
-                                              _tr(
+                                              trByLang(
                                                 langCode,
                                                 ar: 'كلمة المرور الجديدة',
                                                 he: 'סיסמה חדשה',
@@ -547,7 +536,7 @@ class _FirstLoginSetupScreenState extends ConsumerState<FirstLoginSetupScreen> {
                                       children: [
                                         Expanded(
                                           child: _RequirementItem(
-                                            label: _tr(
+                                            label: trByLang(
                                               langCode,
                                               ar: '8 أحرف كحد أدنى',
                                               he: 'לפחות 8 תווים',
@@ -559,7 +548,7 @@ class _FirstLoginSetupScreenState extends ConsumerState<FirstLoginSetupScreen> {
                                         const SizedBox(width: 8),
                                         Expanded(
                                           child: _RequirementItem(
-                                            label: _tr(
+                                            label: trByLang(
                                               langCode,
                                               ar: 'رقم واحد على الأقل',
                                               he: 'ספרה אחת לפחות',
@@ -575,7 +564,7 @@ class _FirstLoginSetupScreenState extends ConsumerState<FirstLoginSetupScreen> {
                                       children: [
                                         Expanded(
                                           child: _RequirementItem(
-                                            label: _tr(
+                                            label: trByLang(
                                               langCode,
                                               ar: 'رمز خاص (!@#\$)',
                                               he: 'תו מיוחד (!@#\$)',
@@ -587,7 +576,7 @@ class _FirstLoginSetupScreenState extends ConsumerState<FirstLoginSetupScreen> {
                                         const SizedBox(width: 8),
                                         Expanded(
                                           child: _RequirementItem(
-                                            label: _tr(
+                                            label: trByLang(
                                               langCode,
                                               ar: 'حروف متنوعة',
                                               he: 'אותיות מגוונות',
@@ -605,7 +594,7 @@ class _FirstLoginSetupScreenState extends ConsumerState<FirstLoginSetupScreen> {
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
                                         Text(
-                                          _tr(
+                                          trByLang(
                                             langCode,
                                             ar: 'تأكيد كلمة المرور',
                                             he: 'אימות סיסמה',
@@ -668,7 +657,7 @@ class _FirstLoginSetupScreenState extends ConsumerState<FirstLoginSetupScreen> {
                                     if (hasConfirm && !passwordsMatch) ...[
                                       const SizedBox(height: 4),
                                       Text(
-                                        _tr(
+                                        trByLang(
                                           langCode,
                                           ar: 'كلمتا المرور غير متطابقتين بعد',
                                           he: 'הסיסמאות עדיין אינן תואמות',
@@ -684,7 +673,7 @@ class _FirstLoginSetupScreenState extends ConsumerState<FirstLoginSetupScreen> {
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
                                         Text(
-                                          _tr(
+                                          trByLang(
                                             langCode,
                                             ar: 'رقم الهاتف المعتمد',
                                             he: 'מספר טלפון מאומת',
@@ -724,7 +713,7 @@ class _FirstLoginSetupScreenState extends ConsumerState<FirstLoginSetupScreen> {
 
                                     // Field 4: Preferred Language
                                     Text(
-                                      _tr(langCode, ar: 'اللغة المفضلة', he: 'שפה מועדפת', en: 'Preferred Language'),
+                                      trByLang(langCode, ar: 'اللغة المفضلة', he: 'שפה מועדפת', en: 'Preferred Language'),
                                       style: const TextStyle(
                                         fontSize: 13,
                                         fontWeight: FontWeight.w600,
@@ -763,7 +752,7 @@ class _FirstLoginSetupScreenState extends ConsumerState<FirstLoginSetupScreen> {
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
                                         Text(
-                                          _tr(langCode, ar: 'تاريخ الميلاد', he: 'תאריך לידה', en: 'Date of Birth'),
+                                          trByLang(langCode, ar: 'تاريخ الميلاد', he: 'תאריך לידה', en: 'Date of Birth'),
                                           style: const TextStyle(
                                             fontSize: 13,
                                             fontWeight: FontWeight.w600,
@@ -835,7 +824,7 @@ class _FirstLoginSetupScreenState extends ConsumerState<FirstLoginSetupScreen> {
                                               });
                                             },
                                             child: Text(
-                                              _tr(
+                                              trByLang(
                                                 langCode,
                                                 ar: 'أوافق على سياسة الخصوصية وشروط استخدام بوابة دار الفجر.',
                                                 he: 'אני מסכים למדיניות הפרטיות ותנאי השימוש של פורטל דאר אל-פג׳ר.',
@@ -871,7 +860,7 @@ class _FirstLoginSetupScreenState extends ConsumerState<FirstLoginSetupScreen> {
                                                 child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                                               )
                                             : Text(
-                                                _tr(
+                                                trByLang(
                                                   langCode,
                                                   ar: 'حفظ ومتابعة',
                                                   he: 'שמור והמשך',

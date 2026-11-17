@@ -13,6 +13,9 @@ class DevSeedService {
   static Future<void> seedAllDemoData({
     required FirebaseFirestore firestore,
   }) async {
+    if (!kDebugMode) {
+      throw StateError('DevSeedService is only allowed in debug mode.');
+    }
     FirebaseApp secondaryApp;
     try {
       secondaryApp = Firebase.app(secondaryAppName);

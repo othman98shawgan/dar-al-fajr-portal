@@ -1,0 +1,732 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../../core/theme/app_theme.dart';
+import '../../../l10n/app_localizations_tr.dart';
+import '../../auth/models/app_user.dart';
+import '../models/admin_models.dart';
+import '../providers/admin_providers.dart';
+import 'admin_mobile_models.dart';
+import 'admin_shell_models.dart';
+
+void showMobileAdminActionModal(
+  BuildContext context,
+  WidgetRef ref,
+  String langCode, {
+  required bool isDemoMode,
+}) {
+  showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: Colors.transparent,
+    builder: (modalCtx) {
+      final isRtl = Directionality.of(context) == TextDirection.rtl;
+      return Directionality(
+        textDirection: isRtl ? TextDirection.rtl : TextDirection.ltr,
+        child: Container(
+          padding: const EdgeInsets.all(20),
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+            boxShadow: [
+              BoxShadow(color: Colors.black26, blurRadius: 20, offset: Offset(0, -4)),
+            ],
+          ),
+          child: SafeArea(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      trByLang(langCode, ar: 'إجراء إداري جديد', he: 'פעולה ניהולית חדשה', en: 'New Administrative Action'),
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: DarAlFajrTheme.onSurface,
+                          ),
+                    ),
+                    IconButton(
+                      onPressed: () => Navigator.of(modalCtx).pop(),
+                      icon: const Icon(Icons.close_rounded),
+                      style: IconButton.styleFrom(
+                        backgroundColor: const Color(0xFFE6E8EA),
+                        foregroundColor: const Color(0xFF3D4947),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  trByLang(
+                    langCode,
+                    ar: 'اختر نوع التسجيل للبدء في إدخال بيانات المسار وحجز المواعيد التعليمية:',
+                    he: 'בחר סוג רישום כדי להתחיל בהזנת נתוני מסלול ומועדים:',
+                    en: 'Select an action to enroll students or create new study groups:',
+                  ),
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(color: const Color(0xFF6D7A77)),
+                ),
+                const SizedBox(height: 20),
+                Material(
+                  color: const Color(0xFFF2F4F6),
+                  borderRadius: BorderRadius.circular(16),
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(16),
+                    onTap: () {
+                      Navigator.of(modalCtx).pop();
+                      showMobileCreateStudentDialog(context, ref, langCode);
+                    },
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 48,
+                            height: 48,
+                            decoration: BoxDecoration(
+                              color: DarAlFajrTheme.primary.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: const Icon(Icons.person_add_rounded, color: DarAlFajrTheme.primary, size: 24),
+                          ),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  trByLang(langCode, ar: 'تسجيل طالب جديد', he: 'רישום תלמיד חדש', en: 'Register New Student'),
+                                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                                        fontWeight: FontWeight.bold,
+                                        color: DarAlFajrTheme.onSurface,
+                                      ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  trByLang(
+                                    langCode,
+                                    ar: 'إضافة طالب وربط ولي أمره واختيار المسار',
+                                    he: 'הוספת תלמיד, קישור הורה ובחירת מסלול',
+                                    en: 'Add student, link parent, and select track',
+                                  ),
+                                  style: Theme.of(context).textTheme.labelSmall?.copyWith(color: const Color(0xFF6D7A77)),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const Icon(Icons.chevron_left_rounded, color: Color(0xFF6D7A77)),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Material(
+                  color: const Color(0xFFF2F4F6),
+                  borderRadius: BorderRadius.circular(16),
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(16),
+                    onTap: () {
+                      Navigator.of(modalCtx).pop();
+                      showMobileCreateGroupDialog(context, ref, langCode, isDemoMode: isDemoMode);
+                    },
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 48,
+                            height: 48,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFFE932C).withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: const Icon(Icons.groups_rounded, color: Color(0xFF904D00), size: 24),
+                          ),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  trByLang(langCode, ar: 'إنشاء حلقة جديدة', he: 'יצירת קבוצה חדשה', en: 'Create New Study Group'),
+                                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                                        fontWeight: FontWeight.bold,
+                                        color: DarAlFajrTheme.onSurface,
+                                      ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  trByLang(
+                                    langCode,
+                                    ar: 'تحديد المعلم المشرف والأيام ومسار الحفظ',
+                                    he: 'הגדרת מורה אחראי, ימים ומסלול שינון',
+                                    en: 'Assign teacher, weekly days, and track',
+                                  ),
+                                  style: Theme.of(context).textTheme.labelSmall?.copyWith(color: const Color(0xFF6D7A77)),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const Icon(Icons.chevron_left_rounded, color: Color(0xFF6D7A77)),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+              ],
+            ),
+          ),
+        ),
+      );
+    },
+  );
+}
+
+void showMobileCreateStudentDialog(
+  BuildContext context,
+  WidgetRef ref,
+  String langCode,
+) {
+  final nameCtrl = TextEditingController();
+  final parentNameCtrl = TextEditingController();
+  final emailCtrl = TextEditingController();
+  final phoneCtrl = TextEditingController();
+  final tempPassCtrl = TextEditingController(text: 'DarAlFajr@2026');
+  final messenger = ScaffoldMessenger.maybeOf(context);
+
+  showDialog<void>(
+    context: context,
+    builder: (dlgCtx) => AlertDialog(
+      title: Text(trByLang(langCode, ar: 'تسجيل طالب جديد', he: 'רישום תלמיד', en: 'New Student Registration')),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: nameCtrl,
+              decoration: InputDecoration(
+                labelText: trByLang(langCode, ar: 'اسم الطالب الرباعي *', he: 'שם מלא *', en: 'Student Full Name *'),
+              ),
+            ),
+            const SizedBox(height: 10),
+            TextField(
+              controller: parentNameCtrl,
+              decoration: InputDecoration(
+                labelText: trByLang(langCode, ar: 'اسم ولي الأمر *', he: 'שם ההורה *', en: 'Parent Name *'),
+              ),
+            ),
+            const SizedBox(height: 10),
+            TextField(
+              controller: phoneCtrl,
+              keyboardType: TextInputType.phone,
+              decoration: InputDecoration(
+                labelText: trByLang(langCode, ar: 'رقم هاتف ولي الأمر', he: 'טלפון', en: 'Parent Phone'),
+              ),
+            ),
+            const SizedBox(height: 10),
+            TextField(
+              controller: emailCtrl,
+              keyboardType: TextInputType.emailAddress,
+              decoration: InputDecoration(
+                labelText: trByLang(langCode, ar: 'البريد الإلكتروني', he: 'דוא״ל', en: 'Email Address'),
+              ),
+            ),
+            const SizedBox(height: 10),
+            TextField(
+              controller: tempPassCtrl,
+              decoration: InputDecoration(
+                labelText: trByLang(langCode, ar: 'كلمة المرور المؤقتة', he: 'סיסמה ראשונית', en: 'Temporary Password'),
+              ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(dlgCtx).pop(),
+          child: Text(trByLang(langCode, ar: 'إلغاء', he: 'ביטול', en: 'Cancel')),
+        ),
+        ElevatedButton(
+          onPressed: () async {
+            if (nameCtrl.text.trim().isEmpty) return;
+            Navigator.of(dlgCtx).pop();
+
+            try {
+              final repo = ref.read(adminRepositoryProvider);
+              await repo.createStudent(
+                fullName: nameCtrl.text.trim(),
+                parentId: 'parent_general',
+                parentName: parentNameCtrl.text.trim().isNotEmpty ? parentNameCtrl.text.trim() : null,
+                email: emailCtrl.text.trim().isNotEmpty ? emailCtrl.text.trim() : null,
+                temporaryPassword: tempPassCtrl.text.trim(),
+                phoneNumber: phoneCtrl.text.trim().isNotEmpty ? phoneCtrl.text.trim() : null,
+              );
+            } catch (_) {}
+
+            messenger?.showSnackBar(
+              SnackBar(
+                content: Text(trByLang(langCode, ar: 'تم تسجيل الطالب بنجاح!', he: 'התלמיד נרשם בהצלחה!', en: 'Student registered successfully!')),
+                backgroundColor: DarAlFajrTheme.primary,
+              ),
+            );
+          },
+          child: Text(trByLang(langCode, ar: 'حفظ وتسجيل', he: 'שמור', en: 'Register')),
+        ),
+      ],
+    ),
+  );
+}
+
+void showMobileCreateGroupDialog(
+  BuildContext context,
+  WidgetRef ref,
+  String langCode, {
+  required bool isDemoMode,
+}) {
+  final teachers = ref.read(adminTeachersProvider).asData?.value ?? const <AppUser>[];
+  final groupNameCtrl = TextEditingController();
+  final teacherNameCtrl = TextEditingController(text: isDemoMode ? 'الشيخ عبد الرحمن' : '');
+  final startTimeCtrl = TextEditingController(text: '16:30');
+  final endTimeCtrl = TextEditingController(text: '18:00');
+  final capacityCtrl = TextEditingController(text: '15');
+  CenterTrack selectedTrack = CenterTrack.hifz;
+  String? selectedTeacherId = teachers.isNotEmpty ? teachers.first.uid : null;
+  final selectedDays = <String>{'الأحد', 'الثلاثاء', 'الخميس'};
+  final messenger = ScaffoldMessenger.maybeOf(context);
+
+  showDialog<void>(
+    context: context,
+    builder: (dlgCtx) => StatefulBuilder(
+      builder: (context, setDlgState) => AlertDialog(
+        title: Text(trByLang(langCode, ar: 'إنشاء حلقة جديدة', he: 'יצירת קבוצה חדשה', en: 'Create New Study Group')),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              TextField(
+                controller: groupNameCtrl,
+                decoration: InputDecoration(
+                  labelText: trByLang(langCode, ar: 'اسم الحلقة *', he: 'שם קבוצה *', en: 'Group Name *'),
+                  hintText: 'مثال: حلقة أبي بكر الصديق',
+                ),
+              ),
+              const SizedBox(height: 10),
+              DropdownButtonFormField<CenterTrack>(
+                initialValue: selectedTrack,
+                isExpanded: true,
+                decoration: InputDecoration(
+                  labelText: trByLang(langCode, ar: 'المسار التعليمي', he: 'מסלול', en: 'Educational Track'),
+                ),
+                items: CenterTrack.values
+                    .map((t) => DropdownMenuItem(value: t, child: Text(t.localizedName(langCode))))
+                    .toList(),
+                onChanged: (val) {
+                  if (val != null) setDlgState(() => selectedTrack = val);
+                },
+              ),
+              const SizedBox(height: 10),
+              if (teachers.isNotEmpty)
+                DropdownButtonFormField<String>(
+                  initialValue: selectedTeacherId,
+                  isExpanded: true,
+                  decoration: InputDecoration(
+                    labelText: trByLang(langCode, ar: 'المعلم المشرف', he: 'מורה', en: 'Assigned Teacher'),
+                  ),
+                  items: teachers.map((t) => DropdownMenuItem(value: t.uid, child: Text(t.fullName))).toList(),
+                  onChanged: (val) => setDlgState(() => selectedTeacherId = val),
+                )
+              else if (isDemoMode)
+                TextField(
+                  controller: teacherNameCtrl,
+                  decoration: InputDecoration(
+                    labelText: trByLang(langCode, ar: 'المعلم المشرف', he: 'מורה', en: 'Teacher Name'),
+                  ),
+                )
+              else
+                Text(
+                  trByLang(
+                    langCode,
+                    ar: 'لا يوجد معلمون مسجلون — يمكنك تعيين المعلم لاحقاً',
+                    he: 'אין מורים רשומים עדיין — ניתן לשבץ בהמשך',
+                    en: 'No registered teachers yet — you can assign a teacher later',
+                  ),
+                  style: const TextStyle(fontSize: 12, color: Color(0xFF6D7A77)),
+                ),
+              const SizedBox(height: 12),
+              Text(
+                trByLang(langCode, ar: 'أيام الحلقة', he: 'ימי הקבוצה', en: 'Schedule Days'),
+                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+              ),
+              const SizedBox(height: 6),
+              Wrap(
+                spacing: 6,
+                runSpacing: 4,
+                children: adminWeekDaysAr.map((day) {
+                  final isSelected = selectedDays.contains(day);
+                  return FilterChip(
+                    label: Text(day, style: const TextStyle(fontSize: 11)),
+                    selected: isSelected,
+                    onSelected: (checked) {
+                      setDlgState(() {
+                        if (checked) {
+                          selectedDays.add(day);
+                        } else {
+                          selectedDays.remove(day);
+                        }
+                      });
+                    },
+                  );
+                }).toList(),
+              ),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: startTimeCtrl,
+                      decoration: InputDecoration(
+                        labelText: trByLang(langCode, ar: 'وقت البداية', he: 'שעת התחלה', en: 'Start Time'),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: TextField(
+                      controller: endTimeCtrl,
+                      decoration: InputDecoration(
+                        labelText: trByLang(langCode, ar: 'وقت النهاية', he: 'שעת סיום', en: 'End Time'),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              TextField(
+                controller: capacityCtrl,
+                keyboardType: TextInputType.number,
+                decoration: InputDecoration(
+                  labelText: trByLang(langCode, ar: 'السعة القصوى للحلقة', he: 'קיבולת קבוצה', en: 'Group Capacity'),
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dlgCtx).pop(),
+            child: Text(trByLang(langCode, ar: 'إلغاء', he: 'ביטול', en: 'Cancel')),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              if (groupNameCtrl.text.trim().isEmpty) return;
+              final pickedTeacher = teachers.where((t) => t.uid == selectedTeacherId).firstOrNull;
+              final resolvedTeacherId = pickedTeacher?.uid ?? (isDemoMode ? 'teacher_default' : '');
+              final resolvedTeacherName = pickedTeacher?.fullName ?? teacherNameCtrl.text.trim();
+              final parsedCapacity = int.tryParse(capacityCtrl.text.trim()) ?? 15;
+              final scheduleDays = adminWeekDaysAr.where(selectedDays.contains).toList();
+              Navigator.of(dlgCtx).pop();
+
+              try {
+                final repo = ref.read(adminRepositoryProvider);
+                await repo.createGroup(
+                  name: groupNameCtrl.text.trim(),
+                  track: selectedTrack,
+                  teacherId: resolvedTeacherId,
+                  teacherName: resolvedTeacherName,
+                  scheduleDays: scheduleDays.isNotEmpty ? scheduleDays : const ['الأحد', 'الثلاثاء', 'الخميس'],
+                  startTime: startTimeCtrl.text.trim().isNotEmpty ? startTimeCtrl.text.trim() : '16:30',
+                  endTime: endTimeCtrl.text.trim().isNotEmpty ? endTimeCtrl.text.trim() : '18:00',
+                  capacity: parsedCapacity > 0 ? parsedCapacity : 15,
+                );
+              } catch (_) {}
+
+              messenger?.showSnackBar(
+                SnackBar(
+                  content: Text(trByLang(langCode, ar: 'تم إنشاء الحلقة بنجاح!', he: 'הקבוצה נוצרה בהצלחה!', en: 'Group created successfully!')),
+                  backgroundColor: DarAlFajrTheme.primary,
+                ),
+              );
+            },
+            child: Text(trByLang(langCode, ar: 'حفظ الحلقة', he: 'שמור', en: 'Save Group')),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
+void showMobileEnrollmentSheet(
+  BuildContext context,
+  WidgetRef ref,
+  MobileStudentCardData student,
+  String langCode,
+  List<StudyGroup> firestoreGroups, {
+  required bool isDemoMode,
+}) {
+  CenterTrack selectedTrack = student.primaryTrack;
+  String selectedGroupId = firestoreGroups.isNotEmpty
+      ? firestoreGroups.first.id
+      : (isDemoMode ? 'grp-tajweed-1' : '');
+  String selectedGroupName = firestoreGroups.isNotEmpty
+      ? firestoreGroups.first.name
+      : (isDemoMode ? 'حلقة الإتقان والتجويد (مسار التجويد)' : '');
+  bool hasOneOnOne = true;
+  String oneOnOneDay = 'الخميس';
+  String oneOnOneTime = '17:15';
+  final messenger = ScaffoldMessenger.maybeOf(context);
+
+  showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: Colors.transparent,
+    builder: (sheetCtx) {
+      final isRtl = Directionality.of(context) == TextDirection.rtl;
+      return Directionality(
+        textDirection: isRtl ? TextDirection.rtl : TextDirection.ltr,
+        child: StatefulBuilder(
+          builder: (context, setSheetState) {
+            return Container(
+              padding: EdgeInsets.only(
+                top: 20,
+                left: 20,
+                right: 20,
+                bottom: MediaQuery.of(sheetCtx).viewInsets.bottom + 24,
+              ),
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+                boxShadow: [
+                  BoxShadow(color: Colors.black26, blurRadius: 20, offset: Offset(0, -4)),
+                ],
+              ),
+              child: SafeArea(
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: DarAlFajrTheme.primary.withValues(alpha: 0.1),
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: const Icon(Icons.group_add_rounded, color: DarAlFajrTheme.primary, size: 22),
+                              ),
+                              const SizedBox(width: 10),
+                              Text(
+                                trByLang(langCode, ar: 'تسجيل في حلقة', he: 'רישום לקבוצה', en: 'Enroll in Group'),
+                                style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+                              ),
+                            ],
+                          ),
+                          IconButton(
+                            onPressed: () => Navigator.of(sheetCtx).pop(),
+                            icon: const Icon(Icons.close_rounded),
+                            style: IconButton.styleFrom(
+                              backgroundColor: const Color(0xFFE6E8EA),
+                              foregroundColor: const Color(0xFF3D4947),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF2F4F6),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Row(
+                          children: [
+                            CircleAvatar(
+                              radius: 18,
+                              backgroundColor: DarAlFajrTheme.primary.withValues(alpha: 0.15),
+                              child: Text(
+                                student.initial,
+                                style: const TextStyle(fontWeight: FontWeight.bold, color: DarAlFajrTheme.primary),
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(student.fullName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                                  Text('${student.code} • ${student.parentName}', style: const TextStyle(color: Color(0xFF6D7A77), fontSize: 12)),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        trByLang(langCode, ar: 'المسار التعليمي المستهدف', he: 'מסלול חינוכי', en: 'Target Educational Track'),
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                      ),
+                      const SizedBox(height: 6),
+                      DropdownButtonFormField<CenterTrack>(
+                        initialValue: selectedTrack,
+                        isExpanded: true,
+                        decoration: const InputDecoration(contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8)),
+                        items: CenterTrack.values
+                            .map((t) => DropdownMenuItem(value: t, child: Text(t.localizedName(langCode))))
+                            .toList(),
+                        onChanged: (val) {
+                          if (val != null) setSheetState(() => selectedTrack = val);
+                        },
+                      ),
+                      const SizedBox(height: 14),
+                      Text(
+                        trByLang(langCode, ar: 'الحلقة التعليمية', he: 'קבוצת לימוד', en: 'Study Group'),
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                      ),
+                      const SizedBox(height: 6),
+                      DropdownButtonFormField<String>(
+                        initialValue: selectedGroupId.isEmpty ? null : selectedGroupId,
+                        isExpanded: true,
+                        hint: Text(trByLang(langCode, ar: 'اختر الحلقة', he: 'בחר קבוצה', en: 'Select group')),
+                        decoration: const InputDecoration(contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8)),
+                        items: firestoreGroups.isNotEmpty
+                            ? firestoreGroups
+                                .map((g) => DropdownMenuItem(value: g.id, child: Text('${g.name} (${g.scheduleDays.join("، ")} ${g.startTime})')))
+                                .toList()
+                            : (isDemoMode
+                                ? const [
+                                    DropdownMenuItem(
+                                      value: 'grp-tajweed-1',
+                                      child: Text('حلقة الإتقان والتجويد (الأحد والثلاثاء 16:30)'),
+                                    ),
+                                    DropdownMenuItem(
+                                      value: 'grp-hifz-1',
+                                      child: Text('حلقة الحفظ المكثف (السبت والاثنين 17:00)'),
+                                    ),
+                                    DropdownMenuItem(
+                                      value: 'grp-nouraniah-1',
+                                      child: Text('حلقة البراعم النورانية (الخميس 15:30)'),
+                                    ),
+                                  ]
+                                : const []),
+                        onChanged: (val) {
+                          if (val != null) {
+                            setSheetState(() {
+                              selectedGroupId = val;
+                              final found = firestoreGroups.where((g) => g.id == val).firstOrNull;
+                              if (found != null) selectedGroupName = found.name;
+                            });
+                          }
+                        },
+                      ),
+                      const SizedBox(height: 14),
+                      CheckboxListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: Text(
+                          trByLang(langCode, ar: 'تخصيص موعد تسميع فردي (1-on-1)', he: 'הקצאת תור אישי', en: 'Assign 1-on-1 Recitation Slot'),
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                        ),
+                        subtitle: Text(
+                          trByLang(langCode, ar: 'تحديد وقت دقيق لوصول الطالب للتسميع الفردي', he: 'שעת הגעה מדויקת', en: 'Precise individual arrival slot'),
+                          style: const TextStyle(color: Color(0xFF6D7A77), fontSize: 11),
+                        ),
+                        value: hasOneOnOne,
+                        activeColor: DarAlFajrTheme.primary,
+                        onChanged: (val) => setSheetState(() => hasOneOnOne = val ?? false),
+                      ),
+                      if (hasOneOnOne)
+                        Row(
+                          children: [
+                            Expanded(
+                              child: DropdownButtonFormField<String>(
+                                initialValue: oneOnOneDay,
+                                isExpanded: true,
+                                decoration: InputDecoration(
+                                  labelText: trByLang(langCode, ar: 'اليوم', he: 'יום', en: 'Day'),
+                                  contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                ),
+                                items: adminWeekDaysAr.map((d) => DropdownMenuItem(value: d, child: Text(d))).toList(),
+                                onChanged: (d) {
+                                  if (d != null) setSheetState(() => oneOnOneDay = d);
+                                },
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: DropdownButtonFormField<String>(
+                                initialValue: oneOnOneTime,
+                                isExpanded: true,
+                                decoration: InputDecoration(
+                                  labelText: trByLang(langCode, ar: 'وقت الوصول', he: 'שעה', en: 'Time'),
+                                  contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                ),
+                                items: const ['16:00', '16:30', '17:00', '17:15', '17:45', '18:15', '18:45']
+                                    .map((t) => DropdownMenuItem(value: t, child: Text(t)))
+                                    .toList(),
+                                onChanged: (t) {
+                                  if (t != null) setSheetState(() => oneOnOneTime = t);
+                                },
+                              ),
+                            ),
+                          ],
+                        ),
+                      const SizedBox(height: 20),
+                      ElevatedButton.icon(
+                        onPressed: selectedGroupId.isEmpty
+                            ? null
+                            : () async {
+                                Navigator.of(sheetCtx).pop();
+
+                                final matchedGroup = firestoreGroups.where((g) => g.id == selectedGroupId).firstOrNull;
+                                final arrivalTime = matchedGroup != null
+                                    ? '${matchedGroup.scheduleDays.join("، ")} ${matchedGroup.startTime}'.trim()
+                                    : (isDemoMode ? 'الأحد والثلاثاء والخميس 16:30' : '');
+
+                                try {
+                                  final repo = ref.read(adminRepositoryProvider);
+                                  await repo.assignStudentToGroup(
+                                    studentId: student.id,
+                                    studentName: student.fullName,
+                                    groupId: selectedGroupId,
+                                    groupName: selectedGroupName,
+                                    track: selectedTrack,
+                                    groupArrivalTime: arrivalTime,
+                                    oneOnOneSlotTime: hasOneOnOne ? '$oneOnOneDay $oneOnOneTime (فردي)' : null,
+                                  );
+                                } catch (_) {}
+
+                                messenger?.showSnackBar(
+                                  SnackBar(
+                                    content: Text(trByLang(langCode, ar: 'تم تثبيت التسجيل بنجاح!', he: 'הרישום נשמר בהצלחה!', en: 'Enrollment confirmed!')),
+                                    backgroundColor: DarAlFajrTheme.primary,
+                                  ),
+                                );
+                              },
+                        icon: const Icon(Icons.check_circle_rounded),
+                        label: Text(trByLang(langCode, ar: 'حفظ وتثبيت التسجيل', he: 'שמור רישום', en: 'Confirm Enrollment')),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: DarAlFajrTheme.primary,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        ),
+      );
+    },
+  );
+}
