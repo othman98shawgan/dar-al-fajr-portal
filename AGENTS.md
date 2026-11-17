@@ -86,6 +86,7 @@ System Specification & Software Requirement Documentation for **Dar al-Fajr Port
 
 ## Git
 For all Git, branching, and release operations, strictly follow the rules in ./GIT_WORKFLOW.md.
+- When preparing a Pull Request reminder (Step 4 of `./GIT_WORKFLOW.md`), always format the **PR Description** inside a fenced markdown code block (` ```markdown ... ``` `) so it can be easily copied with one click into GitHub.
 
 ## Terminal & Background Commands (Windows)
 - On Windows, Flutter/Dart CLI tools (`flutter analyze`, `flutter test`, `flutter gen-l10n`, etc.) hang silently with empty background logs when run inside the restricted terminal sandbox (`BypassSandbox: false`).
