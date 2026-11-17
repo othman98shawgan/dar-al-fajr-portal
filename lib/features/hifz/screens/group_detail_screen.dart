@@ -8,6 +8,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/models/surah_page_map.dart';
 import '../../../core/routing/app_router.dart';
 import '../../../core/services/locale_provider.dart';
+import '../../../l10n/app_localizations_tr.dart';
 import '../../admin/models/admin_models.dart';
 import '../models/teacher_models.dart';
 import '../providers/teacher_providers.dart';
@@ -100,8 +101,8 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
   String _searchQuery = '';
   final TextEditingController _searchController = TextEditingController();
 
-  // Weekly Revision Tab State
-  String _selectedRevisionStudentId = 'st-1042';
+  // Weekly Revision Tab State (empty until live/demo roster resolves)
+  String _selectedRevisionStudentId = '';
   List<DailyRevisionTask> _draftRevisionTasks = [];
   bool _revisionTasksInitialized = false;
   bool _isSavingRevisionPlan = false;
@@ -228,21 +229,32 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
     super.dispose();
   }
 
-  String _tr(
-    String langCode, {
-    required String ar,
-    required String he,
-    required String en,
-  }) {
-    switch (langCode) {
-      case 'he':
-        return he;
-      case 'en':
-        return en;
-      case 'ar':
-      default:
-        return ar;
-    }
+  bool _isLiveMode([String? groupId]) {
+    if (Firebase.apps.isNotEmpty) return true;
+    final String selected = ref.read(selectedGroupIdProvider);
+    final String resolvedId = (groupId != null && groupId.isNotEmpty)
+        ? groupId
+        : (widget.groupId.isNotEmpty
+            ? widget.groupId
+            : (selected.isNotEmpty ? selected : 'grp-hifz-1'));
+    final allGroups = ref.read(allGroupsStreamProvider).asData?.value ??
+        ref.read(teacherGroupsProvider).asData?.value ??
+        const [];
+    final enrollments =
+        ref.read(groupEnrollmentsProvider(resolvedId)).asData?.value ??
+            const [];
+    final assignments =
+        ref.read(groupAssignmentsProvider(resolvedId)).asData?.value ??
+            const [];
+    final attendance =
+        ref.read(groupAttendanceProvider(resolvedId)).asData?.value ??
+            const [];
+    final students = ref.read(allStudentsMapProvider).asData?.value ?? const {};
+    return allGroups.isNotEmpty ||
+        enrollments.isNotEmpty ||
+        assignments.isNotEmpty ||
+        attendance.isNotEmpty ||
+        students.isNotEmpty;
   }
 
   String _toArabicDigits(int number) {
@@ -261,8 +273,9 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
 
   List<_AssignmentCardItem> _buildAssignmentCards(
     List<HifzAssignment> firestoreAssignments,
-    String langCode,
-  ) {
+    String langCode, {
+    required bool isLiveMode,
+  }) {
     final mappedFirestore = firestoreAssignments.map((item) {
       final trimmed = item.studentName.trim();
       final initial = trimmed.isNotEmpty ? trimmed.characters.first : 'ط';
@@ -272,7 +285,7 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
 
       String gradeBadge;
       if (item.isPartialRead) {
-        gradeBadge = _tr(
+        gradeBadge = trByLang(
           langCode,
           ar: 'قراءة جزئية (ملاحظة فقط)',
           he: 'קריאה חלקית (הערה)',
@@ -284,25 +297,25 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
         gradeBadge = '$sText / ${_formatNum(100, langCode)} • $gText';
       } else {
         gradeBadge = switch (item.grade) {
-          EvaluationGrade.excellent => _tr(
+          EvaluationGrade.excellent => trByLang(
               langCode,
               ar: 'ممتاز (٩٨ / ١٠٠)',
               he: 'מצוין (98/100)',
               en: 'Excellent (98/100)',
             ),
-          EvaluationGrade.good => _tr(
+          EvaluationGrade.good => trByLang(
               langCode,
               ar: 'جيد جداً (٨٥ / ١٠٠)',
               he: 'טוב מאוד (85/100)',
               en: 'Very Good (85/100)',
             ),
-          EvaluationGrade.needsRepeat => _tr(
+          EvaluationGrade.needsRepeat => trByLang(
               langCode,
               ar: 'يحتاج إعادة',
               he: 'דורש חזרה',
               en: 'Needs Repeat',
             ),
-          EvaluationGrade.pending => _tr(
+          EvaluationGrade.pending => trByLang(
               langCode,
               ar: 'في الانتظار',
               he: 'ממתין',
@@ -325,13 +338,13 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
             item.studentName.isNotEmpty ? item.studentName : 'طالب الحلقة',
         initial: initial,
         timeSubtitle: isPending
-            ? _tr(
+            ? trByLang(
                 langCode,
                 ar: 'في الانتظار • جاهز للتسميع',
                 he: 'ממתין לשינון',
                 en: 'Pending Recitation',
               )
-            : _tr(
+            : trByLang(
                 langCode,
                 ar: 'تم التسميع اليوم ✓',
                 he: 'נבחן היום ✓',
@@ -368,8 +381,7 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
       );
     }).toList();
 
-    final isLiveFirebase = Firebase.apps.isNotEmpty;
-    final combined = isLiveFirebase
+    final combined = isLiveMode
         ? mappedFirestore
         : [...mappedFirestore, ..._seedCards];
 
@@ -412,7 +424,7 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
     List<AttendanceLog> extraLogs = const [],
     bool watchProviders = true,
   }) {
-    final isLiveFirebase = Firebase.apps.isNotEmpty;
+    final isLiveFirebase = _isLiveMode(effectiveGroupId);
     final enrollments = (watchProviders
                 ? ref.watch(groupEnrollmentsProvider(effectiveGroupId))
                 : ref.read(groupEnrollmentsProvider(effectiveGroupId)))
@@ -490,7 +502,7 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
     _AssignmentCardItem? existingCard,
     bool assignOnlyMode = false,
   }) async {
-    final isLiveFirebase = Firebase.apps.isNotEmpty;
+    final isLiveFirebase = _isLiveMode(effectiveGroupId);
     final teacherGroups =
         ref.read(teacherGroupsProvider).asData?.value ?? const [];
     final matchedGroup = teacherGroups
@@ -499,7 +511,7 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
     final groupTitle = matchedGroup?.name.isNotEmpty == true
         ? matchedGroup!.name
         : (isLiveFirebase
-            ? _tr(
+            ? trByLang(
                 langCode,
                 ar: 'الحلقة التعليمية',
                 he: 'קבוצת לימוד',
@@ -507,9 +519,10 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
               )
             : 'حلقة أبي بكر الصديق');
 
-    String targetStudentId = existingCard?.studentId ?? 'st-1042';
+    String targetStudentId =
+        existingCard?.studentId ?? (isLiveFirebase ? '' : 'st-1042');
     String targetStudentName =
-        existingCard?.studentName ?? 'إبراهيم طه عثمان';
+        existingCard?.studentName ?? (isLiveFirebase ? '' : 'إبراهيم طه عثمان');
 
     if (existingCard == null && isLiveFirebase) {
       final groupStudents = _resolveGroupStudents(
@@ -522,7 +535,7 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              _tr(
+              trByLang(
                 langCode,
                 ar: 'لا يوجد طلاب مسجلون في هذه الحلقة حالياً',
                 he: 'אין תלמידים רשומים לקבוצה זו כעת',
@@ -553,7 +566,7 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     Text(
-                      _tr(
+                      trByLang(
                         langCode,
                         ar: 'اختر الطالب لإضافة التكليف',
                         he: 'בחר תלמיד להוספת משימה',
@@ -643,7 +656,7 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
     required String studentName,
     required List<AttendanceLog> groupAttendanceLogs,
   }) {
-    final isLiveFirebase = Firebase.apps.isNotEmpty;
+    final isLiveFirebase = _isLiveMode();
     final studentsMap =
         ref.read(allStudentsMapProvider).asData?.value ?? const {};
     final profile = studentsMap[studentId] ??
@@ -756,7 +769,7 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
                                 ),
                           ),
                           Text(
-                            _tr(
+                            trByLang(
                               langCode,
                               ar: 'سجل الإحصائيات المتكامل (الحفظ، اختبارات الأجزاء، والحضور)',
                               he: 'סטטיסטיקת תלמיד (שינון, מבחני ג׳וז ונוכחות)',
@@ -779,7 +792,7 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
                   children: [
                     Expanded(
                       child: _StatKpiBox(
-                        label: _tr(
+                        label: trByLang(
                           langCode,
                           ar: 'صفحات المركز',
                           he: 'עמודי מרכז',
@@ -793,7 +806,7 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
                     const SizedBox(width: 8),
                     Expanded(
                       child: _StatKpiBox(
-                        label: _tr(
+                        label: trByLang(
                           langCode,
                           ar: 'السور المنجزة',
                           he: 'סורות שהושלמו',
@@ -807,7 +820,7 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
                     const SizedBox(width: 8),
                     Expanded(
                       child: _StatKpiBox(
-                        label: _tr(
+                        label: trByLang(
                           langCode,
                           ar: 'نسبة الحضور',
                           he: 'אחוז נוכחות',
@@ -822,7 +835,7 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
                 const SizedBox(height: 20),
 
                 Text(
-                  _tr(
+                  trByLang(
                     langCode,
                     ar: 'حالة الأجزاء واختبارات الأجزاء (علامة النجاح: ٧٩ فأعلى)',
                     he: 'סטטוס ג׳וזים ומבחני ג׳וז (ציון מעבר: 79)',
@@ -875,7 +888,7 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
                       child: Column(
                         children: [
                           Text(
-                            _tr(
+                            trByLang(
                               langCode,
                               ar: 'الجزء ${_formatNum(juz, langCode)}',
                               he: 'ג׳וז $juz',
@@ -891,7 +904,7 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
                           Text(
                             status != null
                                 ? status.localizedName(langCode)
-                                : _tr(
+                                : trByLang(
                                     langCode,
                                     ar: 'لم يبدأ',
                                     he: 'טרם התחיל',
@@ -953,18 +966,20 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
             ? _GroupModuleTab.studentsRoster
             : _activeModuleTab);
 
-    final isLiveFirebase = Firebase.apps.isNotEmpty;
+    ref.watch(groupEnrollmentsProvider(effectiveGroupId));
+    ref.watch(allStudentsMapProvider);
+    final isLiveFirebase = _isLiveMode(effectiveGroupId);
 
     final groupTitle = matchedGroup?.name.isNotEmpty == true
         ? matchedGroup!.name
         : (isLiveFirebase
-            ? _tr(
+            ? trByLang(
                 langCode,
                 ar: 'الحلقة التعليمية',
                 he: 'קבוצת לימוד',
                 en: 'Study Group',
               )
-            : _tr(
+            : trByLang(
                 langCode,
                 ar: 'حلقة أبي بكر الصديق',
                 he: 'קבוצת אבו בכר אל-סידיק',
@@ -975,7 +990,7 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
         ? matchedGroup.track.localizedName(langCode)
         : (isLiveFirebase
             ? ''
-            : _tr(
+            : trByLang(
                 langCode,
                 ar: 'مسار الحفظ والتسميع • المستوى المتقدم',
                 he: 'מסלול חיפז ושינון • רמה מתקדמת',
@@ -993,7 +1008,11 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
             ?.value ??
         const [];
 
-    final cards = _buildAssignmentCards(firestoreAssignments, langCode);
+    final cards = _buildAssignmentCards(
+      firestoreAssignments,
+      langCode,
+      isLiveMode: isLiveFirebase,
+    );
 
     final totalCount = isLiveFirebase
         ? firestoreAssignments.length
@@ -1063,7 +1082,7 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
                             onChanged: (val) =>
                                 setState(() => _searchQuery = val),
                             decoration: InputDecoration(
-                              hintText: _tr(
+                              hintText: trByLang(
                                 langCode,
                                 ar: 'ابحث باسم الطالب أو السورة...',
                                 he: 'חפש לפי שם תלמיד או סורה...',
@@ -1106,7 +1125,7 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
                                   ),
                                   const SizedBox(height: 12),
                                   Text(
-                                    _tr(
+                                    trByLang(
                                       langCode,
                                       ar: 'لا توجد تكليفات حفظ أو مراجعة في هذه الحلقة حالياً',
                                       he: 'אין משימות שינון או חזרה בקבוצה זו כעת',
@@ -1210,7 +1229,7 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
                                           context.go(AppRoutes.teacher);
                                         }
                                       },
-                                      tooltip: _tr(
+                                      tooltip: trByLang(
                                         langCode,
                                         ar: 'العودة للخلف',
                                         he: 'חזור',
@@ -1232,7 +1251,7 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
                                     size: 16,
                                   ),
                                   label: Text(
-                                    _tr(
+                                    trByLang(
                                       langCode,
                                       ar: 'تحضير اليوم',
                                       he: 'נוכחות היום',
@@ -1285,7 +1304,7 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
                         ),
                         icon: const Icon(Icons.person_add_alt_1_rounded, size: 22),
                         label: Text(
-                          _tr(
+                          trByLang(
                             langCode,
                             ar: 'تحديد واجب فردي لطالب',
                             he: 'קבע מטלה אישית לתלמיד',
@@ -1327,7 +1346,7 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
                         ),
                         icon: const Icon(Icons.how_to_reg_rounded, size: 22),
                         label: Text(
-                          _tr(
+                          trByLang(
                             langCode,
                             ar: 'رصد الحضور للحلقة اليوم',
                             he: 'רישום נוכחות לקבוצה היום',
@@ -1447,7 +1466,7 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
             child: Row(
               children: [
                 _buildModuleTabButton(
-                  label: _tr(
+                  label: trByLang(
                     langCode,
                     ar: 'الواجبات والتسميع',
                     he: 'מטלות ושינון',
@@ -1460,7 +1479,7 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
                   ),
                 ),
                 _buildModuleTabButton(
-                  label: _tr(
+                  label: trByLang(
                     langCode,
                     ar: 'خطة المراجعة',
                     he: 'תוכנית חזרה',
@@ -1473,7 +1492,7 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
                   ),
                 ),
                 _buildModuleTabButton(
-                  label: _tr(
+                  label: trByLang(
                     langCode,
                     ar: 'الحضور الشهري',
                     he: 'נוכחות חודשית',
@@ -1498,7 +1517,7 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
             child: Row(
               children: [
                 _buildModuleTabButton(
-                  label: _tr(
+                  label: trByLang(
                     langCode,
                     ar: 'قائمة الطلاب',
                     he: 'רשימת תלמידים',
@@ -1511,7 +1530,7 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
                   ),
                 ),
                 _buildModuleTabButton(
-                  label: _tr(
+                  label: trByLang(
                     langCode,
                     ar: 'الحضور الشهري',
                     he: 'נוכחות חודשית',
@@ -1583,7 +1602,7 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
     required List<_AssignmentCardItem> cards,
     required List<AttendanceLog> groupAttendanceLogs,
   }) {
-    final isLiveFirebase = Firebase.apps.isNotEmpty;
+    final isLiveFirebase = _isLiveMode(effectiveGroupId);
     final studentItems = _resolveGroupStudents(
       effectiveGroupId: effectiveGroupId,
       cards: cards,
@@ -1602,7 +1621,7 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text(
-              _tr(
+              trByLang(
                 langCode,
                 ar: 'قائمة الطلاب المسجلين (${_formatNum(filteredStudents.length, langCode)})',
                 he: 'רשימת תלמידים (${filteredStudents.length})',
@@ -1617,7 +1636,7 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
               onPressed: () => _openAttendanceView(effectiveGroupId),
               icon: const Icon(Icons.how_to_reg_rounded, size: 16),
               label: Text(
-                _tr(
+                trByLang(
                   langCode,
                   ar: 'رصد الحضور',
                   he: 'רישום נוכחות',
@@ -1639,7 +1658,7 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
             ),
             alignment: Alignment.center,
             child: Text(
-              _tr(
+              trByLang(
                 langCode,
                 ar: 'لا يوجد طلاب مسجلون في هذه الحلقة حالياً.',
                 he: 'אין תלמידים רשומים בקבוצה זו כעת.',
@@ -1667,13 +1686,13 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
                     .round()
                 : 0;
             final attendanceText = total == 0
-                ? _tr(
+                ? trByLang(
                     langCode,
                     ar: 'لا توجد جلسات حضور مسجلة بعد',
                     he: 'אין עדיין רישומי נוכחות',
                     en: 'No attendance sessions logged yet',
                   )
-                : _tr(
+                : trByLang(
                     langCode,
                     ar: 'نسبة الحضور في الحلقة: ${_formatNum(rate, langCode)}%',
                     he: 'נוכחות בקבוצה: $rate%',
@@ -1743,7 +1762,7 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
                     ),
                     icon: const Icon(Icons.insights_rounded, size: 16),
                     label: Text(
-                      _tr(
+                      trByLang(
                         langCode,
                         ar: 'الإحصائيات',
                         he: 'סטטיסטיקה',
@@ -1772,7 +1791,7 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
     required String effectiveGroupId,
     required List<_AssignmentCardItem> cards,
   }) {
-    final isLiveFirebase = Firebase.apps.isNotEmpty;
+    final isLiveFirebase = _isLiveMode(effectiveGroupId);
     final resolvedStudents = _resolveGroupStudents(
       effectiveGroupId: effectiveGroupId,
       cards: cards,
@@ -1796,7 +1815,7 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
         ),
         alignment: Alignment.center,
         child: Text(
-          _tr(
+          trByLang(
             langCode,
             ar: 'لا يوجد طلاب مسجلون في هذه الحلقة لإنشاء خطة مراجعة.',
             he: 'אין תלמידים רשומים בקבוצה זו ליצירת תוכנית חזרה.',
@@ -1912,7 +1931,7 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
                   const Icon(Icons.person_rounded, color: _primary, size: 20),
                   const SizedBox(width: 8),
                   Text(
-                    _tr(
+                    trByLang(
                       langCode,
                       ar: 'الطالب:',
                       he: 'תלמיד:',
@@ -1971,7 +1990,7 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          _tr(
+                          trByLang(
                             langCode,
                             ar: 'أولوية المراجعة (الأبعد عهداً بالمراجعة)',
                             he: 'עדיפות חזרה (הזמן הארוך ביותר ללא חזרה)',
@@ -1984,7 +2003,7 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
                           ),
                         ),
                         Text(
-                          _tr(
+                          trByLang(
                             langCode,
                             ar: 'مرتبة تلقائياً من الأجزاء التي لم يراجعها الطالب منذ أطول فترة',
                             he: 'מדורג אוטומטית מהג׳וזים שלא נחזרו הכי הרבה זמן',
@@ -2011,7 +2030,7 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
                     ),
                     icon: const Icon(Icons.auto_awesome_rounded, size: 15),
                     label: Text(
-                      _tr(
+                      trByLang(
                         langCode,
                         ar: 'توليد تلقائي',
                         he: 'מילוי אוטומטי',
@@ -2049,7 +2068,7 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
                           Row(
                             children: [
                               Text(
-                                _tr(
+                                trByLang(
                                   langCode,
                                   ar: 'الجزء ${_formatNum(item.juzNumber, langCode)}',
                                   he: 'ג׳וז ${item.juzNumber}',
@@ -2084,13 +2103,13 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
                           const SizedBox(height: 3),
                           Text(
                             item.daysSinceLastRevision >= 900
-                                ? _tr(
+                                ? trByLang(
                                     langCode,
                                     ar: 'لم يُراجع بعد',
                                     he: 'טרם נערך סבב חזרה',
                                     en: 'Never revised yet',
                                   )
-                                : _tr(
+                                : trByLang(
                                     langCode,
                                     ar: 'منذ ${_formatNum(item.daysSinceLastRevision, langCode)} يوم',
                                     he: 'לפני ${item.daysSinceLastRevision} ימים',
@@ -2198,7 +2217,7 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(
-                          _tr(
+                          trByLang(
                             langCode,
                             ar: 'يوم فارغ / راحة',
                             he: 'יום מנוחה',
@@ -2233,7 +2252,7 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
                           DropdownMenuItem(
                             value: RevisionTargetType.juz,
                             child: Text(
-                              _tr(
+                              trByLang(
                                 langCode,
                                 ar: 'جزء كامل',
                                 he: 'ג׳וז מלא',
@@ -2245,7 +2264,7 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
                           DropdownMenuItem(
                             value: RevisionTargetType.surah,
                             child: Text(
-                              _tr(
+                              trByLang(
                                 langCode,
                                 ar: 'سورة',
                                 he: 'סורה',
@@ -2277,7 +2296,7 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
                                 (j) => DropdownMenuItem<int>(
                                   value: j,
                                   child: Text(
-                                    _tr(
+                                    trByLang(
                                       langCode,
                                       ar: 'الجزء ${_formatNum(j, langCode)}',
                                       he: 'ג׳וז $j',
@@ -2370,7 +2389,7 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
                         content: Text(
-                          _tr(
+                          trByLang(
                             langCode,
                             ar: 'تم حفظ خطة المراجعة الأسبوعية للطالب ($selectedStudentName) بنجاح!',
                             he: 'תוכנית החזרה השבועית נשמרה בהצלחה!',
@@ -2391,7 +2410,7 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
             ),
             icon: const Icon(Icons.save_rounded),
             label: Text(
-              _tr(
+              trByLang(
                 langCode,
                 ar: 'حفظ خطة المراجعة الأسبوعية',
                 he: 'שמור תוכנית חזרה שבועית',
@@ -2459,7 +2478,7 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
         )
         .toList();
 
-    final isLiveFirebase = Firebase.apps.isNotEmpty;
+    final isLiveFirebase = _isLiveMode(effectiveGroupId);
     final resolvedStudents = _resolveGroupStudents(
       effectiveGroupId: effectiveGroupId,
       cards: cards,
@@ -2543,7 +2562,7 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
             ),
             alignment: Alignment.center,
             child: Text(
-              _tr(
+              trByLang(
                 langCode,
                 ar: 'لا يوجد طلاب مسجلون في هذه الحلقة حالياً.',
                 he: 'אין תלמידים רשומים בקבוצה זו כעת.',
@@ -2601,7 +2620,7 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          _tr(
+                          trByLang(
                             langCode,
                             ar: 'حاضر: ${_formatNum(present, langCode)} • متأخر: ${_formatNum(lateCount, langCode)} • غائب/معذور: ${_formatNum(absent, langCode)}',
                             he: 'נוכח: $present • איחור: $lateCount • חיסור: $absent',
@@ -2662,7 +2681,7 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
           children: [
             Expanded(
               child: Text(
-                _tr(
+                trByLang(
                   langCode,
                   ar: 'قائمة الطلاب والواجبات المقررة',
                   he: 'רשימת תלמידים ומטלות',
@@ -2700,7 +2719,7 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: Text(
-                        _tr(
+                        trByLang(
                           langCode,
                           ar: 'حسب الطالب',
                           he: 'לפי תלמיד',
@@ -2730,7 +2749,7 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: Text(
-                        _tr(
+                        trByLang(
                           langCode,
                           ar: 'حسب التاريخ',
                           he: 'לפי תאריך',
@@ -2755,7 +2774,7 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
           child: Row(
             children: [
               _FilterPillButton(
-                label: _tr(langCode, ar: 'الكل', he: 'הכל', en: 'All'),
+                label: trByLang(langCode, ar: 'الكل', he: 'הכל', en: 'All'),
                 countLabel: '$totalCount',
                 isSelected: _activeFilter == _AssignmentFilterTab.all,
                 onTap: () =>
@@ -2763,7 +2782,7 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
               ),
               const SizedBox(width: 8),
               _FilterPillButton(
-                label: _tr(
+                label: trByLang(
                   langCode,
                   ar: 'من تبقى فقط (في الانتظار)',
                   he: 'ממתינים בלבד',
@@ -2779,7 +2798,7 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
               ),
               const SizedBox(width: 8),
               _FilterPillButton(
-                label: _tr(
+                label: trByLang(
                   langCode,
                   ar: 'حفظ جديد',
                   he: 'שינון חדש',
@@ -2794,7 +2813,7 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
               ),
               const SizedBox(width: 8),
               _FilterPillButton(
-                label: _tr(
+                label: trByLang(
                   langCode,
                   ar: 'مراجعة واختبار جزء',
                   he: 'חזרה ומבחן ג׳וז',
@@ -3005,7 +3024,7 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
                       ),
                       icon: const Icon(Icons.insights_rounded, size: 16),
                       label: Text(
-                        _tr(
+                        trByLang(
                           langCode,
                           ar: 'إحصائيات الطالب والأجزاء',
                           he: 'סטטיסטיקת תלמיד',
@@ -3030,7 +3049,7 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
                           ),
                           icon: const Icon(Icons.edit_calendar_rounded, size: 15),
                           label: Text(
-                            _tr(
+                            trByLang(
                               langCode,
                               ar: 'تعديل الواجب',
                               he: 'ערוך מטלה',
@@ -3062,13 +3081,13 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
                           icon: const Icon(Icons.mic_rounded, size: 16),
                           label: Text(
                             isPending
-                                ? _tr(
+                                ? trByLang(
                                     langCode,
                                     ar: 'تسميع الآن',
                                     he: 'שינון עכשיו',
                                     en: 'Tasmee Now',
                                   )
-                                : _tr(
+                                : trByLang(
                                     langCode,
                                     ar: 'تعديل التسميع',
                                     he: 'ערוך הערכה',

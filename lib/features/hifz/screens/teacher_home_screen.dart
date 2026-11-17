@@ -8,6 +8,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/routing/app_router.dart';
 import '../../account/screens/account_screen.dart';
 import '../../../core/services/locale_provider.dart';
+import '../../../l10n/app_localizations_tr.dart';
 import '../../admin/models/admin_models.dart';
 import '../../auth/providers/auth_providers.dart';
 import '../models/teacher_models.dart';
@@ -176,18 +177,6 @@ class _TeacherHomeScreenState extends ConsumerState<TeacherHomeScreen> {
     }).join();
   }
 
-  String _tr(String langCode, {required String ar, required String he, required String en}) {
-    switch (langCode) {
-      case 'he':
-        return he;
-      case 'en':
-        return en;
-      case 'ar':
-      default:
-        return ar;
-    }
-  }
-
   void _openGroupDetail(String groupId) {
     ref.read(selectedGroupIdProvider.notifier).setGroupId(groupId);
     context.push('${AppRoutes.teacherGroupDetail}/$groupId');
@@ -241,7 +230,7 @@ class _TeacherHomeScreenState extends ConsumerState<TeacherHomeScreen> {
                     child: const Icon(Icons.groups_rounded, color: _primary),
                   ),
                   title: Text(
-                    _tr(
+                    trByLang(
                       langCode,
                       ar: 'فتح تفاصيل الحلقة والطلاب',
                       he: 'פתח פרטי קבוצה وتלמידים',
@@ -266,7 +255,7 @@ class _TeacherHomeScreenState extends ConsumerState<TeacherHomeScreen> {
                     child: const Icon(Icons.how_to_reg_rounded, color: _secondary),
                   ),
                   title: Text(
-                    _tr(
+                    trByLang(
                       langCode,
                       ar: 'رصد الحضور السريع للحلقة',
                       he: 'רישום נוכחות מהיר לקבוצה',
@@ -339,7 +328,7 @@ class _TeacherHomeScreenState extends ConsumerState<TeacherHomeScreen> {
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
                               content: Text(
-                                _tr(
+                                trByLang(
                                   langCode,
                                   ar: 'تم تسجيل حضور جلسة التسميع الفردي للطالب ${slot.studentName}',
                                   he: 'נרשמה נוכחות למפגש פרטני עבור ${slot.studentName}',
@@ -354,7 +343,7 @@ class _TeacherHomeScreenState extends ConsumerState<TeacherHomeScreen> {
                         style: ElevatedButton.styleFrom(backgroundColor: _primary, foregroundColor: Colors.white),
                         icon: const Icon(Icons.check_circle_outline_rounded, size: 18),
                         label: Text(
-                          _tr(langCode, ar: 'تسجيل حاضر (فردي)', he: 'סמן נוכח (פרטני)', en: 'Mark Present (1-on-1)'),
+                          trByLang(langCode, ar: 'تسجيل حاضر (فردي)', he: 'סמן נוכח (פרטני)', en: 'Mark Present (1-on-1)'),
                         ),
                       ),
                     ),
@@ -367,7 +356,7 @@ class _TeacherHomeScreenState extends ConsumerState<TeacherHomeScreen> {
                         },
                         icon: const Icon(Icons.menu_book_rounded, size: 18),
                         label: Text(
-                          _tr(langCode, ar: 'فتح الحلقة والتقييم', he: 'פתח קבוצה והערכה', en: 'Open Group & Grade'),
+                          trByLang(langCode, ar: 'فتح الحلقة والتقييم', he: 'פתח קבוצה והערכה', en: 'Open Group & Grade'),
                         ),
                       ),
                     ),
@@ -389,24 +378,52 @@ class _TeacherHomeScreenState extends ConsumerState<TeacherHomeScreen> {
 
     final appUser = ref.watch(currentAppUserProvider).asData?.value;
     final teacherGroups = ref.watch(teacherGroupsProvider).asData?.value ?? const [];
+    final allEnrollments = ref.watch(allEnrollmentsStreamProvider).asData?.value ?? const [];
 
-    final isLiveFirebase = Firebase.apps.isNotEmpty;
+    final isDemoFallback = Firebase.apps.isEmpty &&
+        appUser == null &&
+        teacherGroups.isEmpty &&
+        allEnrollments.isEmpty;
     final rawName = appUser?.fullName.trim() ?? '';
     final displayTeacherName = rawName.isNotEmpty
         ? rawName
-        : (isLiveFirebase
+        : (!isDemoFallback
             ? (appUser?.email ?? '')
-            : _tr(langCode, ar: 'أستاذ طارق', he: 'אוסתאז טארק', en: 'Ustadh Tariq'));
+            : trByLang(langCode, ar: 'أستاذ طارق', he: 'אוסתאז טארק', en: 'Ustadh Tariq'));
 
     final activeGroupsCount =
-        teacherGroups.isNotEmpty ? teacherGroups.length : (isLiveFirebase ? 0 : 4);
-    final allEnrollments = ref.watch(allEnrollmentsStreamProvider).asData?.value ?? const [];
+        teacherGroups.isNotEmpty ? teacherGroups.length : (isDemoFallback ? 4 : 0);
     final teacherGroupIds = teacherGroups.map((g) => g.id).toSet();
     final teacherEnrollments = allEnrollments
         .where((e) => teacherGroupIds.isEmpty || teacherGroupIds.contains(e.groupId))
         .toList();
     final uniqueStudentIds = teacherEnrollments.map((e) => e.studentId).toSet();
-    final totalStudentsCount = uniqueStudentIds.isNotEmpty ? uniqueStudentIds.length : (isLiveFirebase ? 0 : 45);
+    final totalStudentsCount =
+        uniqueStudentIds.isNotEmpty ? uniqueStudentIds.length : (isDemoFallback ? 45 : 0);
+
+    final allAssignments = <HifzAssignment>[];
+    for (final group in teacherGroups) {
+      final list = ref.watch(groupAssignmentsProvider(group.id)).asData?.value;
+      if (list != null) {
+        allAssignments.addAll(list);
+      }
+    }
+    final gradedAssignments = allAssignments
+        .where((a) => !a.isPartialRead && a.grade != EvaluationGrade.pending)
+        .toList();
+    final int? masteryPercentage;
+    if (gradedAssignments.isNotEmpty) {
+      final passedCount = gradedAssignments
+          .where(
+            (a) =>
+                !a.forceRepeat &&
+                (a.grade == EvaluationGrade.excellent || a.grade == EvaluationGrade.good),
+          )
+          .length;
+      masteryPercentage = ((passedCount / gradedAssignments.length) * 100).round();
+    } else {
+      masteryPercentage = null;
+    }
 
     final realSlots = teacherEnrollments
         .where((e) => e.oneOnOneSlotTime != null && e.oneOnOneSlotTime!.trim().isNotEmpty)
@@ -432,7 +449,7 @@ class _TeacherHomeScreenState extends ConsumerState<TeacherHomeScreen> {
         })
         .toList();
 
-    final activeSlots = isLiveFirebase ? realSlots : (realSlots.isNotEmpty ? realSlots : _todaySlots);
+    final activeSlots = !isDemoFallback ? realSlots : (realSlots.isNotEmpty ? realSlots : _todaySlots);
 
     return Directionality(
       textDirection: isRtl ? TextDirection.rtl : TextDirection.ltr,
@@ -452,6 +469,8 @@ class _TeacherHomeScreenState extends ConsumerState<TeacherHomeScreen> {
                     teacherEmail: appUser?.email ?? 'teacher@daralfajr.org',
                     activeGroupsCount: activeGroupsCount,
                     totalStudentsCount: totalStudentsCount,
+                    masteryPercentage: masteryPercentage,
+                    isDemoFallback: isDemoFallback,
                     firestoreGroups: teacherGroups,
                     todaySlots: activeSlots,
                   ),
@@ -510,7 +529,7 @@ class _TeacherHomeScreenState extends ConsumerState<TeacherHomeScreen> {
                                       crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
                                         Text(
-                                          _tr(langCode, ar: 'بوابة المعلم', he: 'פורטל מורה', en: 'Teacher Portal'),
+                                          trByLang(langCode, ar: 'بوابة المعلم', he: 'פורטל מורה', en: 'Teacher Portal'),
                                           style: Theme.of(context).textTheme.titleMedium?.copyWith(
                                             color: _primary,
                                             fontWeight: FontWeight.w600,
@@ -518,7 +537,7 @@ class _TeacherHomeScreenState extends ConsumerState<TeacherHomeScreen> {
                                           ),
                                         ),
                                         Text(
-                                          _tr(
+                                          trByLang(
                                             langCode,
                                             ar: 'دار الفجر لتعليم القرآن',
                                             he: 'דאר אל-פג׳ר ללימוד הקוראן',
@@ -548,7 +567,7 @@ class _TeacherHomeScreenState extends ConsumerState<TeacherHomeScreen> {
                                           ScaffoldMessenger.of(context).showSnackBar(
                                             SnackBar(
                                               content: Text(
-                                                _tr(
+                                                trByLang(
                                                   langCode,
                                                   ar: 'لديك ${_formatNum(activeSlots.length, langCode)} جلسات تسميع فردية مجدولة اليوم',
                                                   he: 'יש לך ${activeSlots.length} מפגשים פרטניים מתוכננים להיום',
@@ -572,7 +591,7 @@ class _TeacherHomeScreenState extends ConsumerState<TeacherHomeScreen> {
                                       onTap: () => context.go(AppRoutes.account),
                                       customBorder: const CircleBorder(),
                                       child: Tooltip(
-                                        message: _tr(
+                                        message: trByLang(
                                           langCode,
                                           ar: 'حسابي الشخصي واللغة',
                                           he: 'החשבון שלי ושפה',
@@ -630,19 +649,19 @@ class _TeacherHomeScreenState extends ConsumerState<TeacherHomeScreen> {
                               children: [
                                 _BottomNavButton(
                                   icon: Icons.school_rounded,
-                                  label: _tr(langCode, ar: 'حلقاتي', he: 'הקבוצות שלי', en: 'My Groups'),
+                                  label: trByLang(langCode, ar: 'حلقاتي', he: 'הקבוצות שלי', en: 'My Groups'),
                                   isSelected: _selectedBottomTab == 0,
                                   onTap: () => setState(() => _selectedBottomTab = 0),
                                 ),
                                 _BottomNavButton(
                                   icon: Icons.calendar_today_rounded,
-                                  label: _tr(langCode, ar: 'الجدول اليومي', he: 'לו״ז יומי', en: 'Daily Schedule'),
+                                  label: trByLang(langCode, ar: 'الجدول اليومي', he: 'לו״ז יומי', en: 'Daily Schedule'),
                                   isSelected: _selectedBottomTab == 1,
                                   onTap: () => setState(() => _selectedBottomTab = 1),
                                 ),
                                 _BottomNavButton(
                                   icon: Icons.account_circle_outlined,
-                                  label: _tr(langCode, ar: 'حسابي', he: 'החשבון שלי', en: 'My Profile'),
+                                  label: trByLang(langCode, ar: 'حسابي', he: 'החשבון שלי', en: 'My Profile'),
                                   isSelected: _selectedBottomTab == 2,
                                   onTap: () => context.go(AppRoutes.account),
                                 ),
@@ -669,6 +688,8 @@ class _TeacherHomeScreenState extends ConsumerState<TeacherHomeScreen> {
     required String teacherEmail,
     required int activeGroupsCount,
     required int totalStudentsCount,
+    required int? masteryPercentage,
+    required bool isDemoFallback,
     required List<StudyGroup> firestoreGroups,
     required List<_OneOnOneSlotData> todaySlots,
   }) {
@@ -692,11 +713,18 @@ class _TeacherHomeScreenState extends ConsumerState<TeacherHomeScreen> {
           displayTeacherName: displayTeacherName,
           activeGroupsCount: activeGroupsCount,
           totalStudentsCount: totalStudentsCount,
+          masteryPercentage: masteryPercentage,
+          isDemoFallback: isDemoFallback,
         ),
         const SizedBox(height: 24),
 
         // 2. Section 1: My Groups (حلقاتي التعليمية)
-        _buildMyGroupsSection(context: context, langCode: langCode, firestoreGroups: firestoreGroups),
+        _buildMyGroupsSection(
+          context: context,
+          langCode: langCode,
+          firestoreGroups: firestoreGroups,
+          isDemoFallback: isDemoFallback,
+        ),
         const SizedBox(height: 24),
 
         // 3. Section 2: Today's 1-on-1 Slots (جلسات فردية اليوم)
@@ -715,6 +743,8 @@ class _TeacherHomeScreenState extends ConsumerState<TeacherHomeScreen> {
     required String displayTeacherName,
     required int activeGroupsCount,
     required int totalStudentsCount,
+    required int? masteryPercentage,
+    required bool isDemoFallback,
   }) {
     return Container(
       padding: const EdgeInsets.all(16),
@@ -780,7 +810,7 @@ class _TeacherHomeScreenState extends ConsumerState<TeacherHomeScreen> {
                             children: [
                               Flexible(
                                 child: Text(
-                                  _tr(
+                                  trByLang(
                                     langCode,
                                     ar: 'مرحباً، $displayTeacherName',
                                     he: 'שלום, $displayTeacherName',
@@ -798,14 +828,7 @@ class _TeacherHomeScreenState extends ConsumerState<TeacherHomeScreen> {
                           ),
                           const SizedBox(height: 2),
                           Text(
-                            Firebase.apps.isEmpty
-                                ? _tr(
-                                    langCode,
-                                    ar: 'الأحد، ١٨ ربيع الأول ١٤٤٦ هـ • ٢٠ أكتوبر',
-                                    he: 'יום ראשון, 18 ברביע אל-אוול 1446 • 20 באוקטובר',
-                                    en: 'Sunday, 18 Rabi al-Awwal 1446 • Oct 20',
-                                  )
-                                : _formatCurrentDate(DateTime.now(), langCode),
+                            _formatCurrentDate(DateTime.now(), langCode),
                             style: Theme.of(context).textTheme.labelSmall?.copyWith(
                               color: _onSurfaceVariant,
                               fontSize: 11,
@@ -819,7 +842,7 @@ class _TeacherHomeScreenState extends ConsumerState<TeacherHomeScreen> {
                   ],
                 ),
               ),
-              if (Firebase.apps.isEmpty) ...[
+              if (isDemoFallback) ...[
                 const SizedBox(width: 8),
 
                 // Streak Badge
@@ -832,7 +855,7 @@ class _TeacherHomeScreenState extends ConsumerState<TeacherHomeScreen> {
                       const Icon(Icons.local_fire_department_rounded, size: 16, color: _onSecondaryFixed),
                       const SizedBox(width: 4),
                       Text(
-                        _tr(langCode, ar: '١٤ يوماً التزام', he: '14 ימי התמדה', en: '14d Streak'),
+                        trByLang(langCode, ar: '١٤ يوماً التزام', he: '14 ימי התמדה', en: '14d Streak'),
                         style: Theme.of(context).textTheme.labelSmall?.copyWith(
                           color: _onSecondaryFixed,
                           fontSize: 11,
@@ -853,7 +876,7 @@ class _TeacherHomeScreenState extends ConsumerState<TeacherHomeScreen> {
               Expanded(
                 child: _VitalStatBox(
                   value: _formatNum(activeGroupsCount, langCode),
-                  label: _tr(langCode, ar: 'حلقات', he: 'קבוצות', en: 'Groups'),
+                  label: trByLang(langCode, ar: 'حلقات', he: 'קבוצות', en: 'Groups'),
                   valueColor: _primary,
                 ),
               ),
@@ -861,17 +884,19 @@ class _TeacherHomeScreenState extends ConsumerState<TeacherHomeScreen> {
               Expanded(
                 child: _VitalStatBox(
                   value: _formatNum(totalStudentsCount, langCode),
-                  label: _tr(langCode, ar: 'طلاب', he: 'תלמידים', en: 'Students'),
+                  label: trByLang(langCode, ar: 'طلاب', he: 'תלמידים', en: 'Students'),
                   valueColor: _primary,
                 ),
               ),
               const SizedBox(width: 8),
               Expanded(
                 child: _VitalStatBox(
-                  value: Firebase.apps.isEmpty
-                      ? (langCode == 'ar' ? '٩٦٪' : '96%')
-                      : '—',
-                  label: _tr(langCode, ar: 'نسبة الإتقان', he: 'אחוז שליטה', en: 'Mastery Rate'),
+                  value: masteryPercentage != null
+                      ? '${_formatNum(masteryPercentage, langCode)}${langCode == 'ar' ? '٪' : '%'}'
+                      : (isDemoFallback
+                          ? (langCode == 'ar' ? '٩٦٪' : '96%')
+                          : '—'),
+                  label: trByLang(langCode, ar: 'نسبة الإتقان', he: 'אחוז שליטה', en: 'Mastery Rate'),
                   valueColor: _secondary,
                 ),
               ),
@@ -886,8 +911,9 @@ class _TeacherHomeScreenState extends ConsumerState<TeacherHomeScreen> {
     required BuildContext context,
     required String langCode,
     required List<StudyGroup> firestoreGroups,
+    required bool isDemoFallback,
   }) {
-    final isLiveFirebase = Firebase.apps.isNotEmpty;
+    final isLiveMode = !isDemoFallback;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -902,7 +928,7 @@ class _TeacherHomeScreenState extends ConsumerState<TeacherHomeScreen> {
                   const Icon(Icons.menu_book_rounded, color: _primary, size: 20),
                   const SizedBox(width: 6),
                   Text(
-                    _tr(langCode, ar: 'حلقاتي التعليمية', he: 'הקבוצות החינוכיות שלי', en: 'My Study Groups'),
+                    trByLang(langCode, ar: 'حلقاتي التعليمية', he: 'הקבוצות החינוכיות שלי', en: 'My Study Groups'),
                     style: Theme.of(
                       context,
                     ).textTheme.titleMedium?.copyWith(color: _onSurface, fontWeight: FontWeight.w600),
@@ -918,7 +944,7 @@ class _TeacherHomeScreenState extends ConsumerState<TeacherHomeScreen> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
-                        _tr(langCode, ar: 'الجدول الأسبوعي', he: 'מערכת שעות שבועית', en: 'Weekly Schedule'),
+                        trByLang(langCode, ar: 'الجدول الأسبوعي', he: 'מערכת שעות שבועית', en: 'Weekly Schedule'),
                         style: Theme.of(
                           context,
                         ).textTheme.labelMedium?.copyWith(color: _primary, fontWeight: FontWeight.w600),
@@ -941,7 +967,7 @@ class _TeacherHomeScreenState extends ConsumerState<TeacherHomeScreen> {
               child: _buildDynamicGroupCard(context: context, langCode: langCode, group: group),
             );
           })
-        else if (isLiveFirebase)
+        else if (isLiveMode)
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 32),
             child: Center(
@@ -951,7 +977,7 @@ class _TeacherHomeScreenState extends ConsumerState<TeacherHomeScreen> {
                   Icon(Icons.class_outlined, size: 48, color: _onSurfaceVariant.withValues(alpha: 0.5)),
                   const SizedBox(height: 12),
                   Text(
-                    _tr(
+                    trByLang(
                       langCode,
                       ar: 'لا توجد حلقات مسندة إليك حالياً',
                       he: 'אין קבוצות המשויכות אליך כעת',
@@ -1024,7 +1050,7 @@ class _TeacherHomeScreenState extends ConsumerState<TeacherHomeScreen> {
     }
     final displaySchedule = scheduleText.isNotEmpty
         ? scheduleText.toString()
-        : _tr(
+        : trByLang(
             langCode,
             ar: 'مواعيد منتظمة بحسب الجدول الأسبوعي',
             he: 'זמנים קבועים לפי המערכת השבועית',
@@ -1133,7 +1159,7 @@ class _TeacherHomeScreenState extends ConsumerState<TeacherHomeScreen> {
                           ),
                           icon: const Icon(Icons.menu_book_rounded, size: 18),
                           label: Text(
-                            _tr(
+                            trByLang(
                               langCode,
                               ar: 'فتح تفاصيل ومقررات الحلقة',
                               he: 'פתח פרטי ומשימות קבוצה',
@@ -1156,7 +1182,7 @@ class _TeacherHomeScreenState extends ConsumerState<TeacherHomeScreen> {
                       ),
                       icon: const Icon(Icons.how_to_reg_rounded, size: 18),
                       label: Text(
-                        _tr(langCode, ar: 'رصد الحضور', he: 'רישום נוכחות', en: 'Attendance'),
+                        trByLang(langCode, ar: 'رصد الحضور', he: 'רישום נוכחות', en: 'Attendance'),
                         style: const TextStyle(fontWeight: FontWeight.w600),
                       ),
                     ),
@@ -1175,7 +1201,7 @@ class _TeacherHomeScreenState extends ConsumerState<TeacherHomeScreen> {
     required String langCode,
     required String groupId,
   }) {
-    final groupTitle = _tr(
+    final groupTitle = trByLang(
       langCode,
       ar: 'حلقة أبي بكر الصديق',
       he: 'קבוצת אבו בכר אל-סידיק',
@@ -1234,7 +1260,7 @@ class _TeacherHomeScreenState extends ConsumerState<TeacherHomeScreen> {
                                     ),
                                     const SizedBox(width: 4),
                                     Text(
-                                      _tr(
+                                      trByLang(
                                         langCode,
                                         ar: 'مسار الحفظ المكثف',
                                         he: 'מסלול שינון מואץ',
@@ -1253,7 +1279,7 @@ class _TeacherHomeScreenState extends ConsumerState<TeacherHomeScreen> {
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            _tr(
+                            trByLang(
                               langCode,
                               ar: '١٢ طالباً مسجلاً • مرحلة الحفظ النهائي',
                               he: '12 תלמידים רשומים • שלב שינון מתקדם',
@@ -1285,7 +1311,7 @@ class _TeacherHomeScreenState extends ConsumerState<TeacherHomeScreen> {
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          _tr(
+                          trByLang(
                             langCode,
                             ar: 'الأحد والثلاثاء والخميس • بعد العصر (٤:٣٠ م - ٦:٠٠ م)',
                             he: 'א׳, ג׳, ה׳ • אחר הצהריים (16:30 - 18:00)',
@@ -1306,7 +1332,7 @@ class _TeacherHomeScreenState extends ConsumerState<TeacherHomeScreen> {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(
-                          _tr(
+                          trByLang(
                             langCode,
                             ar: 'إنجاز الخطة الشهرية (الجزء ٢٧ - الذاريات)',
                             he: 'התקדמות תוכנית חודשית (ג׳וז 27 - א-ד׳אריאת)',
@@ -1354,7 +1380,7 @@ class _TeacherHomeScreenState extends ConsumerState<TeacherHomeScreen> {
                           ),
                           icon: const Icon(Icons.how_to_reg_rounded, size: 18),
                           label: Text(
-                            _tr(
+                            trByLang(
                               langCode,
                               ar: 'فتح الحلقة ورصد الحضور',
                               he: 'פתח קבוצה ורשום נוכחות',
@@ -1415,7 +1441,7 @@ class _TeacherHomeScreenState extends ConsumerState<TeacherHomeScreen> {
                       crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
                         Text(
-                          _tr(
+                          trByLang(
                             langCode,
                             ar: 'حلقة الإتقان والتجويد',
                             he: 'קבוצת דיוק וטג׳וויד',
@@ -1429,7 +1455,7 @@ class _TeacherHomeScreenState extends ConsumerState<TeacherHomeScreen> {
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                           decoration: BoxDecoration(color: _secondaryFixed, borderRadius: BorderRadius.circular(999)),
                           child: Text(
-                            _tr(langCode, ar: 'تجويد متقدم', he: 'טג׳וויד מתקדם', en: 'Advanced Tajweed'),
+                            trByLang(langCode, ar: 'تجويد متقدم', he: 'טג׳וויד מתקדם', en: 'Advanced Tajweed'),
                             style: Theme.of(context).textTheme.labelSmall?.copyWith(
                               color: _onSecondaryFixed,
                               fontSize: 11,
@@ -1441,7 +1467,7 @@ class _TeacherHomeScreenState extends ConsumerState<TeacherHomeScreen> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      _tr(
+                      trByLang(
                         langCode,
                         ar: '٨ طلاب • متن الجزرية ومخارج الحروف',
                         he: '8 תלמידים • מתן אל-ג׳זריה ומוצאי האותיות',
@@ -1471,7 +1497,7 @@ class _TeacherHomeScreenState extends ConsumerState<TeacherHomeScreen> {
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    _tr(
+                    trByLang(
                       langCode,
                       ar: 'السبت والاثنين والأربعاء • بعد المغرب (٦:٤٥ م)',
                       he: 'שבת, ב׳, ד׳ • אחרי מעריב (18:45)',
@@ -1493,7 +1519,7 @@ class _TeacherHomeScreenState extends ConsumerState<TeacherHomeScreen> {
                     const SizedBox(width: 4),
                     Flexible(
                       child: Text(
-                        _tr(
+                        trByLang(
                           langCode,
                           ar: 'تم تصحيح تلاوة ٥ طلاب أمس',
                           he: 'תוקנה קריאה של 5 תלמידים אתמול',
@@ -1522,7 +1548,7 @@ class _TeacherHomeScreenState extends ConsumerState<TeacherHomeScreen> {
                         const Icon(Icons.history_edu_rounded, size: 18, color: _onSurface),
                         const SizedBox(width: 6),
                         Text(
-                          _tr(langCode, ar: 'سجل المتابعة', he: 'יומן מעקב', en: 'Follow-up Log'),
+                          trByLang(langCode, ar: 'سجل المتابعة', he: 'יומן מעקב', en: 'Follow-up Log'),
                           style: Theme.of(
                             context,
                           ).textTheme.labelMedium?.copyWith(color: _onSurface, fontWeight: FontWeight.w600),
@@ -1564,7 +1590,7 @@ class _TeacherHomeScreenState extends ConsumerState<TeacherHomeScreen> {
                       crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
                         Text(
-                          _tr(
+                          trByLang(
                             langCode,
                             ar: 'حلقة البراعم النورانية',
                             he: 'קבוצת ניצני אל-נוראניה',
@@ -1578,7 +1604,7 @@ class _TeacherHomeScreenState extends ConsumerState<TeacherHomeScreen> {
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                           decoration: BoxDecoration(color: _tertiaryFixed, borderRadius: BorderRadius.circular(999)),
                           child: Text(
-                            _tr(langCode, ar: 'القاعدة النورانية', he: 'קאעידה נוראניה', en: "Qa'idah Nouraniah"),
+                            trByLang(langCode, ar: 'القاعدة النورانية', he: 'קאעידה נוראניה', en: "Qa'idah Nouraniah"),
                             style: Theme.of(context).textTheme.labelSmall?.copyWith(
                               color: _onTertiaryFixed,
                               fontSize: 11,
@@ -1590,7 +1616,7 @@ class _TeacherHomeScreenState extends ConsumerState<TeacherHomeScreen> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      _tr(
+                      trByLang(
                         langCode,
                         ar: '١٠ طلاب • الدرس الحادي عشر: السكون',
                         he: '10 תלמידים • שיעור 11: סוכון',
@@ -1620,7 +1646,7 @@ class _TeacherHomeScreenState extends ConsumerState<TeacherHomeScreen> {
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    _tr(
+                    trByLang(
                       langCode,
                       ar: 'يومياً عدا الجمعة • ٤:٠٠ م',
                       he: 'כל يوم פרט לשישי • 16:00',
@@ -1637,7 +1663,7 @@ class _TeacherHomeScreenState extends ConsumerState<TeacherHomeScreen> {
             children: [
               Flexible(
                 child: Text(
-                  _tr(
+                  trByLang(
                     langCode,
                     ar: 'المقر الحالي: القاعة التعليمية ٢',
                     he: 'מיקום נוכחי: חדר לימוד 2',
@@ -1661,7 +1687,7 @@ class _TeacherHomeScreenState extends ConsumerState<TeacherHomeScreen> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(
-                          _tr(langCode, ar: 'عرض الحلقة', he: 'הצג קבוצה', en: 'View Group'),
+                          trByLang(langCode, ar: 'عرض الحلقة', he: 'הצג קבוצה', en: 'View Group'),
                           style: Theme.of(
                             context,
                           ).textTheme.labelMedium?.copyWith(color: _onSurface, fontWeight: FontWeight.w600),
@@ -1710,7 +1736,7 @@ class _TeacherHomeScreenState extends ConsumerState<TeacherHomeScreen> {
                         crossAxisAlignment: WrapCrossAlignment.center,
                         children: [
                           Text(
-                            _tr(
+                            trByLang(
                               langCode,
                               ar: 'حلقة التربية والتدبر',
                               he: 'קבוצת חינוך והתבוננות',
@@ -1727,7 +1753,7 @@ class _TeacherHomeScreenState extends ConsumerState<TeacherHomeScreen> {
                               borderRadius: BorderRadius.circular(999),
                             ),
                             child: Text(
-                              _tr(langCode, ar: 'مسار تربوي', he: 'מסלול חינוכי', en: 'Tarbawi Track'),
+                              trByLang(langCode, ar: 'مسار تربوي', he: 'מסלול חינוכי', en: 'Tarbawi Track'),
                               style: Theme.of(context).textTheme.labelSmall?.copyWith(
                                 color: _onSurfaceVariant,
                                 fontSize: 11,
@@ -1739,7 +1765,7 @@ class _TeacherHomeScreenState extends ConsumerState<TeacherHomeScreen> {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        _tr(
+                        trByLang(
                           langCode,
                           ar: '١٥ طالباً • مدارسة قصص الأنبياء وأخلاق القرآن',
                           he: '15 תלמידים • סיפורי הנביאים ומידות הקוראן',
@@ -1771,7 +1797,7 @@ class _TeacherHomeScreenState extends ConsumerState<TeacherHomeScreen> {
                       const Icon(Icons.date_range_rounded, size: 18, color: _primary),
                       const SizedBox(width: 8),
                       Text(
-                        _tr(langCode, ar: 'الجمعة • ٨:٠٠ ص', he: 'יום שישי • 8:00 בבוקר', en: 'Friday • 8:00 AM'),
+                        trByLang(langCode, ar: 'الجمعة • ٨:٠٠ ص', he: 'יום שישי • 8:00 בבוקר', en: 'Friday • 8:00 AM'),
                         style: Theme.of(context).textTheme.labelMedium?.copyWith(color: _onSurfaceVariant),
                       ),
                     ],
@@ -1780,7 +1806,7 @@ class _TeacherHomeScreenState extends ConsumerState<TeacherHomeScreen> {
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                     decoration: BoxDecoration(color: _surfaceContainerHigh, borderRadius: BorderRadius.circular(4)),
                     child: Text(
-                      _tr(langCode, ar: 'أسبوعي', he: 'שבועי', en: 'Weekly'),
+                      trByLang(langCode, ar: 'أسبوعي', he: 'שבועי', en: 'Weekly'),
                       style: Theme.of(context).textTheme.labelSmall?.copyWith(color: _onSurfaceVariant, fontSize: 11),
                     ),
                   ),
@@ -1811,7 +1837,7 @@ class _TeacherHomeScreenState extends ConsumerState<TeacherHomeScreen> {
                   const Icon(Icons.person_pin_circle_rounded, color: _secondary, size: 20),
                   const SizedBox(width: 6),
                   Text(
-                    _tr(langCode, ar: 'جلسات فردية اليوم', he: 'מפגשים פרטניים להיום', en: "Today's 1-on-1 Slots"),
+                    trByLang(langCode, ar: 'جلسات فردية اليوم', he: 'מפגשים פרטניים להיום', en: "Today's 1-on-1 Slots"),
                     style: Theme.of(
                       context,
                     ).textTheme.titleMedium?.copyWith(color: _onSurface, fontWeight: FontWeight.w600),
@@ -1822,7 +1848,7 @@ class _TeacherHomeScreenState extends ConsumerState<TeacherHomeScreen> {
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(color: _surfaceContainer, borderRadius: BorderRadius.circular(999)),
                 child: Text(
-                  '${_formatNum(slots.length, langCode)} ${_tr(langCode, ar: 'جلسات مجدولة', he: 'מפגשים מתוכננים', en: 'slots scheduled')}',
+                  '${_formatNum(slots.length, langCode)} ${trByLang(langCode, ar: 'جلسات مجدولة', he: 'מפגשים מתוכננים', en: 'slots scheduled')}',
                   style: Theme.of(
                     context,
                   ).textTheme.labelSmall?.copyWith(color: _onSurfaceVariant, fontSize: 11, fontWeight: FontWeight.w500),
@@ -1843,7 +1869,7 @@ class _TeacherHomeScreenState extends ConsumerState<TeacherHomeScreen> {
                   Icon(Icons.schedule_rounded, size: 40, color: _onSurfaceVariant.withValues(alpha: 0.5)),
                   const SizedBox(height: 8),
                   Text(
-                    _tr(
+                    trByLang(
                       langCode,
                       ar: 'لا توجد جلسات فردية مجدولة لليوم',
                       he: 'אין מפגשים פרטניים מתוכננים להיום',
@@ -2021,14 +2047,14 @@ class _TeacherHomeScreenState extends ConsumerState<TeacherHomeScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  _tr(langCode, ar: 'تذكير نبوي شريف', he: 'תזכורת נבואית מבורכת', en: 'Prophetic Reminder'),
+                  trByLang(langCode, ar: 'تذكير نبوي شريف', he: 'תזכורת נבואית מבורכת', en: 'Prophetic Reminder'),
                   style: Theme.of(
                     context,
                   ).textTheme.labelMedium?.copyWith(color: _primary, fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  _tr(
+                  trByLang(
                     langCode,
                     ar: '"خَيْرُكُمْ مَنْ تَعَلَّمَ الْقُرْآنَ وَعَلَّمَهُ" — بارك الله في أوقاتكم وسعيكم.',
                     he: '"הטובים שבכם הם אלה שלומדים את הקוראן ומלמדים אותו" — יברך אללה את זמנכם.',
@@ -2052,7 +2078,7 @@ class _TeacherHomeScreenState extends ConsumerState<TeacherHomeScreen> {
       padding: EdgeInsets.only(top: topPadding, bottom: bottomPadding, left: 16, right: 16),
       children: [
         Text(
-          _tr(
+          trByLang(
             langCode,
             ar: 'الجدول اليومي وجلسات التسميع',
             he: 'לוח זמנים יומי ומפגשי שינון',
@@ -2062,7 +2088,7 @@ class _TeacherHomeScreenState extends ConsumerState<TeacherHomeScreen> {
         ),
         const SizedBox(height: 6),
         Text(
-          _tr(
+          trByLang(
             langCode,
             ar: 'مواعيد الحلقات الجماعية والجلسات الفردية المجدولة لهذا اليوم',
             he: 'זמני השיעורים הקבוצתיים והמפגשים הפרטניים להיום',
@@ -2081,7 +2107,7 @@ class _TeacherHomeScreenState extends ConsumerState<TeacherHomeScreen> {
                   Icon(Icons.event_busy_rounded, size: 48, color: _onSurfaceVariant.withValues(alpha: 0.5)),
                   const SizedBox(height: 12),
                   Text(
-                    _tr(
+                    trByLang(
                       langCode,
                       ar: 'لا توجد جلسات فردية مجدولة لليوم',
                       he: 'אין מפגשים פרטניים מתוכננים להיום',

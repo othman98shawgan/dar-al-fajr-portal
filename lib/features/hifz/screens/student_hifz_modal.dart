@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/models/surah_page_map.dart';
 import '../../../core/services/locale_provider.dart';
+import '../../../l10n/app_localizations_tr.dart';
 import '../models/teacher_models.dart';
 import '../providers/teacher_providers.dart';
 
@@ -208,23 +209,6 @@ class _StudentHifzModalState extends ConsumerState<StudentHifzModal> {
     super.dispose();
   }
 
-  String _tr(
-    String langCode, {
-    required String ar,
-    required String he,
-    required String en,
-  }) {
-    switch (langCode) {
-      case 'he':
-        return he;
-      case 'en':
-        return en;
-      case 'ar':
-      default:
-        return ar;
-    }
-  }
-
   String _toArabicDigits(int number) {
     const western = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
     const eastern = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
@@ -348,7 +332,7 @@ class _StudentHifzModalState extends ConsumerState<StudentHifzModal> {
                       ),
                       const SizedBox(height: 12),
                       Text(
-                        _tr(
+                        trByLang(
                           langCode,
                           ar: 'اختر السورة (١١٤ سورة - توزيع المركز)',
                           he: 'בחר סורה (114 סורות)',
@@ -364,7 +348,7 @@ class _StudentHifzModalState extends ConsumerState<StudentHifzModal> {
                         onChanged: (val) =>
                             setPickerState(() => searchFilter = val),
                         decoration: InputDecoration(
-                          hintText: _tr(
+                          hintText: trByLang(
                             langCode,
                             ar: 'ابحث باسم السورة أو رقمها...',
                             he: 'חפש לפי שם סורה או מספר...',
@@ -408,13 +392,13 @@ class _StudentHifzModalState extends ConsumerState<StudentHifzModal> {
                                 ),
                                 subtitle: Text(
                                   s.isJuz30
-                                      ? _tr(
+                                      ? trByLang(
                                           langCode,
                                           ar: 'الجزء ٣٠ • تحسب كصفحة واحدة في المركز (ص ${s.startPage})',
                                           he: 'ג׳וז 30 • נחשבת כיחידת עמוד אחת במרכז',
                                           en: 'Juz 30 • Counted as 1 Center Page (p. ${s.startPage})',
                                         )
-                                      : _tr(
+                                      : trByLang(
                                           langCode,
                                           ar: 'الجزء ${_formatNum(s.primaryJuz, langCode)} • الصفحات ${_formatNum(s.startPage, langCode)}-${_formatNum(s.endPage, langCode)} (${_formatNum(s.centerPageCount, langCode)} صفحات)',
                                           he: 'ג׳וז ${s.primaryJuz} • עמודים ${s.startPage}-${s.endPage} (${s.centerPageCount} עמ׳)',
@@ -453,7 +437,7 @@ class _StudentHifzModalState extends ConsumerState<StudentHifzModal> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            _tr(
+            trByLang(
               langCode,
               ar: 'بيانات الطالب أو الحلقة غير مكتملة',
               he: 'פרטי התלמיד או הקבוצה חסרים',
@@ -584,13 +568,13 @@ class _StudentHifzModalState extends ConsumerState<StudentHifzModal> {
       SnackBar(
         content: Text(
           _assignOnlyMode
-              ? _tr(
+              ? trByLang(
                   langCode,
                   ar: 'تم حفظ واجب الطالب ($_effectiveStudentName) بنجاح!',
                   he: 'מטלת התלמיד נשמרה בהצלחה!',
                   en: 'Student assignment saved successfully!',
                 )
-              : _tr(
+              : trByLang(
                   langCode,
                   ar: 'تم حفظ جلسة التسميع وتحديث تقدم ($_effectiveStudentName) وجدولة الواجب القادم!',
                   he: 'מפגש השינון נשמר והמטלה הבאה נקבעה בהצלחה!',
@@ -655,13 +639,13 @@ class _StudentHifzModalState extends ConsumerState<StudentHifzModal> {
                         children: [
                           Text(
                             _assignOnlyMode
-                                ? _tr(
+                                ? trByLang(
                                     langCode,
                                     ar: 'تحديد / تعديل واجب الطالب',
                                     he: 'קביעת / עריכת מטלת תלמיד',
                                     en: 'Assign / Edit Student Homework',
                                   )
-                                : _tr(
+                                : trByLang(
                                     langCode,
                                     ar: 'جلسة تسميع وتحديد الواجب',
                                     he: 'מפגש שינון וקביעת מטלה',
@@ -745,7 +729,7 @@ class _StudentHifzModalState extends ConsumerState<StudentHifzModal> {
                             ),
                             alignment: Alignment.center,
                             child: Text(
-                              _tr(
+                              trByLang(
                                 langCode,
                                 ar: '🎙️ جلسة تسميع وتقييم',
                                 he: '🎙️ מפגש שינון והערכה',
@@ -776,7 +760,7 @@ class _StudentHifzModalState extends ConsumerState<StudentHifzModal> {
                             ),
                             alignment: Alignment.center,
                             child: Text(
-                              _tr(
+                              trByLang(
                                 langCode,
                                 ar: '📝 تحديد / تعديل واجب فقط',
                                 he: '📝 קביעת / עריכת מטלה בלבד',
@@ -852,27 +836,27 @@ class _StudentHifzModalState extends ConsumerState<StudentHifzModal> {
                       ),
                       label: Text(
                         _isSaving
-                            ? _tr(
+                            ? trByLang(
                                 langCode,
                                 ar: 'جاري الحفظ...',
                                 he: 'שומר...',
                                 en: 'Saving...',
                               )
                             : (_isSavedSuccess
-                                ? _tr(
+                                ? trByLang(
                                     langCode,
                                     ar: 'تم الحفظ بنجاح',
                                     he: 'נשמר בהצלחה',
                                     en: 'Saved Successfully',
                                   )
                                 : (_assignOnlyMode
-                                    ? _tr(
+                                    ? trByLang(
                                         langCode,
                                         ar: 'حفظ الواجب المقرر',
                                         he: 'שמור מטלה',
                                         en: 'Save Assignment',
                                       )
-                                    : _tr(
+                                    : trByLang(
                                         langCode,
                                         ar: 'حفظ التسميع والواجب القادم',
                                         he: 'שמור הערכה ומטלה',
@@ -892,7 +876,7 @@ class _StudentHifzModalState extends ConsumerState<StudentHifzModal> {
                       foregroundColor: _onSurfaceVariant,
                     ),
                     child: Text(
-                      _tr(
+                      trByLang(
                         langCode,
                         ar: 'إلغاء والتراجع',
                         he: 'ביטול וחזרה',
@@ -969,7 +953,7 @@ class _StudentHifzModalState extends ConsumerState<StudentHifzModal> {
                   const SizedBox(width: 6),
                   Expanded(
                     child: Text(
-                      _tr(
+                      trByLang(
                         langCode,
                         ar: 'تقييم التسميع الحالي (٠ - ١٠٠)',
                         he: 'הערכת השינון הנוכחי (0 - 100)',
@@ -989,7 +973,7 @@ class _StudentHifzModalState extends ConsumerState<StudentHifzModal> {
               onPressed: () => _addAnotherUnitInSitting(penaltyConfig),
               icon: const Icon(Icons.add_circle_outline_rounded, size: 16),
               label: Text(
-                _tr(
+                trByLang(
                   langCode,
                   ar: 'إضافة صفحة/سورة بالجلسة',
                   he: 'הוסף עמוד/סורה במפגש',
@@ -1019,7 +1003,7 @@ class _StudentHifzModalState extends ConsumerState<StudentHifzModal> {
 
         // Teacher Notes Field
         Text(
-          _tr(
+          trByLang(
             langCode,
             ar: 'ملاحظات المعلم وتوجيهات التجويد',
             he: 'הערות המורה וטג׳וויד',
@@ -1044,7 +1028,7 @@ class _StudentHifzModalState extends ConsumerState<StudentHifzModal> {
               decoration: InputDecoration(
                 fillColor: _surfaceContainerLowest,
                 filled: true,
-                hintText: _tr(
+                hintText: trByLang(
                   langCode,
                   ar: 'اكتب ملاحظات التسميع أو الكلمات التي تحتاج تثبيت...',
                   he: 'כתוב הערות שינון או מילים לחיזוק...',
@@ -1148,13 +1132,13 @@ class _StudentHifzModalState extends ConsumerState<StudentHifzModal> {
             children: [
               Text(
                 _units.length > 1
-                    ? _tr(
+                    ? trByLang(
                         langCode,
                         ar: 'مقطع التسميع #${_formatNum(index + 1, langCode)}',
                         he: 'יחידת שינון #${index + 1}',
                         en: 'Recitation Unit #${index + 1}',
                       )
-                    : _tr(
+                    : trByLang(
                         langCode,
                         ar: 'نوع المقطع المسمّع',
                         he: 'סוג יחידת השינון',
@@ -1225,7 +1209,7 @@ class _StudentHifzModalState extends ConsumerState<StudentHifzModal> {
                 const Icon(Icons.menu_book_rounded, size: 18, color: _primary),
                 const SizedBox(width: 8),
                 Text(
-                  _tr(
+                  trByLang(
                     langCode,
                     ar: 'مراجعة / اختبار الجزء الكامل:',
                     he: 'מבחן / חזרה על ג׳וז מלא:',
@@ -1244,7 +1228,7 @@ class _StudentHifzModalState extends ConsumerState<StudentHifzModal> {
                         (j) => DropdownMenuItem<int>(
                           value: j,
                           child: Text(
-                            _tr(
+                            trByLang(
                               langCode,
                               ar: 'الجزء ${_formatNum(j, langCode)}',
                               he: 'ג׳וז $j',
@@ -1346,7 +1330,7 @@ class _StudentHifzModalState extends ConsumerState<StudentHifzModal> {
                                 (p) => DropdownMenuItem<int>(
                                   value: p,
                                   child: Text(
-                                    _tr(
+                                    trByLang(
                                       langCode,
                                       ar: 'صفحة ${_formatNum(p, langCode)}',
                                       he: 'עמוד $p',
@@ -1393,7 +1377,7 @@ class _StudentHifzModalState extends ConsumerState<StudentHifzModal> {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      _tr(
+                      trByLang(
                         langCode,
                         ar: 'قراءة جزئية (أقل من صفحة أو سورة كاملة): تُسجّل كملاحظة متابعة فقط بدون علامة رقمية ولا تُحتسب كصفحة منجزة حتى يتم تسميعها كاملة.',
                         he: 'קריאה חלקית: נרשמת כהערת מעקב בלבד ללא ציון מספרי.',
@@ -1415,7 +1399,7 @@ class _StudentHifzModalState extends ConsumerState<StudentHifzModal> {
               children: [
                 Expanded(
                   child: _MistakeCounterTile(
-                    label: _tr(
+                    label: trByLang(
                       langCode,
                       ar: 'خطأ لفظي',
                       he: 'טעות הגייה',
@@ -1443,7 +1427,7 @@ class _StudentHifzModalState extends ConsumerState<StudentHifzModal> {
                 const SizedBox(width: 6),
                 Expanded(
                   child: _MistakeCounterTile(
-                    label: _tr(
+                    label: trByLang(
                       langCode,
                       ar: 'فتح (توقف)',
                       he: 'פתיחה (עצירה)',
@@ -1471,7 +1455,7 @@ class _StudentHifzModalState extends ConsumerState<StudentHifzModal> {
                 const SizedBox(width: 6),
                 Expanded(
                   child: _MistakeCounterTile(
-                    label: _tr(
+                    label: trByLang(
                       langCode,
                       ar: 'تعتعة / استدراك',
                       he: 'תיקון עצמי',
@@ -1542,13 +1526,13 @@ class _StudentHifzModalState extends ConsumerState<StudentHifzModal> {
                             children: [
                               Text(
                                 isPassed
-                                    ? _tr(
+                                    ? trByLang(
                                         langCode,
                                         ar: 'مجتاز بنجاح ✓',
                                         he: 'עבר בהצלחה ✓',
                                         en: 'Passed ✓',
                                       )
-                                    : _tr(
+                                    : trByLang(
                                         langCode,
                                         ar: 'يحتاج إعادة التسميع',
                                         he: 'דורש חזרה',
@@ -1562,7 +1546,7 @@ class _StudentHifzModalState extends ConsumerState<StudentHifzModal> {
                                 overflow: TextOverflow.ellipsis,
                               ),
                               Text(
-                                _tr(
+                                trByLang(
                                   langCode,
                                   ar: 'علامة النجاح: ${_formatNum(minThreshold, langCode)} فأعلى',
                                   he: 'ציון מעבר: $minThreshold ומעלה',
@@ -1593,7 +1577,7 @@ class _StudentHifzModalState extends ConsumerState<StudentHifzModal> {
                         },
                       ),
                       Text(
-                        _tr(
+                        trByLang(
                           langCode,
                           ar: 'إلزام بالإعادة',
                           he: 'חייב חזרה',
@@ -1659,13 +1643,13 @@ class _StudentHifzModalState extends ConsumerState<StudentHifzModal> {
                   Expanded(
                     child: Text(
                       _assignOnlyMode
-                          ? _tr(
+                          ? trByLang(
                               langCode,
                               ar: 'تفاصيل الواجب المقرر للطالب',
                               he: 'פרטי המטלה לתלמיד',
                               en: 'Student Assignment Details',
                             )
-                          : _tr(
+                          : trByLang(
                               langCode,
                               ar: 'تحديد الواجب القادم (قابل للتعديل)',
                               he: 'קביעת המטלה הבאה',
@@ -1692,13 +1676,13 @@ class _StudentHifzModalState extends ConsumerState<StudentHifzModal> {
                 ),
                 child: Text(
                   isRollover
-                      ? _tr(
+                      ? trByLang(
                           langCode,
                           ar: 'ترحيل للإعادة',
                           he: 'הועבר לחזרה',
                           en: 'Rollover for Repeat',
                         )
-                      : _tr(
+                      : trByLang(
                           langCode,
                           ar: 'مقترح تلقائياً',
                           he: 'מוצע אוטומטית',
@@ -1751,7 +1735,7 @@ class _StudentHifzModalState extends ConsumerState<StudentHifzModal> {
                         const SizedBox(width: 4),
                         Flexible(
                           child: Text(
-                            _tr(
+                            trByLang(
                               langCode,
                               ar: 'حفظ جديد (صفحة / سورة)',
                               he: 'שינון חדש (עמוד / סורה)',
@@ -1803,7 +1787,7 @@ class _StudentHifzModalState extends ConsumerState<StudentHifzModal> {
                         const SizedBox(width: 4),
                         Flexible(
                           child: Text(
-                            _tr(
+                            trByLang(
                               langCode,
                               ar: 'مراجعة / اختبار جزء كامل',
                               he: 'חזרה / מבחן ג׳וז מלא',
@@ -1844,7 +1828,7 @@ class _StudentHifzModalState extends ConsumerState<StudentHifzModal> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  _tr(
+                  trByLang(
                     langCode,
                     ar: 'الجزء المقرر للمراجعة / الاختبار:',
                     he: 'הג׳וז שנקבע לחזרה / מבחן:',
@@ -1862,7 +1846,7 @@ class _StudentHifzModalState extends ConsumerState<StudentHifzModal> {
                         (j) => DropdownMenuItem<int>(
                           value: j,
                           child: Text(
-                            _tr(
+                            trByLang(
                               langCode,
                               ar: 'الجزء ${_formatNum(j, langCode)} كامل',
                               he: 'ג׳וז $j מלא',
@@ -1943,13 +1927,13 @@ class _StudentHifzModalState extends ConsumerState<StudentHifzModal> {
                                 ),
                                 Text(
                                   nextSurah.isJuz30
-                                      ? _tr(
+                                      ? trByLang(
                                           langCode,
                                           ar: 'الجزء ٣٠ • سورة كاملة (صفحة واحدة بجدول المركز)',
                                           he: 'ג׳וז 30 • סורה מלאה',
                                           en: 'Juz 30 • Whole Surah (1 Center Page)',
                                         )
-                                      : _tr(
+                                      : trByLang(
                                           langCode,
                                           ar: 'الجزء ${_formatNum(nextSurah.primaryJuz, langCode)} • الصفحات ${_formatNum(nextSurah.startPage, langCode)}-${_formatNum(nextSurah.endPage, langCode)}',
                                           he: 'ג׳וז ${nextSurah.primaryJuz} • עמ׳ ${nextSurah.startPage}-${nextSurah.endPage}',
@@ -1999,7 +1983,7 @@ class _StudentHifzModalState extends ConsumerState<StudentHifzModal> {
                               (p) => DropdownMenuItem<int>(
                                 value: p,
                                 child: Text(
-                                  _tr(
+                                  trByLang(
                                     langCode,
                                     ar: 'صفحة ${_formatNum(p, langCode)}',
                                     he: 'עמוד $p',
@@ -2036,7 +2020,7 @@ class _StudentHifzModalState extends ConsumerState<StudentHifzModal> {
                   keyboardType: TextInputType.number,
                   textAlign: TextAlign.center,
                   decoration: InputDecoration(
-                    labelText: _tr(
+                    labelText: trByLang(
                       langCode,
                       ar: 'من آية',
                       he: 'מפסוק',
@@ -2056,7 +2040,7 @@ class _StudentHifzModalState extends ConsumerState<StudentHifzModal> {
                   keyboardType: TextInputType.number,
                   textAlign: TextAlign.center,
                   decoration: InputDecoration(
-                    labelText: _tr(
+                    labelText: trByLang(
                       langCode,
                       ar: 'إلى آية',
                       he: 'עד פסוק',
