@@ -87,7 +87,7 @@ System Specification & Software Requirement Documentation for **Dar al-Fajr Port
 ## **Admin Actions & UX Enhancements (Post-v1.0 Backlog)**
 
 * [x] **Unified Creation Modals & Group Roster:** Convert Create Student/User and Create/Edit Group to modal bottom sheets (`Create` wording), enforce picking active Teacher users in Group form, and add Manage Student Roster modal (add/remove students) inside Edit Study Group.
-* [ ] **User Language Preference Persistence:** Load `preferredLanguage` from `users/{uid}` on auth/startup and save updates to Firestore whenever the user switches language.
+* [x] **User Language Preference Persistence:** Load `preferredLanguage` from `users/{uid}` on auth/startup and save updates to Firestore whenever the user switches language.
 * [ ] **Users Tab Search, Role Filter & Profile Modal:** Add search and role filter (All / Teachers / Parents / Students / Admins) in Users tab, localize role labels on mobile, default Mobile Users `+` button to Teacher, and open a User Profile / Edit modal on tap (`updateUser` name, phone, role; delete user doc with confirmation).
 * [ ] **Delete Confirmations & Mobile Delete Actions:** Add confirmation dialogs before deleting Students, Groups, and Enrollments on Web, and add Delete actions on Mobile Student & Group cards.
 * [ ] **Web Edit Student & Mobile Enrollment Management:** Wire Web's Student Edit button to open the Edit Student modal (separate from the Enrollment Drawer), show active group enrollments inside expanded Mobile Student cards with Unenroll support, and allow editing 1-on-1 arrival slots.
