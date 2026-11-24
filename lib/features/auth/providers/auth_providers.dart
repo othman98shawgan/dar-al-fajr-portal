@@ -95,6 +95,9 @@ class AuthController extends AsyncNotifier<void> {
         // Await currentAppUserProvider so the router transitions directly
         // to the correct role portal with zero intermediate flicker.
         try {
+          if (ref.read(currentAppUserProvider).hasError) {
+            ref.invalidate(currentAppUserProvider);
+          }
           await ref.read(currentAppUserProvider.future);
         } catch (_) {}
       }

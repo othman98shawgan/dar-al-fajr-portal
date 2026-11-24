@@ -1,5 +1,4 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -54,6 +53,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
     if (!success) {
       final error = ref.read(authControllerProvider).error;
+      if (error != null) {
+        debugPrint('Sign in error: $error');
+      }
       String message = trByLang(
         ref.read(localeProvider).languageCode,
         ar: 'تعذّر تسجيل الدخول. يرجى التحقق من البريد الإلكتروني وكلمة المرور.',
@@ -61,8 +63,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         en: 'Sign in failed. Please check your email and password.',
       );
 
-      if (error is FirebaseAuthException && error.message != null) {
-        message = error.message!;
+      if (error is FirebaseException) {
+        final details = error.message;
+        message = (details != null && details.isNotEmpty)
+            ? '[${error.code}] $details'
+            : '[${error.code}] $message';
       }
 
       ScaffoldMessenger.of(context).showSnackBar(
