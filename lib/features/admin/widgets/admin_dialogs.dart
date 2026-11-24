@@ -323,18 +323,96 @@ void showAdminCreateGroupDialog(
   String langCode, {
   required bool isDemoFallback,
 }) {
+  showAdminGroupFormDialog(
+    context,
+    ref,
+    langCode,
+    isDemoFallback: isDemoFallback,
+  );
+}
+
+void showAdminEditGroupDialog(
+  BuildContext context,
+  WidgetRef ref,
+  String langCode, {
+  required StudyGroup group,
+  required bool isDemoFallback,
+}) {
+  showAdminGroupFormDialog(
+    context,
+    ref,
+    langCode,
+    existingGroup: group,
+    isDemoFallback: isDemoFallback,
+  );
+}
+
+void showAdminGroupFormDialog(
+  BuildContext context,
+  WidgetRef ref,
+  String langCode, {
+  StudyGroup? existingGroup,
+  required bool isDemoFallback,
+}) {
+  final isEditing = existingGroup != null;
   final teachers = ref.read(adminTeachersProvider).value ?? [];
-  final nameController = TextEditingController();
-  CenterTrack selectedTrack = CenterTrack.hifz;
-  final startTimeController = TextEditingController(text: '17:00');
-  final endTimeController = TextEditingController(text: '18:30');
-  final capacityController = TextEditingController(text: '15');
-  final selectedDays = <String>{'السبت', 'الاثنين'};
-  String? selectedTeacherId = teachers.isNotEmpty ? teachers.first.uid : null;
+  final nameController = TextEditingController(text: existingGroup?.name ?? '');
+  CenterTrack selectedTrack = existingGroup?.track ?? CenterTrack.hifz;
+
+  final existingSlots = existingGroup?.effectiveScheduleSlots ?? const <GroupScheduleSlot>[];
+  final defaultStart = existingSlots.firstOrNull?.startTime.isNotEmpty == true
+      ? existingSlots.first.startTime
+      : (existingGroup?.startTime.isNotEmpty == true ? existingGroup!.startTime : '17:00');
+  final defaultEnd = existingSlots.firstOrNull?.endTime.isNotEmpty == true
+      ? existingSlots.first.endTime
+      : (existingGroup?.endTime.isNotEmpty == true ? existingGroup!.endTime : '18:30');
+
+  final startTimeController = TextEditingController(text: defaultStart);
+  final endTimeController = TextEditingController(text: defaultEnd);
+  final capacityController = TextEditingController(text: '${existingGroup?.capacity ?? 15}');
+
+  final selectedDays = <String>{};
+  final perDayStartCtrls = <String, TextEditingController>{};
+  final perDayEndCtrls = <String, TextEditingController>{};
+
+  for (final slot in existingSlots) {
+    final matchedArDay = adminWeekDaysAr.firstWhere(
+      (d) => ScheduleDayHelper.parseWeekday(d) == slot.weekday,
+      orElse: () => slot.day,
+    );
+    selectedDays.add(matchedArDay);
+    perDayStartCtrls[matchedArDay] = TextEditingController(
+      text: slot.startTime.isNotEmpty ? slot.startTime : defaultStart,
+    );
+    perDayEndCtrls[matchedArDay] = TextEditingController(
+      text: slot.endTime.isNotEmpty ? slot.endTime : defaultEnd,
+    );
+  }
+  if (selectedDays.isEmpty) {
+    selectedDays.addAll({'السبت', 'الاثنين'});
+  }
+  for (final day in adminWeekDaysAr) {
+    perDayStartCtrls.putIfAbsent(day, () => TextEditingController(text: defaultStart));
+    perDayEndCtrls.putIfAbsent(day, () => TextEditingController(text: defaultEnd));
+  }
+
+  bool customPerDayTimes = existingSlots.length > 1 &&
+      existingSlots.any(
+        (s) => s.startTime != existingSlots.first.startTime || s.endTime != existingSlots.first.endTime,
+      );
+
+  String? selectedTeacherId = existingGroup?.teacherId.isNotEmpty == true
+      ? existingGroup!.teacherId
+      : (teachers.isNotEmpty ? teachers.first.uid : null);
+  if (teachers.isNotEmpty && !teachers.any((t) => t.uid == selectedTeacherId)) {
+    selectedTeacherId = teachers.first.uid;
+  }
   final teacherController = TextEditingController(
-    text: teachers.isNotEmpty
-        ? teachers.first.fullName
-        : (isDemoFallback ? 'الشيخ عبد الرحمن' : ''),
+    text: existingGroup?.teacherName.isNotEmpty == true
+        ? existingGroup!.teacherName
+        : (teachers.isNotEmpty
+            ? teachers.first.fullName
+            : (isDemoFallback ? 'الشيخ عبد الرحمن' : '')),
   );
   final messenger = ScaffoldMessenger.maybeOf(context);
 
@@ -343,17 +421,26 @@ void showAdminCreateGroupDialog(
     builder: (dialogContext) {
       return StatefulBuilder(
         builder: (context, setDialogState) {
+          final orderedSelectedDays = adminWeekDaysAr.where(selectedDays.contains).toList();
+
           return AlertDialog(
             title: Text(
-              trByLang(
-                langCode,
-                ar: 'إنشاء حلقة جديدة',
-                he: 'יצירת קבוצה חדשה',
-                en: 'Create New Study Group',
-              ),
+              isEditing
+                  ? trByLang(
+                      langCode,
+                      ar: 'تعديل بيانات وجدول الحلقة',
+                      he: 'עריכת פרטי וזמני קבוצה',
+                      en: 'Edit Study Group & Schedule',
+                    )
+                  : trByLang(
+                      langCode,
+                      ar: 'إنشاء حلقة جديدة',
+                      he: 'יצירת קבוצה חדשה',
+                      en: 'Create New Study Group',
+                    ),
             ),
             content: SizedBox(
-              width: 440,
+              width: 460,
               child: SingleChildScrollView(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -459,13 +546,21 @@ void showAdminCreateGroupDialog(
                       runSpacing: 6,
                       children: adminWeekDaysAr.map((day) {
                         final isSelected = selectedDays.contains(day);
+                        final wd = ScheduleDayHelper.parseWeekday(day);
+                        final label = wd != null ? ScheduleDayHelper.localizedDayName(wd, langCode) : day;
                         return FilterChip(
-                          label: Text(day, style: const TextStyle(fontSize: 11.5)),
+                          label: Text(label, style: const TextStyle(fontSize: 11.5)),
                           selected: isSelected,
                           onSelected: (checked) {
                             setDialogState(() {
                               if (checked) {
                                 selectedDays.add(day);
+                                if (perDayStartCtrls[day]!.text.trim().isEmpty) {
+                                  perDayStartCtrls[day]!.text = startTimeController.text.trim();
+                                }
+                                if (perDayEndCtrls[day]!.text.trim().isEmpty) {
+                                  perDayEndCtrls[day]!.text = endTimeController.text.trim();
+                                }
                               } else if (selectedDays.length > 1) {
                                 selectedDays.remove(day);
                               }
@@ -474,54 +569,136 @@ void showAdminCreateGroupDialog(
                         );
                       }).toList(),
                     ),
-                    const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: TextField(
-                            controller: startTimeController,
-                            decoration: InputDecoration(
-                              labelText: trByLang(
-                                langCode,
-                                ar: 'وقت البدء',
-                                he: 'שעת התחלה',
-                                en: 'Start Time',
-                              ),
-                            ),
-                          ),
+                    const SizedBox(height: 8),
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      dense: true,
+                      value: customPerDayTimes,
+                      title: Text(
+                        trByLang(
+                          langCode,
+                          ar: 'تخصيص وقت مختلف لكل يوم',
+                          he: 'שעה שונה לכל יום',
+                          en: 'Custom start/end time per day',
                         ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: TextField(
-                            controller: endTimeController,
-                            decoration: InputDecoration(
-                              labelText: trByLang(
-                                langCode,
-                                ar: 'وقت الانتهاء',
-                                he: 'שעת סיום',
-                                en: 'End Time',
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        SizedBox(
-                          width: 96,
-                          child: TextField(
-                            controller: capacityController,
-                            keyboardType: TextInputType.number,
-                            decoration: InputDecoration(
-                              labelText: trByLang(
-                                langCode,
-                                ar: 'السعة',
-                                he: 'קיבולת',
-                                en: 'Capacity',
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
+                        style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600),
+                      ),
+                      onChanged: (val) {
+                        setDialogState(() {
+                          customPerDayTimes = val;
+                          if (val) {
+                            for (final d in orderedSelectedDays) {
+                              if (perDayStartCtrls[d]!.text.trim().isEmpty) {
+                                perDayStartCtrls[d]!.text = startTimeController.text.trim();
+                              }
+                              if (perDayEndCtrls[d]!.text.trim().isEmpty) {
+                                perDayEndCtrls[d]!.text = endTimeController.text.trim();
+                              }
+                            }
+                          }
+                        });
+                      },
                     ),
+                    if (!customPerDayTimes)
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextField(
+                              controller: startTimeController,
+                              decoration: InputDecoration(
+                                labelText: trByLang(
+                                  langCode,
+                                  ar: 'وقت البدء',
+                                  he: 'שעת התחלה',
+                                  en: 'Start Time',
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: TextField(
+                              controller: endTimeController,
+                              decoration: InputDecoration(
+                                labelText: trByLang(
+                                  langCode,
+                                  ar: 'وقت الانتهاء',
+                                  he: 'שעת סיום',
+                                  en: 'End Time',
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          SizedBox(
+                            width: 96,
+                            child: TextField(
+                              controller: capacityController,
+                              keyboardType: TextInputType.number,
+                              decoration: InputDecoration(
+                                labelText: trByLang(
+                                  langCode,
+                                  ar: 'السعة',
+                                  he: 'קיבולת',
+                                  en: 'Capacity',
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      )
+                    else ...[
+                      ...orderedSelectedDays.map((day) {
+                        final wd = ScheduleDayHelper.parseWeekday(day);
+                        final dayLabel = wd != null ? ScheduleDayHelper.localizedDayName(wd, langCode) : day;
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: Row(
+                            children: [
+                              SizedBox(
+                                width: 84,
+                                child: Text(
+                                  dayLabel,
+                                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                                ),
+                              ),
+                              Expanded(
+                                child: TextField(
+                                  controller: perDayStartCtrls[day],
+                                  decoration: InputDecoration(
+                                    isDense: true,
+                                    labelText: trByLang(langCode, ar: 'البدء', he: 'התחלה', en: 'Start'),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: TextField(
+                                  controller: perDayEndCtrls[day],
+                                  decoration: InputDecoration(
+                                    isDense: true,
+                                    labelText: trByLang(langCode, ar: 'الانتهاء', he: 'סיום', en: 'End'),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }),
+                      const SizedBox(height: 4),
+                      TextField(
+                        controller: capacityController,
+                        keyboardType: TextInputType.number,
+                        decoration: InputDecoration(
+                          labelText: trByLang(
+                            langCode,
+                            ar: 'السعة القصوى للحلقة',
+                            he: 'קיבולת קבוצה',
+                            en: 'Group Capacity',
+                          ),
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -547,27 +724,72 @@ void showAdminCreateGroupDialog(
                   final parsedCapacity =
                       (int.tryParse(capacityController.text.trim()) ?? 15)
                           .clamp(1, 200);
+
+                  final slots = orderedSelectedDays.map((day) {
+                    final s = customPerDayTimes
+                        ? perDayStartCtrls[day]!.text.trim()
+                        : startTimeController.text.trim();
+                    final e = customPerDayTimes
+                        ? perDayEndCtrls[day]!.text.trim()
+                        : endTimeController.text.trim();
+                    return GroupScheduleSlot(
+                      day: day,
+                      startTime: s.isNotEmpty ? s : startTimeController.text.trim(),
+                      endTime: e.isNotEmpty ? e : endTimeController.text.trim(),
+                    );
+                  }).toList();
+
+                  final resolvedStart = slots.firstOrNull?.startTime ?? startTimeController.text.trim();
+                  final resolvedEnd = slots.firstOrNull?.endTime ?? endTimeController.text.trim();
+                  final resolvedTeacherId = matchedTeacher?.uid ??
+                      (existingGroup?.teacherId.isNotEmpty == true
+                          ? existingGroup!.teacherId
+                          : (isDemoFallback ? 'teacher-1' : ''));
+                  final resolvedTeacherName = matchedTeacher?.fullName ?? enteredTeacher;
+
                   Navigator.of(dialogContext).pop();
-                  await ref.read(adminControllerProvider.notifier).createGroup(
-                        name: nameController.text.trim(),
-                        track: selectedTrack,
-                        teacherId: matchedTeacher?.uid ??
-                            (isDemoFallback ? 'teacher-1' : ''),
-                        teacherName: matchedTeacher?.fullName ?? enteredTeacher,
-                        scheduleDays: selectedDays.toList(),
-                        startTime: startTimeController.text.trim(),
-                        endTime: endTimeController.text.trim(),
-                        capacity: parsedCapacity,
-                      );
+                  if (isEditing) {
+                    await ref.read(adminControllerProvider.notifier).updateGroup(
+                          groupId: existingGroup.id,
+                          name: nameController.text.trim(),
+                          track: selectedTrack,
+                          teacherId: resolvedTeacherId,
+                          teacherName: resolvedTeacherName,
+                          scheduleDays: orderedSelectedDays,
+                          startTime: resolvedStart,
+                          endTime: resolvedEnd,
+                          scheduleSlots: slots,
+                          capacity: parsedCapacity,
+                        );
+                  } else {
+                    await ref.read(adminControllerProvider.notifier).createGroup(
+                          name: nameController.text.trim(),
+                          track: selectedTrack,
+                          teacherId: resolvedTeacherId,
+                          teacherName: resolvedTeacherName,
+                          scheduleDays: orderedSelectedDays,
+                          startTime: resolvedStart,
+                          endTime: resolvedEnd,
+                          scheduleSlots: slots,
+                          capacity: parsedCapacity,
+                        );
+                  }
                   messenger?.showSnackBar(
                     SnackBar(
                       content: Text(
-                        trByLang(
-                          langCode,
-                          ar: 'تم إنشاء الحلقة بنجاح!',
-                          he: 'הקבוצה נוצרה בהצלחה!',
-                          en: 'Study group created successfully!',
-                        ),
+                        isEditing
+                            ? trByLang(
+                                langCode,
+                                ar: 'تم تحديث بيانات وجدول الحلقة بنجاح!',
+                                he: 'הקבוצה עודכנה בהצלחה!',
+                                en: 'Study group updated successfully!',
+                              )
+                            : trByLang(
+                                langCode,
+                                ar: 'تم إنشاء الحلقة بنجاح!',
+                                he: 'הקבוצה נוצרה בהצלחה!',
+                                en: 'Study group created successfully!',
+                              ),
                       ),
                       backgroundColor: DarAlFajrTheme.primary,
                     ),

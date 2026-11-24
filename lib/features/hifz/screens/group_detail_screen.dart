@@ -18,6 +18,7 @@ import '../widgets/group_non_hifz_roster_section.dart';
 import '../widgets/group_summary_header.dart';
 import '../widgets/group_weekly_revision_section.dart';
 import 'student_hifz_modal.dart';
+import 'teacher_student_profile_screen.dart';
 
 class GroupDetailScreen extends ConsumerStatefulWidget {
   final String groupId;
@@ -32,7 +33,7 @@ class GroupDetailScreen extends ConsumerStatefulWidget {
 }
 
 class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
-  GroupModuleTab _activeModuleTab = GroupModuleTab.assignments;
+  GroupModuleTab _activeModuleTab = GroupModuleTab.studentsRoster;
   bool _orderByDate = false;
   AssignmentFilterTab _activeFilter = AssignmentFilterTab.all;
   bool _showSearchField = false;
@@ -168,7 +169,27 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
   }
 
   void _openAttendanceView(String effectiveGroupId) {
-    context.push('${AppRoutes.teacherAttendance}/$effectiveGroupId');
+    final router = GoRouter.maybeOf(context);
+    if (router != null) {
+      router.push('${AppRoutes.teacherAttendance}/$effectiveGroupId');
+    }
+  }
+
+  void _openStudentProfile(String effectiveGroupId, String studentId, String studentName) {
+    final router = GoRouter.maybeOf(context);
+    if (router != null) {
+      router.push('${AppRoutes.teacherStudentProfile}/$effectiveGroupId/$studentId');
+    } else {
+      Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => TeacherStudentProfileScreen(
+            groupId: effectiveGroupId,
+            studentId: studentId,
+            initialStudentName: studentName,
+          ),
+        ),
+      );
+    }
   }
 
   List<({String id, String name, String parentName})> _resolveGroupStudents({
@@ -386,7 +407,7 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
         : matchedGroup.track == CenterTrack.hifz;
 
     final effectiveTab = isHifzGroup
-        ? (_activeModuleTab == GroupModuleTab.studentsRoster ? GroupModuleTab.assignments : _activeModuleTab)
+        ? _activeModuleTab
         : (_activeModuleTab == GroupModuleTab.assignments || _activeModuleTab == GroupModuleTab.weeklyRevision
             ? GroupModuleTab.studentsRoster
             : _activeModuleTab);
@@ -555,6 +576,31 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
                             ),
                           ),
                       ] else if (effectiveTab == GroupModuleTab.studentsRoster) ...[
+                        if (_showSearchField) ...[
+                          TextField(
+                            controller: _searchController,
+                            onChanged: (val) => setState(() => _searchQuery = val),
+                            decoration: InputDecoration(
+                              hintText: trByLang(
+                                langCode,
+                                ar: 'ابحث باسم الطالب...',
+                                he: 'חפש לפי שם תלמיד...',
+                                en: 'Search by student name...',
+                              ),
+                              prefixIcon: const Icon(Icons.search_rounded),
+                              suffixIcon: _searchQuery.isNotEmpty
+                                  ? IconButton(
+                                      onPressed: () {
+                                        _searchController.clear();
+                                        setState(() => _searchQuery = '');
+                                      },
+                                      icon: const Icon(Icons.clear_rounded),
+                                    )
+                                  : null,
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                        ],
                         GroupNonHifzRosterSection(
                           langCode: langCode,
                           filteredStudents: _resolveGroupStudents(effectiveGroupId: effectiveGroupId, cards: cards)
@@ -572,6 +618,8 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
                             groupAttendanceLogs: groupAttendanceLogs,
                             isLiveFirebase: isLiveFirebase,
                           ),
+                          onOpenStudentProfile: (stId, stName) =>
+                              _openStudentProfile(effectiveGroupId, stId, stName),
                         ),
                       ] else if (effectiveTab == GroupModuleTab.weeklyRevision) ...[
                         GroupWeeklyRevisionSection(

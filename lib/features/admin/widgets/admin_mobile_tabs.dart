@@ -7,6 +7,7 @@ import '../../auth/models/app_user.dart';
 import '../../hifz/models/teacher_models.dart';
 import '../models/admin_models.dart';
 import '../providers/admin_providers.dart';
+import 'admin_dialogs.dart';
 import 'admin_mobile_dialogs.dart';
 import 'admin_mobile_models.dart';
 
@@ -300,9 +301,16 @@ class AdminMobileGroupsTab extends ConsumerWidget {
               name: g.name,
               teacher: g.teacherName.isNotEmpty ? g.teacherName : '—',
               trackName: g.track.localizedName(langCode),
-              schedule: '${g.scheduleDays.join("، ")} • ${g.startTime}',
+              schedule: g.formatScheduleSummary(langCode),
               studentsCount: firestoreEnrollments.where((e) => e.groupId == g.id).length,
               capacity: g.capacity,
+              onEdit: () => showAdminEditGroupDialog(
+                context,
+                ref,
+                langCode,
+                group: g,
+                isDemoFallback: isDemoMode,
+              ),
             ),
           )
         else if (isDemoMode) ...[
@@ -1015,6 +1023,7 @@ class _MobileGroupCard extends StatelessWidget {
   final String schedule;
   final int studentsCount;
   final int? capacity;
+  final VoidCallback? onEdit;
 
   const _MobileGroupCard({
     required this.name,
@@ -1023,6 +1032,7 @@ class _MobileGroupCard extends StatelessWidget {
     required this.schedule,
     required this.studentsCount,
     this.capacity,
+    this.onEdit,
   });
 
   @override
@@ -1050,6 +1060,13 @@ class _MobileGroupCard extends StatelessWidget {
               Expanded(
                 child: Text(name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
               ),
+              if (onEdit != null)
+                IconButton(
+                  onPressed: onEdit,
+                  icon: const Icon(Icons.edit_outlined, size: 18, color: DarAlFajrTheme.primary),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                ),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
@@ -1080,15 +1097,17 @@ class _MobileGroupCard extends StatelessWidget {
           ),
           const SizedBox(height: 6),
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Icon(Icons.schedule_rounded, size: 16, color: Color(0xFF6D7A77)),
+              const Padding(
+                padding: EdgeInsets.only(top: 2),
+                child: Icon(Icons.schedule_rounded, size: 16, color: Color(0xFF6D7A77)),
+              ),
               const SizedBox(width: 6),
               Expanded(
                 child: Text(
                   schedule,
-                  style: const TextStyle(fontSize: 12, color: Color(0xFF6D7A77)),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 12, color: Color(0xFF6D7A77), height: 1.45),
                 ),
               ),
             ],

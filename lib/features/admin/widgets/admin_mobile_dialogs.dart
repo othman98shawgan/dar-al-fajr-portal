@@ -3,9 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../l10n/app_localizations_tr.dart';
-import '../../auth/models/app_user.dart';
 import '../models/admin_models.dart';
 import '../providers/admin_providers.dart';
+import '../repositories/admin_repository.dart';
+import 'admin_dialogs.dart';
 import 'admin_mobile_models.dart';
 import 'admin_shell_models.dart';
 
@@ -115,7 +116,7 @@ void showMobileAdminActionModal(
                               ],
                             ),
                           ),
-                          const Icon(Icons.chevron_left_rounded, color: Color(0xFF6D7A77)),
+                          const Icon(Icons.chevron_right_rounded, color: Color(0xFF6D7A77)),
                         ],
                       ),
                     ),
@@ -169,7 +170,7 @@ void showMobileAdminActionModal(
                               ],
                             ),
                           ),
-                          const Icon(Icons.chevron_left_rounded, color: Color(0xFF6D7A77)),
+                          const Icon(Icons.chevron_right_rounded, color: Color(0xFF6D7A77)),
                         ],
                       ),
                     ),
@@ -286,176 +287,11 @@ void showMobileCreateGroupDialog(
   String langCode, {
   required bool isDemoMode,
 }) {
-  final teachers = ref.read(adminTeachersProvider).asData?.value ?? const <AppUser>[];
-  final groupNameCtrl = TextEditingController();
-  final teacherNameCtrl = TextEditingController(text: isDemoMode ? 'الشيخ عبد الرحمن' : '');
-  final startTimeCtrl = TextEditingController(text: '16:30');
-  final endTimeCtrl = TextEditingController(text: '18:00');
-  final capacityCtrl = TextEditingController(text: '15');
-  CenterTrack selectedTrack = CenterTrack.hifz;
-  String? selectedTeacherId = teachers.isNotEmpty ? teachers.first.uid : null;
-  final selectedDays = <String>{'الأحد', 'الثلاثاء', 'الخميس'};
-  final messenger = ScaffoldMessenger.maybeOf(context);
-
-  showDialog<void>(
-    context: context,
-    builder: (dlgCtx) => StatefulBuilder(
-      builder: (context, setDlgState) => AlertDialog(
-        title: Text(trByLang(langCode, ar: 'إنشاء حلقة جديدة', he: 'יצירת קבוצה חדשה', en: 'Create New Study Group')),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              TextField(
-                controller: groupNameCtrl,
-                decoration: InputDecoration(
-                  labelText: trByLang(langCode, ar: 'اسم الحلقة *', he: 'שם קבוצה *', en: 'Group Name *'),
-                  hintText: 'مثال: حلقة أبي بكر الصديق',
-                ),
-              ),
-              const SizedBox(height: 10),
-              DropdownButtonFormField<CenterTrack>(
-                initialValue: selectedTrack,
-                isExpanded: true,
-                decoration: InputDecoration(
-                  labelText: trByLang(langCode, ar: 'المسار التعليمي', he: 'מסלול', en: 'Educational Track'),
-                ),
-                items: CenterTrack.values
-                    .map((t) => DropdownMenuItem(value: t, child: Text(t.localizedName(langCode))))
-                    .toList(),
-                onChanged: (val) {
-                  if (val != null) setDlgState(() => selectedTrack = val);
-                },
-              ),
-              const SizedBox(height: 10),
-              if (teachers.isNotEmpty)
-                DropdownButtonFormField<String>(
-                  initialValue: selectedTeacherId,
-                  isExpanded: true,
-                  decoration: InputDecoration(
-                    labelText: trByLang(langCode, ar: 'المعلم المشرف', he: 'מורה', en: 'Assigned Teacher'),
-                  ),
-                  items: teachers.map((t) => DropdownMenuItem(value: t.uid, child: Text(t.fullName))).toList(),
-                  onChanged: (val) => setDlgState(() => selectedTeacherId = val),
-                )
-              else if (isDemoMode)
-                TextField(
-                  controller: teacherNameCtrl,
-                  decoration: InputDecoration(
-                    labelText: trByLang(langCode, ar: 'المعلم المشرف', he: 'מורה', en: 'Teacher Name'),
-                  ),
-                )
-              else
-                Text(
-                  trByLang(
-                    langCode,
-                    ar: 'لا يوجد معلمون مسجلون — يمكنك تعيين المعلم لاحقاً',
-                    he: 'אין מורים רשומים עדיין — ניתן לשבץ בהמשך',
-                    en: 'No registered teachers yet — you can assign a teacher later',
-                  ),
-                  style: const TextStyle(fontSize: 12, color: Color(0xFF6D7A77)),
-                ),
-              const SizedBox(height: 12),
-              Text(
-                trByLang(langCode, ar: 'أيام الحلقة', he: 'ימי הקבוצה', en: 'Schedule Days'),
-                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-              ),
-              const SizedBox(height: 6),
-              Wrap(
-                spacing: 6,
-                runSpacing: 4,
-                children: adminWeekDaysAr.map((day) {
-                  final isSelected = selectedDays.contains(day);
-                  return FilterChip(
-                    label: Text(day, style: const TextStyle(fontSize: 11)),
-                    selected: isSelected,
-                    onSelected: (checked) {
-                      setDlgState(() {
-                        if (checked) {
-                          selectedDays.add(day);
-                        } else {
-                          selectedDays.remove(day);
-                        }
-                      });
-                    },
-                  );
-                }).toList(),
-              ),
-              const SizedBox(height: 10),
-              Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: startTimeCtrl,
-                      decoration: InputDecoration(
-                        labelText: trByLang(langCode, ar: 'وقت البداية', he: 'שעת התחלה', en: 'Start Time'),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: TextField(
-                      controller: endTimeCtrl,
-                      decoration: InputDecoration(
-                        labelText: trByLang(langCode, ar: 'وقت النهاية', he: 'שעת סיום', en: 'End Time'),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 10),
-              TextField(
-                controller: capacityCtrl,
-                keyboardType: TextInputType.number,
-                decoration: InputDecoration(
-                  labelText: trByLang(langCode, ar: 'السعة القصوى للحلقة', he: 'קיבולת קבוצה', en: 'Group Capacity'),
-                ),
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dlgCtx).pop(),
-            child: Text(trByLang(langCode, ar: 'إلغاء', he: 'ביטול', en: 'Cancel')),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              if (groupNameCtrl.text.trim().isEmpty) return;
-              final pickedTeacher = teachers.where((t) => t.uid == selectedTeacherId).firstOrNull;
-              final resolvedTeacherId = pickedTeacher?.uid ?? (isDemoMode ? 'teacher_default' : '');
-              final resolvedTeacherName = pickedTeacher?.fullName ?? teacherNameCtrl.text.trim();
-              final parsedCapacity = int.tryParse(capacityCtrl.text.trim()) ?? 15;
-              final scheduleDays = adminWeekDaysAr.where(selectedDays.contains).toList();
-              Navigator.of(dlgCtx).pop();
-
-              try {
-                final repo = ref.read(adminRepositoryProvider);
-                await repo.createGroup(
-                  name: groupNameCtrl.text.trim(),
-                  track: selectedTrack,
-                  teacherId: resolvedTeacherId,
-                  teacherName: resolvedTeacherName,
-                  scheduleDays: scheduleDays.isNotEmpty ? scheduleDays : const ['الأحد', 'الثلاثاء', 'الخميس'],
-                  startTime: startTimeCtrl.text.trim().isNotEmpty ? startTimeCtrl.text.trim() : '16:30',
-                  endTime: endTimeCtrl.text.trim().isNotEmpty ? endTimeCtrl.text.trim() : '18:00',
-                  capacity: parsedCapacity > 0 ? parsedCapacity : 15,
-                );
-              } catch (_) {}
-
-              messenger?.showSnackBar(
-                SnackBar(
-                  content: Text(trByLang(langCode, ar: 'تم إنشاء الحلقة بنجاح!', he: 'הקבוצה נוצרה בהצלחה!', en: 'Group created successfully!')),
-                  backgroundColor: DarAlFajrTheme.primary,
-                ),
-              );
-            },
-            child: Text(trByLang(langCode, ar: 'حفظ الحلقة', he: 'שמור', en: 'Save Group')),
-          ),
-        ],
-      ),
-    ),
+  showAdminCreateGroupDialog(
+    context,
+    ref,
+    langCode,
+    isDemoFallback: isDemoMode,
   );
 }
 
@@ -489,6 +325,10 @@ void showMobileEnrollmentSheet(
         textDirection: isRtl ? TextDirection.rtl : TextDirection.ltr,
         child: StatefulBuilder(
           builder: (context, setSheetState) {
+            final currentEnrollments = ref.read(adminEnrollmentsProvider).asData?.value ?? const [];
+            final isAlreadyEnrolled = currentEnrollments.any(
+              (e) => e.studentId == student.id && e.groupId == selectedGroupId,
+            );
             return Container(
               padding: EdgeInsets.only(
                 top: 20,
@@ -599,7 +439,12 @@ void showMobileEnrollmentSheet(
                         decoration: const InputDecoration(contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8)),
                         items: firestoreGroups.isNotEmpty
                             ? firestoreGroups
-                                .map((g) => DropdownMenuItem(value: g.id, child: Text('${g.name} (${g.scheduleDays.join("، ")} ${g.startTime})')))
+                                .map(
+                                  (g) => DropdownMenuItem(
+                                    value: g.id,
+                                    child: Text('${g.name} (${g.formatScheduleSummary(langCode)})'),
+                                  ),
+                                )
                                 .toList()
                             : (isDemoMode
                                 ? const [
@@ -678,16 +523,47 @@ void showMobileEnrollmentSheet(
                             ),
                           ],
                         ),
-                      const SizedBox(height: 20),
+                      const SizedBox(height: 16),
+                      if (isAlreadyEnrolled) ...[
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFFDAD6).withValues(alpha: 0.65),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(Icons.block_rounded, color: Theme.of(context).colorScheme.error, size: 18),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  trByLang(
+                                    langCode,
+                                    ar: 'الطالب مسجل بالفعل في هذه الحلقة',
+                                    he: 'התלמיד כבר רשום לקבוצה זו',
+                                    en: 'Student is already enrolled in this group',
+                                  ),
+                                  style: TextStyle(
+                                    color: Theme.of(context).colorScheme.error,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                      ],
                       ElevatedButton.icon(
-                        onPressed: selectedGroupId.isEmpty
+                        onPressed: (selectedGroupId.isEmpty || isAlreadyEnrolled)
                             ? null
                             : () async {
                                 Navigator.of(sheetCtx).pop();
 
                                 final matchedGroup = firestoreGroups.where((g) => g.id == selectedGroupId).firstOrNull;
                                 final arrivalTime = matchedGroup != null
-                                    ? '${matchedGroup.scheduleDays.join("، ")} ${matchedGroup.startTime}'.trim()
+                                    ? matchedGroup.formatScheduleSummary(langCode)
                                     : (isDemoMode ? 'الأحد والثلاثاء والخميس 16:30' : '');
 
                                 try {
@@ -701,14 +577,20 @@ void showMobileEnrollmentSheet(
                                     groupArrivalTime: arrivalTime,
                                     oneOnOneSlotTime: hasOneOnOne ? '$oneOnOneDay $oneOnOneTime (فردي)' : null,
                                   );
+                                  messenger?.showSnackBar(
+                                    SnackBar(
+                                      content: Text(trByLang(langCode, ar: 'تم تثبيت التسجيل بنجاح!', he: 'הרישום נשמר בהצלחה!', en: 'Enrollment confirmed!')),
+                                      backgroundColor: DarAlFajrTheme.primary,
+                                    ),
+                                  );
+                                } on DuplicateEnrollmentException {
+                                  messenger?.showSnackBar(
+                                    SnackBar(
+                                      content: Text(trByLang(langCode, ar: 'الطالب مسجل بالفعل في هذه الحلقة', he: 'התלמיד כבר רשום לקבוצה זו', en: 'Student is already enrolled in this group')),
+                                      backgroundColor: Colors.red.shade700,
+                                    ),
+                                  );
                                 } catch (_) {}
-
-                                messenger?.showSnackBar(
-                                  SnackBar(
-                                    content: Text(trByLang(langCode, ar: 'تم تثبيت التسجيل بنجاح!', he: 'הרישום נשמר בהצלחה!', en: 'Enrollment confirmed!')),
-                                    backgroundColor: DarAlFajrTheme.primary,
-                                  ),
-                                );
                               },
                         icon: const Icon(Icons.check_circle_rounded),
                         label: Text(trByLang(langCode, ar: 'حفظ وتثبيت التسجيل', he: 'שמור רישום', en: 'Confirm Enrollment')),

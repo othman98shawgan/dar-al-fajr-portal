@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../l10n/app_localizations_tr.dart';
+import '../../admin/models/admin_models.dart';
 import '../models/teacher_models.dart';
 import '../providers/teacher_providers.dart';
 
@@ -31,7 +32,10 @@ class TeacherHomeTokens {
 class OneOnOneSlotData {
   final String studentId;
   final String groupId;
+  final String groupName;
   final String timeLabel;
+  final int? weekday;
+  final int sortMinutes;
   final String studentName;
   final String taskTitle;
   final String rangeSubtitle;
@@ -48,7 +52,10 @@ class OneOnOneSlotData {
   const OneOnOneSlotData({
     required this.studentId,
     required this.groupId,
+    this.groupName = '',
     required this.timeLabel,
+    this.weekday,
+    this.sortMinutes = 1440,
     required this.studentName,
     required this.taskTitle,
     required this.rangeSubtitle,
@@ -63,6 +70,267 @@ class OneOnOneSlotData {
     this.hasTopBarAccent = false,
   });
 }
+
+class TeacherScheduleEntry {
+  final bool isGroupSession;
+  final int weekday;
+  final String timeLabel;
+  final int sortMinutes;
+  final String groupId;
+  final String title;
+  final String subtitle;
+  final CenterTrack track;
+  final int? enrolledCount;
+  final OneOnOneSlotData? oneOnOneSlot;
+
+  const TeacherScheduleEntry({
+    required this.isGroupSession,
+    required this.weekday,
+    required this.timeLabel,
+    required this.sortMinutes,
+    required this.groupId,
+    required this.title,
+    required this.subtitle,
+    required this.track,
+    this.enrolledCount,
+    this.oneOnOneSlot,
+  });
+}
+
+List<OneOnOneSlotData> buildOneOnOneSlotsFromEnrollments({
+  required List<Enrollment> enrollments,
+  required String langCode,
+}) {
+  final list = enrollments
+      .where((e) => e.oneOnOneSlotTime != null && e.oneOnOneSlotTime!.trim().isNotEmpty)
+      .map((e) {
+    final parsed = ScheduleDayHelper.parseOneOnOneSlot(e.oneOnOneSlotTime!);
+    final isHifz = e.track == CenterTrack.hifz;
+    final dayPrefix = parsed.weekday != null
+        ? '${ScheduleDayHelper.localizedDayName(parsed.weekday!, langCode)} • '
+        : '';
+    return OneOnOneSlotData(
+      studentId: e.studentId,
+      groupId: e.groupId,
+      groupName: e.groupName,
+      timeLabel: parsed.timeLabel,
+      weekday: parsed.weekday,
+      sortMinutes: parsed.sortMinutes,
+      studentName: e.studentName,
+      taskTitle: e.track.localizedName(langCode),
+      rangeSubtitle: '$dayPrefix${isHifz ? trByLang(langCode, ar: 'جلسة تسميع فردية', he: 'מפגש שינון פרטני', en: '1-on-1 Tasmee\'') : trByLang(langCode, ar: 'متابعة فردية', he: 'מעקב פרטני', en: '1-on-1 Follow-up')}',
+      badgeBgColor: const Color(0x8089F5E7),
+      badgeTextColor: TeacherHomeTokens.primary,
+      topIcon: Icons.schedule_rounded,
+      topIconColor: TeacherHomeTokens.primary,
+      taskIcon: Icons.bookmark_rounded,
+      taskIconColor: TeacherHomeTokens.primary,
+      actionIcon: Icons.arrow_forward_rounded,
+      isPrimaryAction: true,
+      hasTopBarAccent: true,
+    );
+  }).toList();
+
+  list.sort((a, b) => a.sortMinutes.compareTo(b.sortMinutes));
+  return list;
+}
+
+List<TeacherScheduleEntry> buildTeacherScheduleForWeekday({
+  required int weekday,
+  required List<StudyGroup> groups,
+  required List<Enrollment> enrollments,
+  required String langCode,
+  required bool isDemoFallback,
+}) {
+  final entries = <TeacherScheduleEntry>[];
+  final effectiveGroups = groups.isNotEmpty
+      ? groups
+      : (isDemoFallback ? teacherDemoScheduleGroups : const <StudyGroup>[]);
+
+  for (final g in effectiveGroups) {
+    final daySlots = g.slotsForWeekday(weekday);
+    if (daySlots.isEmpty) continue;
+    final count = enrollments.where((e) => e.groupId == g.id).length;
+    for (final slot in daySlots) {
+      final range = slot.formatTimeRange();
+      entries.add(
+        TeacherScheduleEntry(
+          isGroupSession: true,
+          weekday: weekday,
+          timeLabel: range.isNotEmpty ? range : '—',
+          sortMinutes: slot.sortMinutes,
+          groupId: g.id,
+          title: g.name,
+          subtitle: g.track.localizedName(langCode),
+          track: g.track,
+          enrolledCount: count > 0 ? count : (isDemoFallback ? g.capacity : 0),
+        ),
+      );
+    }
+  }
+
+  final oneOnOneSlots = enrollments.isNotEmpty
+      ? buildOneOnOneSlotsFromEnrollments(enrollments: enrollments, langCode: langCode)
+      : (isDemoFallback ? teacherDemoWeeklyOneOnOneSlots : const <OneOnOneSlotData>[]);
+
+  for (final slot in oneOnOneSlots) {
+    final matchesDay = slot.weekday == weekday || (slot.weekday == null && weekday == DateTime.now().weekday);
+    if (!matchesDay) continue;
+    final matchedGroup = effectiveGroups.where((g) => g.id == slot.groupId).firstOrNull;
+    entries.add(
+      TeacherScheduleEntry(
+        isGroupSession: false,
+        weekday: weekday,
+        timeLabel: slot.timeLabel,
+        sortMinutes: slot.sortMinutes,
+        groupId: slot.groupId,
+        title: slot.studentName,
+        subtitle: slot.groupName.isNotEmpty
+            ? '${slot.groupName} • ${slot.taskTitle}'
+            : slot.taskTitle,
+        track: matchedGroup?.track ?? CenterTrack.hifz,
+        oneOnOneSlot: slot,
+      ),
+    );
+  }
+
+  entries.sort((a, b) {
+    final cmp = a.sortMinutes.compareTo(b.sortMinutes);
+    if (cmp != 0) return cmp;
+    if (a.isGroupSession != b.isGroupSession) return a.isGroupSession ? -1 : 1;
+    return a.title.compareTo(b.title);
+  });
+  return entries;
+}
+
+const List<StudyGroup> teacherDemoScheduleGroups = [
+  StudyGroup(
+    id: 'grp-hifz-1',
+    name: 'حلقة أبي بكر الصديق',
+    track: CenterTrack.hifz,
+    teacherId: 'teacher-1',
+    scheduleSlots: [
+      GroupScheduleSlot(day: 'الأحد', startTime: '16:30', endTime: '18:00'),
+      GroupScheduleSlot(day: 'الثلاثاء', startTime: '16:30', endTime: '18:00'),
+      GroupScheduleSlot(day: 'الخميس', startTime: '17:00', endTime: '18:30'),
+    ],
+    capacity: 12,
+  ),
+  StudyGroup(
+    id: 'grp-tajweed-1',
+    name: 'حلقة الإتقان والتجويد',
+    track: CenterTrack.readingTajweed,
+    teacherId: 'teacher-1',
+    scheduleSlots: [
+      GroupScheduleSlot(day: 'السبت', startTime: '18:45', endTime: '19:45'),
+      GroupScheduleSlot(day: 'الاثنين', startTime: '18:45', endTime: '19:45'),
+      GroupScheduleSlot(day: 'الأربعاء', startTime: '18:45', endTime: '19:45'),
+    ],
+    capacity: 8,
+  ),
+  StudyGroup(
+    id: 'grp-nouraniah-1',
+    name: 'حلقة البراعم النورانية',
+    track: CenterTrack.qaidahNouraniah,
+    teacherId: 'teacher-1',
+    scheduleSlots: [
+      GroupScheduleSlot(day: 'السبت', startTime: '16:00', endTime: '17:00'),
+      GroupScheduleSlot(day: 'الأحد', startTime: '16:00', endTime: '17:00'),
+      GroupScheduleSlot(day: 'الاثنين', startTime: '16:00', endTime: '17:00'),
+      GroupScheduleSlot(day: 'الثلاثاء', startTime: '16:00', endTime: '17:00'),
+      GroupScheduleSlot(day: 'الأربعاء', startTime: '16:00', endTime: '17:00'),
+      GroupScheduleSlot(day: 'الخميس', startTime: '16:00', endTime: '17:00'),
+    ],
+    capacity: 10,
+  ),
+  StudyGroup(
+    id: 'grp-tarbawi-1',
+    name: 'حلقة التربية والتدبر',
+    track: CenterTrack.tarbawi,
+    teacherId: 'teacher-1',
+    scheduleSlots: [
+      GroupScheduleSlot(day: 'الجمعة', startTime: '08:00', endTime: '09:30'),
+    ],
+    capacity: 15,
+  ),
+];
+
+const List<OneOnOneSlotData> teacherDemoWeeklyOneOnOneSlots = [
+  OneOnOneSlotData(
+    studentId: 'st-1042',
+    groupId: 'grp-hifz-1',
+    groupName: 'حلقة أبي بكر الصديق',
+    timeLabel: '16:30',
+    weekday: DateTime.sunday,
+    sortMinutes: 16 * 60 + 30,
+    studentName: 'إبراهيم طه',
+    taskTitle: 'حفظ سورة النحل',
+    rangeSubtitle: 'الآيات: ١ - ٣٠',
+    badgeBgColor: Color(0x8089F5E7),
+    badgeTextColor: TeacherHomeTokens.primary,
+    topIcon: Icons.verified_rounded,
+    topIconColor: TeacherHomeTokens.primary,
+    taskIcon: Icons.bookmark_rounded,
+    taskIconColor: TeacherHomeTokens.primary,
+    actionIcon: Icons.play_arrow_rounded,
+    isPrimaryAction: true,
+    hasTopBarAccent: true,
+  ),
+  OneOnOneSlotData(
+    studentId: 'st-1088',
+    groupId: 'grp-hifz-1',
+    groupName: 'حلقة أبي بكر الصديق',
+    timeLabel: '17:00',
+    weekday: DateTime.tuesday,
+    sortMinutes: 17 * 60,
+    studentName: 'عبد الرحمن يوسف',
+    taskTitle: 'مراجعة سورة الكهف',
+    rangeSubtitle: 'كامل السورة',
+    badgeBgColor: Color(0x80FFDCC3),
+    badgeTextColor: TeacherHomeTokens.secondary,
+    topIcon: Icons.schedule_rounded,
+    topIconColor: TeacherHomeTokens.onSurfaceVariant,
+    taskIcon: Icons.cached_rounded,
+    taskIconColor: TeacherHomeTokens.secondary,
+    actionIcon: Icons.check_rounded,
+  ),
+  OneOnOneSlotData(
+    studentId: 'st-1102',
+    groupId: 'grp-tajweed-1',
+    groupName: 'حلقة الإتقان والتجويد',
+    timeLabel: '17:30',
+    weekday: DateTime.wednesday,
+    sortMinutes: 17 * 60 + 30,
+    studentName: 'زياد المنصور',
+    taskTitle: 'اختبار تجويد',
+    rangeSubtitle: 'أحكام المدود',
+    badgeBgColor: Color(0x80ABEFE8),
+    badgeTextColor: TeacherHomeTokens.tertiary,
+    topIcon: Icons.fact_check_outlined,
+    topIconColor: TeacherHomeTokens.onSurfaceVariant,
+    taskIcon: Icons.assignment_turned_in_outlined,
+    taskIconColor: TeacherHomeTokens.tertiary,
+    actionIcon: Icons.description_outlined,
+  ),
+  OneOnOneSlotData(
+    studentId: 'st-1115',
+    groupId: 'grp-hifz-1',
+    groupName: 'حلقة أبي بكر الصديق',
+    timeLabel: '18:00',
+    weekday: DateTime.thursday,
+    sortMinutes: 18 * 60,
+    studentName: 'أحمد العلي',
+    taskTitle: 'سرد الربع الأخير',
+    rangeSubtitle: 'من الجزء الثلاثين',
+    badgeBgColor: TeacherHomeTokens.surfaceContainer,
+    badgeTextColor: TeacherHomeTokens.onSurfaceVariant,
+    topIcon: Icons.mic_none_rounded,
+    topIconColor: TeacherHomeTokens.onSurfaceVariant,
+    taskIcon: Icons.record_voice_over_outlined,
+    taskIconColor: TeacherHomeTokens.primary,
+    actionIcon: Icons.arrow_forward_rounded,
+  ),
+];
 
 const List<OneOnOneSlotData> teacherDemoTodaySlots = [
   OneOnOneSlotData(
@@ -212,9 +480,9 @@ void showTeacherGroupOptionsSheet({
                 title: Text(
                   trByLang(
                     langCode,
-                    ar: 'فتح تفاصيل الحلقة والطلاب',
-                    he: 'פתח פרטי קבוצה ותלמידים',
-                    en: 'Open Group Details & Roster',
+                    ar: 'فتح الحلقة',
+                    he: 'פתח קבוצה',
+                    en: 'Open Group',
                   ),
                   style: const TextStyle(fontWeight: FontWeight.w600),
                 ),
@@ -262,6 +530,7 @@ Future<void> handleTeacherOneOnOneSlotTap({
   required OneOnOneSlotData slot,
   required String langCode,
   required ValueChanged<String> onOpenGroupDetail,
+  void Function(String groupId, String studentId)? onOpenStudentProfile,
 }) async {
   final messenger = ScaffoldMessenger.maybeOf(context);
   showModalBottomSheet<void>(
@@ -279,10 +548,14 @@ Future<void> handleTeacherOneOnOneSlotTap({
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
-                    '${slot.studentName} • ${slot.timeLabel}',
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                  Expanded(
+                    child: Text(
+                      '${slot.studentName} • ${slot.timeLabel}',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
+                  const SizedBox(width: 8),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(color: slot.badgeBgColor, borderRadius: BorderRadius.circular(8)),
@@ -343,12 +616,25 @@ Future<void> handleTeacherOneOnOneSlotTap({
                       },
                       icon: const Icon(Icons.menu_book_rounded, size: 18),
                       label: Text(
-                        trByLang(langCode, ar: 'فتح الحلقة والتقييم', he: 'פתח קבוצה והערכה', en: 'Open Group & Grade'),
+                        trByLang(langCode, ar: 'فتح الحلقة', he: 'פתח קבוצה', en: 'Open Group'),
                       ),
                     ),
                   ),
                 ],
               ),
+              if (onOpenStudentProfile != null && slot.studentId.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                TextButton.icon(
+                  onPressed: () {
+                    Navigator.of(sheetContext).pop();
+                    onOpenStudentProfile(slot.groupId, slot.studentId);
+                  },
+                  icon: const Icon(Icons.person_search_rounded, size: 18),
+                  label: Text(
+                    trByLang(langCode, ar: 'عرض ملف الطالب', he: 'פתח פרופיל תלמיד', en: 'View Student Profile'),
+                  ),
+                ),
+              ],
             ],
           ),
         ),

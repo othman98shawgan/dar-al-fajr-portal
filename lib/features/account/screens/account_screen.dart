@@ -873,9 +873,9 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
                                     ),
                                   ),
                                   const SizedBox(width: 6),
-                                  Icon(
-                                    isRtl ? Icons.chevron_left_rounded : Icons.chevron_right_rounded,
-                                    color: const Color(0xFF6D7A77),
+                                  const Icon(
+                                    Icons.chevron_right_rounded,
+                                    color: Color(0xFF6D7A77),
                                   ),
                                 ],
                               ),
@@ -915,9 +915,9 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
                                   en: 'Name and phone number',
                                 ),
                               ),
-                              trailing: Icon(
-                                isRtl ? Icons.chevron_left_rounded : Icons.chevron_right_rounded,
-                                color: const Color(0xFF6D7A77),
+                              trailing: const Icon(
+                                Icons.chevron_right_rounded,
+                                color: Color(0xFF6D7A77),
                               ),
                               onTap: () => _showEditProfileDialog(context, langCode, appUser),
                             ),
@@ -951,9 +951,9 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
                                 ),
                                 style: const TextStyle(fontSize: 12, color: Color(0xFF6D7A77)),
                               ),
-                              trailing: Icon(
-                                isRtl ? Icons.chevron_left_rounded : Icons.chevron_right_rounded,
-                                color: const Color(0xFF6D7A77),
+                              trailing: const Icon(
+                                Icons.chevron_right_rounded,
+                                color: Color(0xFF6D7A77),
                               ),
                               onTap: () => _showChangePasswordDialog(context, langCode),
                             ),

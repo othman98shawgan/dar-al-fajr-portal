@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../models/admin_models.dart';
+import 'admin_shell_models.dart';
 
 class MobileStudentCardData {
   final String id;
@@ -185,11 +186,10 @@ List<MobileStudentCardData> buildMobileStudentCards({
     final track = primary?.track ?? CenterTrack.hifz;
     final trimmed = s.fullName.trim();
     final initial = trimmed.isNotEmpty ? trimmed.characters.first : 'ط';
-    final shortCode = s.id.length >= 4 ? s.id.substring(0, 4).toUpperCase() : s.id.toUpperCase();
 
     return MobileStudentCardData(
       id: s.id,
-      code: 'ST-$shortCode',
+      code: formatAdminStudentCode(s.id),
       fullName: s.fullName,
       initial: initial,
       statusPillText: 'نشط',

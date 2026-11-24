@@ -11,12 +11,13 @@ import '../../../l10n/app_localizations_tr.dart';
 import '../../account/screens/account_screen.dart';
 import '../../admin/models/admin_models.dart';
 import '../../auth/providers/auth_providers.dart';
-import '../models/teacher_models.dart';
 import '../providers/teacher_providers.dart';
 import '../widgets/teacher_group_cards.dart';
 import '../widgets/teacher_home_models.dart';
 import '../widgets/teacher_one_on_one_section.dart';
+import '../widgets/teacher_schedule_tab.dart';
 import '../widgets/teacher_welcome_card.dart';
+import 'teacher_student_profile_screen.dart';
 
 class TeacherHomeScreen extends ConsumerStatefulWidget {
   const TeacherHomeScreen({super.key});
@@ -36,6 +37,22 @@ class _TeacherHomeScreenState extends ConsumerState<TeacherHomeScreen> {
   void _openAttendanceLogging(String groupId) {
     ref.read(selectedGroupIdProvider.notifier).setGroupId(groupId);
     context.push('${AppRoutes.teacherAttendance}/$groupId');
+  }
+
+  void _openStudentProfile(String groupId, String studentId) {
+    final router = GoRouter.maybeOf(context);
+    if (router != null) {
+      router.push('${AppRoutes.teacherStudentProfile}/$groupId/$studentId');
+    } else {
+      Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => TeacherStudentProfileScreen(
+            groupId: groupId,
+            studentId: studentId,
+          ),
+        ),
+      );
+    }
   }
 
   @override
@@ -64,52 +81,35 @@ class _TeacherHomeScreenState extends ConsumerState<TeacherHomeScreen> {
     final uniqueStudentIds = teacherEnrollments.map((e) => e.studentId).toSet();
     final totalStudentsCount = uniqueStudentIds.isNotEmpty ? uniqueStudentIds.length : (isDemoFallback ? 45 : 0);
 
-    final allAssignments = <HifzAssignment>[];
-    for (final group in teacherGroups) {
-      final list = ref.watch(groupAssignmentsProvider(group.id)).asData?.value;
-      if (list != null) {
-        allAssignments.addAll(list);
+    final groupStudentCounts = <String, int>{};
+    final groupSeenStudents = <String, Set<String>>{};
+    for (final enr in teacherEnrollments) {
+      final seen = groupSeenStudents.putIfAbsent(enr.groupId, () => <String>{});
+      if (seen.add(enr.studentId)) {
+        groupStudentCounts[enr.groupId] = seen.length;
       }
     }
-    final gradedAssignments =
-        allAssignments.where((a) => !a.isPartialRead && a.grade != EvaluationGrade.pending).toList();
-    final int? masteryPercentage;
-    if (gradedAssignments.isNotEmpty) {
-      final passedCount = gradedAssignments
-          .where(
-            (a) => !a.forceRepeat && (a.grade == EvaluationGrade.excellent || a.grade == EvaluationGrade.good),
-          )
-          .length;
-      masteryPercentage = ((passedCount / gradedAssignments.length) * 100).round();
-    } else {
-      masteryPercentage = null;
-    }
 
-    final realSlots = teacherEnrollments
-        .where((e) => e.oneOnOneSlotTime != null && e.oneOnOneSlotTime!.trim().isNotEmpty)
-        .map((e) {
-          final isHifz = e.track == CenterTrack.hifz;
-          return OneOnOneSlotData(
-            studentId: e.studentId,
-            groupId: e.groupId,
-            timeLabel: e.oneOnOneSlotTime!.trim(),
-            studentName: e.studentName,
-            taskTitle: e.track.localizedName(langCode),
-            rangeSubtitle: isHifz ? 'جلسة تسميع فردية' : 'متابعة فردية',
-            badgeBgColor: const Color(0x8089F5E7),
-            badgeTextColor: TeacherHomeTokens.primary,
-            topIcon: Icons.schedule_rounded,
-            topIconColor: TeacherHomeTokens.primary,
-            taskIcon: Icons.bookmark_rounded,
-            taskIconColor: TeacherHomeTokens.primary,
-            actionIcon: Icons.arrow_forward_rounded,
-            isPrimaryAction: true,
-            hasTopBarAccent: true,
-          );
-        })
+    final todayWeekday = DateTime.now().weekday;
+    final parsedSlots = buildOneOnOneSlotsFromEnrollments(
+      enrollments: teacherEnrollments,
+      langCode: langCode,
+    );
+    final realTodaySlots = parsedSlots
+        .where((s) => s.weekday == todayWeekday || s.weekday == null)
         .toList();
 
-    final activeSlots = !isDemoFallback ? realSlots : (realSlots.isNotEmpty ? realSlots : teacherDemoTodaySlots);
+    final activeTodaySlots =
+        !isDemoFallback ? realTodaySlots : (realTodaySlots.isNotEmpty ? realTodaySlots : teacherDemoTodaySlots);
+
+    final todayScheduleEntries = buildTeacherScheduleForWeekday(
+      weekday: todayWeekday,
+      groups: teacherGroups,
+      enrollments: teacherEnrollments,
+      langCode: langCode,
+      isDemoFallback: isDemoFallback,
+    );
+    final todaySessionsCount = todayScheduleEntries.length;
 
     return Directionality(
       textDirection: isRtl ? TextDirection.rtl : TextDirection.ltr,
@@ -127,10 +127,12 @@ class _TeacherHomeScreenState extends ConsumerState<TeacherHomeScreen> {
                     displayTeacherName: displayTeacherName,
                     activeGroupsCount: activeGroupsCount,
                     totalStudentsCount: totalStudentsCount,
-                    masteryPercentage: masteryPercentage,
+                    todaySessionsCount: todaySessionsCount,
                     isDemoFallback: isDemoFallback,
                     firestoreGroups: teacherGroups,
-                    todaySlots: activeSlots,
+                    teacherEnrollments: teacherEnrollments,
+                    groupStudentCounts: groupStudentCounts,
+                    todaySlots: activeTodaySlots,
                   ),
                 ),
               ),
@@ -227,9 +229,9 @@ class _TeacherHomeScreenState extends ConsumerState<TeacherHomeScreen> {
                                               content: Text(
                                                 trByLang(
                                                   langCode,
-                                                  ar: 'لديك ${formatTeacherNum(activeSlots.length, langCode)} جلسات تسميع فردية مجدولة اليوم',
-                                                  he: 'יש לך ${activeSlots.length} מפגשים פרטניים מתוכננים להיום',
-                                                  en: 'You have ${activeSlots.length} individual 1-on-1 slots scheduled today',
+                                                  ar: 'لديك ${formatTeacherNum(activeTodaySlots.length, langCode)} جلسات تسميع فردية مجدولة اليوم',
+                                                  he: 'יש לך ${activeTodaySlots.length} מפגשים פרטניים מתוכננים להיום',
+                                                  en: 'You have ${activeTodaySlots.length} individual 1-on-1 slots scheduled today',
                                                 ),
                                               ),
                                               backgroundColor: TeacherHomeTokens.primary,
@@ -320,7 +322,7 @@ class _TeacherHomeScreenState extends ConsumerState<TeacherHomeScreen> {
                                 ),
                                 TeacherBottomNavButton(
                                   icon: Icons.calendar_today_rounded,
-                                  label: trByLang(langCode, ar: 'الجدول اليومي', he: 'לו״ז יומי', en: 'Daily Schedule'),
+                                  label: trByLang(langCode, ar: 'الجدول', he: 'לו״ז', en: 'Schedule'),
                                   isSelected: _selectedBottomTab == 1,
                                   onTap: () => setState(() => _selectedBottomTab = 1),
                                 ),
@@ -352,21 +354,28 @@ class _TeacherHomeScreenState extends ConsumerState<TeacherHomeScreen> {
     required String displayTeacherName,
     required int activeGroupsCount,
     required int totalStudentsCount,
-    required int? masteryPercentage,
+    required int todaySessionsCount,
     required bool isDemoFallback,
     required List<StudyGroup> firestoreGroups,
+    required List<Enrollment> teacherEnrollments,
+    required Map<String, int> groupStudentCounts,
     required List<OneOnOneSlotData> todaySlots,
   }) {
     if (_selectedBottomTab == 1) {
-      return TeacherDailyScheduleTab(
+      return TeacherScheduleTab(
         langCode: langCode,
-        slots: todaySlots,
-        onSlotTap: (slot) => handleTeacherOneOnOneSlotTap(
+        groups: firestoreGroups,
+        enrollments: teacherEnrollments,
+        isDemoFallback: isDemoFallback,
+        onOpenGroupDetail: _openGroupDetail,
+        onOpenAttendanceLogging: _openAttendanceLogging,
+        onOneOnOneTap: (slot) => handleTeacherOneOnOneSlotTap(
           context: context,
           ref: ref,
           slot: slot,
           langCode: langCode,
           onOpenGroupDetail: _openGroupDetail,
+          onOpenStudentProfile: _openStudentProfile,
         ),
       );
     }
@@ -385,13 +394,14 @@ class _TeacherHomeScreenState extends ConsumerState<TeacherHomeScreen> {
           displayTeacherName: displayTeacherName,
           activeGroupsCount: activeGroupsCount,
           totalStudentsCount: totalStudentsCount,
-          masteryPercentage: masteryPercentage,
+          todaySessionsCount: todaySessionsCount,
           isDemoFallback: isDemoFallback,
         ),
         const SizedBox(height: 24),
         TeacherMyGroupsSection(
           langCode: langCode,
           firestoreGroups: firestoreGroups,
+          groupStudentCounts: groupStudentCounts,
           isDemoFallback: isDemoFallback,
           onSwitchToScheduleTab: () => setState(() => _selectedBottomTab = 1),
           onOpenGroupDetail: _openGroupDetail,
@@ -415,6 +425,7 @@ class _TeacherHomeScreenState extends ConsumerState<TeacherHomeScreen> {
             slot: slot,
             langCode: langCode,
             onOpenGroupDetail: _openGroupDetail,
+            onOpenStudentProfile: _openStudentProfile,
           ),
         ),
         const SizedBox(height: 24),

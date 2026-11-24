@@ -124,6 +124,21 @@ class TeacherRepository {
         );
   }
 
+  static String attendanceDocId({
+    required String groupId,
+    required String studentId,
+    required DateTime date,
+    SessionMode sessionMode = SessionMode.group,
+  }) {
+    final y = date.year.toString().padLeft(4, '0');
+    final m = date.month.toString().padLeft(2, '0');
+    final d = date.day.toString().padLeft(2, '0');
+    return 'att_${groupId}_${studentId}_$y$m${d}_${sessionMode.toJson()}';
+  }
+
+  static bool _isSameDay(DateTime a, DateTime b) =>
+      a.year == b.year && a.month == b.month && a.day == b.day;
+
   Future<AttendanceLog> logAttendance({
     required String groupId,
     required String studentId,
@@ -134,21 +149,43 @@ class TeacherRepository {
     DateTime? sessionDate,
     String? notes,
   }) async {
-    final docRef = _firestore.collection(attendanceCollection).doc();
+    final targetDate = sessionDate ?? DateTime.now();
+    final existingSnap = await _firestore
+        .collection(attendanceCollection)
+        .where('groupId', isEqualTo: groupId)
+        .where('studentId', isEqualTo: studentId)
+        .get();
+
+    String docId = attendanceDocId(
+      groupId: groupId,
+      studentId: studentId,
+      date: targetDate,
+      sessionMode: sessionMode,
+    );
+    for (final doc in existingSnap.docs) {
+      final parsed = AttendanceLog.fromFirestore(doc);
+      if (parsed.sessionMode == sessionMode &&
+          _isSameDay(parsed.sessionDate, targetDate)) {
+        docId = doc.id;
+        break;
+      }
+    }
+
+    final docRef = _firestore.collection(attendanceCollection).doc(docId);
     final log = AttendanceLog(
       id: docRef.id,
       groupId: groupId,
       studentId: studentId,
       studentName: studentName,
       teacherId: teacherId,
-      sessionDate: sessionDate ?? DateTime.now(),
+      sessionDate: targetDate,
       sessionMode: sessionMode,
       status: status,
       notes: notes,
       createdAt: DateTime.now(),
     );
 
-    await docRef.set(log.toMap());
+    await docRef.set(log.toMap(), SetOptions(merge: true));
     return log;
   }
 
@@ -160,11 +197,31 @@ class TeacherRepository {
     SessionMode sessionMode = SessionMode.group,
     DateTime? sessionDate,
   }) async {
-    final batch = _firestore.batch();
     final now = sessionDate ?? DateTime.now();
+    final existingSnap = await _firestore
+        .collection(attendanceCollection)
+        .where('groupId', isEqualTo: groupId)
+        .get();
 
+    final existingDocIdsByStudent = <String, String>{};
+    for (final doc in existingSnap.docs) {
+      final parsed = AttendanceLog.fromFirestore(doc);
+      if (parsed.sessionMode == sessionMode &&
+          _isSameDay(parsed.sessionDate, now)) {
+        existingDocIdsByStudent.putIfAbsent(parsed.studentId, () => doc.id);
+      }
+    }
+
+    final batch = _firestore.batch();
     for (final entry in studentStatuses.entries) {
-      final docRef = _firestore.collection(attendanceCollection).doc();
+      final docId = existingDocIdsByStudent[entry.key] ??
+          attendanceDocId(
+            groupId: groupId,
+            studentId: entry.key,
+            date: now,
+            sessionMode: sessionMode,
+          );
+      final docRef = _firestore.collection(attendanceCollection).doc(docId);
       final log = AttendanceLog(
         id: docRef.id,
         groupId: groupId,
@@ -174,9 +231,9 @@ class TeacherRepository {
         sessionDate: now,
         sessionMode: sessionMode,
         status: entry.value,
-        createdAt: now,
+        createdAt: DateTime.now(),
       );
-      batch.set(docRef, log.toMap());
+      batch.set(docRef, log.toMap(), SetOptions(merge: true));
     }
 
     await batch.commit();

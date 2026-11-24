@@ -8,6 +8,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/routing/app_router.dart';
 import '../../../core/services/locale_provider.dart';
 import '../../../l10n/app_localizations_tr.dart';
+import '../../admin/models/admin_models.dart';
 import '../models/teacher_models.dart';
 import '../providers/teacher_providers.dart';
 
@@ -43,7 +44,7 @@ class _AttendanceLoggingViewState extends ConsumerState<AttendanceLoggingView> {
   bool _isSaving = false;
   bool _showSuccessBanner = false;
 
-  final Map<String, AttendanceStatus> _studentStatuses = {};
+  final Map<String, Map<String, AttendanceStatus>> _editedStatusesByDate = {};
 
   // Color tokens mapped from Stitch
   static const Color _surface = Color(0xFFF7F9FB);
@@ -116,11 +117,36 @@ class _AttendanceLoggingViewState extends ConsumerState<AttendanceLoggingView> {
   @override
   void initState() {
     super.initState();
-    if (Firebase.apps.isEmpty) {
-      for (final s in _seedStudents) {
-        _studentStatuses[s.studentId] = s.defaultStatus;
-      }
-    }
+  }
+
+  String _dateKey(DateTime date) =>
+      '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+
+  bool _isSameDay(DateTime a, DateTime b) =>
+      a.year == b.year && a.month == b.month && a.day == b.day;
+
+  bool _isFutureDate(DateTime date) {
+    final now = DateTime.now();
+    final todayOnly = DateTime(now.year, now.month, now.day);
+    final candidate = DateTime(date.year, date.month, date.day);
+    return candidate.isAfter(todayOnly);
+  }
+
+  void _stepDate(int deltaDays) {
+    final nextDate = _selectedDate.add(Duration(days: deltaDays));
+    if (_isFutureDate(nextDate)) return;
+    setState(() {
+      _selectedDate = nextDate;
+      _showSuccessBanner = false;
+    });
+  }
+
+  void _setStudentStatus(String studentId, AttendanceStatus status) {
+    final key = _dateKey(_selectedDate);
+    setState(() {
+      _editedStatusesByDate.putIfAbsent(key, () => <String, AttendanceStatus>{})[studentId] =
+          status;
+    });
   }
 
   String _toArabicDigits(int number) {
@@ -154,33 +180,113 @@ class _AttendanceLoggingViewState extends ConsumerState<AttendanceLoggingView> {
 
   Future<void> _pickDate() async {
     final now = DateTime.now();
+    final todayOnly = DateTime(now.year, now.month, now.day);
+    final initial = _isFutureDate(_selectedDate) ? todayOnly : _selectedDate;
     final picked = await showDatePicker(
       context: context,
-      initialDate: _selectedDate,
+      initialDate: initial,
       firstDate: DateTime(2024),
-      lastDate: DateTime(now.year + 5),
+      lastDate: todayOnly,
     );
-    if (picked != null && mounted) {
+    if (picked != null && !_isFutureDate(picked) && mounted) {
       setState(() {
         _selectedDate = picked;
+        _showSuccessBanner = false;
       });
     }
   }
 
   void _markAllPresent(List<_StudentAttendanceRowItem> students) {
+    final key = _dateKey(_selectedDate);
     setState(() {
+      final map = _editedStatusesByDate.putIfAbsent(key, () => <String, AttendanceStatus>{});
       for (final s in students) {
-        _studentStatuses[s.studentId] = AttendanceStatus.present;
+        map[s.studentId] = AttendanceStatus.present;
       }
     });
   }
 
   Future<void> _handleSaveAttendance({
     required String effectiveGroupId,
+    required StudyGroup? matchedGroup,
     required List<_StudentAttendanceRowItem> students,
+    required Map<String, AttendanceStatus> effectiveStatuses,
+    required bool isUpdatingExisting,
     required String langCode,
   }) async {
     if (_isSaving) return;
+
+    if (_isFutureDate(_selectedDate)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            trByLang(
+              langCode,
+              ar: 'لا يمكن تسجيل الحضور لتاريخ مستقبلي',
+              he: 'לא ניתן לרשום נוכחות לתאריך עתידי',
+              en: 'Cannot record attendance for a future date',
+            ),
+          ),
+          backgroundColor: _error,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    final scheduledSlots = matchedGroup?.effectiveScheduleSlots ?? const <GroupScheduleSlot>[];
+    if (scheduledSlots.isNotEmpty &&
+        matchedGroup!.slotsForWeekday(_selectedDate.weekday).isEmpty) {
+      final selectedDayName =
+          ScheduleDayHelper.localizedDayName(_selectedDate.weekday, langCode);
+      final scheduledDaysText = scheduledSlots
+          .map(
+            (s) => s.weekday != null
+                ? ScheduleDayHelper.localizedDayName(s.weekday!, langCode)
+                : s.day,
+          )
+          .toSet()
+          .join(' • ');
+
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (dlgCtx) => AlertDialog(
+          title: Text(
+            trByLang(
+              langCode,
+              ar: 'يوم خارج جدول الحلقة',
+              he: 'יום מחוץ למערכת הקבוצה',
+              en: 'Non-Scheduled Group Day',
+            ),
+          ),
+          content: Text(
+            trByLang(
+              langCode,
+              ar: 'يوم $selectedDayName ليس ضمن الأيام المجدولة لهذه الحلقة ($scheduledDaysText). هل تريد المتابعة وتسجيل الحضور على أي حال؟',
+              he: 'יום $selectedDayName אינו בימי הקבוצה הקבועים ($scheduledDaysText). האם להמשיך ולרשום נוכחות?',
+              en: '$selectedDayName is not one of this group\'s scheduled days ($scheduledDaysText). Do you want to record attendance anyway?',
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dlgCtx).pop(false),
+              child: Text(trByLang(langCode, ar: 'إلغاء', he: 'ביטול', en: 'Cancel')),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.of(dlgCtx).pop(true),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: _primary,
+                foregroundColor: Colors.white,
+              ),
+              child: Text(
+                trByLang(langCode, ar: 'تأكيد وحفظ', he: 'אשר ושמור', en: 'Confirm & Save'),
+              ),
+            ),
+          ],
+        ),
+      );
+      if (confirmed != true || !mounted) return;
+    }
 
     setState(() {
       _isSaving = true;
@@ -190,7 +296,7 @@ class _AttendanceLoggingViewState extends ConsumerState<AttendanceLoggingView> {
     final namesToSave = <String, String>{};
     for (final s in students) {
       statusesToSave[s.studentId] =
-          _studentStatuses[s.studentId] ?? s.defaultStatus;
+          effectiveStatuses[s.studentId] ?? s.defaultStatus;
       namesToSave[s.studentId] = s.fullName;
     }
 
@@ -215,12 +321,19 @@ class _AttendanceLoggingViewState extends ConsumerState<AttendanceLoggingView> {
       SnackBar(
         content: Text(
           ok
-              ? trByLang(
-                  langCode,
-                  ar: 'تم حفظ الحضور واعتماد السجل بنجاح (${students.length} طلاب)',
-                  he: 'נוכחות נשמרה ואושרה בהצלחה (${students.length} תלמידים)',
-                  en: 'Attendance saved and approved (${students.length} students)',
-                )
+              ? (isUpdatingExisting
+                  ? trByLang(
+                      langCode,
+                      ar: 'تم تحديث سجل الحضور بنجاح (${students.length} طلاب)',
+                      he: 'יומן הנוכחות עודכן בהצלחה (${students.length} תלמידים)',
+                      en: 'Attendance log updated (${students.length} students)',
+                    )
+                  : trByLang(
+                      langCode,
+                      ar: 'تم حفظ الحضور واعتماد السجل بنجاح (${students.length} طلاب)',
+                      he: 'נוכחות נשמרה ואושרה בהצלחה (${students.length} תלמידים)',
+                      en: 'Attendance saved and approved (${students.length} students)',
+                    ))
               : trByLang(
                   langCode,
                   ar: 'حدث خطأ أثناء حفظ الحضور',
@@ -257,9 +370,12 @@ class _AttendanceLoggingViewState extends ConsumerState<AttendanceLoggingView> {
 
     final teacherGroups =
         ref.watch(teacherGroupsProvider).asData?.value ?? const [];
+    final allGroups =
+        ref.watch(allGroupsStreamProvider).asData?.value ?? const [];
     final matchedGroup = teacherGroups
-        .where((g) => g.id == effectiveGroupId)
-        .firstOrNull;
+            .where((g) => g.id == effectiveGroupId)
+            .firstOrNull ??
+        allGroups.where((g) => g.id == effectiveGroupId).firstOrNull;
 
     final groupTitle = matchedGroup?.name.isNotEmpty == true
         ? matchedGroup!.name
@@ -276,47 +392,57 @@ class _AttendanceLoggingViewState extends ConsumerState<AttendanceLoggingView> {
             ?.value ??
         const [];
 
-    final isLiveFirebase = Firebase.apps.isNotEmpty;
+    final allStudents = ref.watch(allStudentsMapProvider).asData?.value ?? const {};
+    final groupLogs =
+        ref.watch(groupAttendanceProvider(effectiveGroupId)).asData?.value ??
+            const <AttendanceLog>[];
+    final isLiveFirebase = Firebase.apps.isNotEmpty || enrollments.isNotEmpty;
     final students = <_StudentAttendanceRowItem>[];
+    final seenStudentIds = <String>{};
+
     if (isLiveFirebase) {
       for (final enrollment in enrollments) {
-        if (enrollment.studentName.trim().isNotEmpty) {
-          final trimmed = enrollment.studentName.trim();
-          students.add(
-            _StudentAttendanceRowItem(
-              studentId: enrollment.studentId,
-              fullName: trimmed,
-              initial: trimmed.characters.first,
-              defaultStatus: AttendanceStatus.present,
-            ),
-          );
-          _studentStatuses.putIfAbsent(
-            enrollment.studentId,
-            () => AttendanceStatus.present,
-          );
-        }
+        if (seenStudentIds.contains(enrollment.studentId)) continue;
+        final profile = allStudents[enrollment.studentId];
+        final resolvedName = profile?.fullName.trim().isNotEmpty == true
+            ? profile!.fullName.trim()
+            : enrollment.studentName.trim();
+        if (resolvedName.isEmpty) continue;
+        seenStudentIds.add(enrollment.studentId);
+        students.add(
+          _StudentAttendanceRowItem(
+            studentId: enrollment.studentId,
+            fullName: resolvedName,
+            initial: resolvedName.characters.first,
+            defaultStatus: AttendanceStatus.present,
+          ),
+        );
       }
     } else {
       students.addAll(_seedStudents);
-      for (final enrollment in enrollments) {
-        final exists =
-            students.any((s) => s.studentId == enrollment.studentId);
-        if (!exists && enrollment.studentName.trim().isNotEmpty) {
-          final trimmed = enrollment.studentName.trim();
-          students.add(
-            _StudentAttendanceRowItem(
-              studentId: enrollment.studentId,
-              fullName: trimmed,
-              initial: trimmed.characters.first,
-              defaultStatus: AttendanceStatus.present,
-            ),
-          );
-          _studentStatuses.putIfAbsent(
-            enrollment.studentId,
-            () => AttendanceStatus.present,
-          );
+    }
+
+    // Load previously saved logs for `_selectedDate` (if any), keeping latest per student.
+    final savedLogsForDate = <String, AttendanceLog>{};
+    for (final log in groupLogs) {
+      if (log.sessionMode == SessionMode.group &&
+          _isSameDay(log.sessionDate, _selectedDate)) {
+        final prev = savedLogsForDate[log.studentId];
+        if (prev == null ||
+            (log.createdAt ?? log.sessionDate)
+                .isAfter(prev.createdAt ?? prev.sessionDate)) {
+          savedLogsForDate[log.studentId] = log;
         }
       }
+    }
+    final hasExistingLogsForDate = savedLogsForDate.isNotEmpty;
+    final manualEdits = _editedStatusesByDate[_dateKey(_selectedDate)] ?? const {};
+    final effectiveStatuses = <String, AttendanceStatus>{};
+    for (final s in students) {
+      effectiveStatuses[s.studentId] =
+          manualEdits[s.studentId] ??
+          savedLogsForDate[s.studentId]?.status ??
+          s.defaultStatus;
     }
 
     int presentCount = 0;
@@ -324,7 +450,7 @@ class _AttendanceLoggingViewState extends ConsumerState<AttendanceLoggingView> {
     int absentCount = 0;
     int excusedCount = 0;
     for (final s in students) {
-      final st = _studentStatuses[s.studentId] ?? s.defaultStatus;
+      final st = effectiveStatuses[s.studentId] ?? s.defaultStatus;
       switch (st) {
         case AttendanceStatus.present:
           presentCount++;
@@ -371,7 +497,39 @@ class _AttendanceLoggingViewState extends ConsumerState<AttendanceLoggingView> {
                       _buildDateSelectorRow(
                         context: context,
                         langCode: langCode,
+                        hasExistingLogsForDate: hasExistingLogsForDate,
                       ),
+                      if (hasExistingLogsForDate) ...[
+                        const SizedBox(height: 10),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: _primary.withValues(alpha: 0.08),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.info_outline_rounded, size: 16, color: _primary),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  trByLang(
+                                    langCode,
+                                    ar: 'تم رصد حضور هذا اليوم مسبقاً — عند الحفظ سيتم تحديث السجل الحالي',
+                                    he: 'נוכחות ליום זה כבר נרשמה — שמירה תעדכן את הרישום הקיים',
+                                    en: 'Attendance already logged for this day — saving updates the existing log',
+                                  ),
+                                  style: const TextStyle(
+                                    fontSize: 11.5,
+                                    fontWeight: FontWeight.w600,
+                                    color: _primary,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                       const SizedBox(height: 16),
                       _buildQuickActionAndStatsCard(
                         context: context,
@@ -447,7 +605,7 @@ class _AttendanceLoggingViewState extends ConsumerState<AttendanceLoggingView> {
                               langCode: langCode,
                               student: student,
                               currentStatus:
-                                  _studentStatuses[student.studentId] ??
+                                  effectiveStatuses[student.studentId] ??
                                       student.defaultStatus,
                             ),
                           ),
@@ -596,7 +754,12 @@ class _AttendanceLoggingViewState extends ConsumerState<AttendanceLoggingView> {
                                         : () => _handleSaveAttendance(
                                               effectiveGroupId:
                                                   effectiveGroupId,
+                                              matchedGroup: matchedGroup,
                                               students: students,
+                                              effectiveStatuses:
+                                                  effectiveStatuses,
+                                              isUpdatingExisting:
+                                                  hasExistingLogsForDate,
                                               langCode: langCode,
                                             ),
                                     style: ElevatedButton.styleFrom(
@@ -632,12 +795,19 @@ class _AttendanceLoggingViewState extends ConsumerState<AttendanceLoggingView> {
                                                   he: 'נשמר ואושר בהצלחה',
                                                   en: 'Saved & Approved Successfully',
                                                 )
-                                              : trByLang(
-                                                  langCode,
-                                                  ar: 'حفظ الحضور واعتماد السجل',
-                                                  he: 'שמור נוכחות ואשר יומן',
-                                                  en: 'Save & Approve Attendance',
-                                                )),
+                                              : (hasExistingLogsForDate
+                                                  ? trByLang(
+                                                      langCode,
+                                                      ar: 'تحديث سجل الحضور',
+                                                      he: 'עדכן יומן נוכחות',
+                                                      en: 'Update Attendance Log',
+                                                    )
+                                                  : trByLang(
+                                                      langCode,
+                                                      ar: 'حفظ الحضور واعتماد السجل',
+                                                      he: 'שמור נוכחות ואשר יומן',
+                                                      en: 'Save & Approve Attendance',
+                                                    ))),
                                       style: const TextStyle(
                                         fontWeight: FontWeight.w600,
                                         fontSize: 14,
@@ -719,46 +889,166 @@ class _AttendanceLoggingViewState extends ConsumerState<AttendanceLoggingView> {
   Widget _buildDateSelectorRow({
     required BuildContext context,
     required String langCode,
+    required bool hasExistingLogsForDate,
   }) {
-    return Row(
-      children: [
-        Material(
-          color: _surfaceContainerLowest,
-          borderRadius: BorderRadius.circular(12),
-          elevation: 0.5,
-          child: InkWell(
-            onTap: _pickDate,
-            borderRadius: BorderRadius.circular(12),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(
-                    Icons.calendar_today_rounded,
-                    size: 18,
-                    color: _primary,
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    _formatDateLabel(_selectedDate, langCode),
-                    style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                          color: _onSurface,
-                          fontWeight: FontWeight.w600,
-                        ),
-                  ),
-                  const SizedBox(width: 6),
-                  const Icon(
-                    Icons.expand_more_rounded,
-                    size: 16,
-                    color: _outline,
-                  ),
-                ],
+    final isToday = _isSameDay(_selectedDate, DateTime.now());
+    final canGoNext = !_isFutureDate(_selectedDate.add(const Duration(days: 1)));
+    final dayLabel = ScheduleDayHelper.localizedDayName(_selectedDate.weekday, langCode);
+    final dateText = _formatDateLabel(_selectedDate, langCode);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+      decoration: BoxDecoration(
+        color: _surfaceContainerLowest,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: _primary.withValues(alpha: 0.22)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Material(
+            color: _surfaceContainerLow,
+            borderRadius: BorderRadius.circular(10),
+            child: IconButton(
+              onPressed: () => _stepDate(-1),
+              tooltip: trByLang(langCode, ar: 'اليوم السابق', he: 'יום קודם', en: 'Previous Day'),
+              icon: const Icon(
+                Icons.chevron_left_rounded,
+                color: _primary,
+                size: 22,
+              ),
+              constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: InkWell(
+              onTap: _pickDate,
+              borderRadius: BorderRadius.circular(10),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                decoration: BoxDecoration(
+                  color: _primary.withValues(alpha: 0.05),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(
+                      Icons.calendar_month_rounded,
+                      size: 20,
+                      color: _primary,
+                    ),
+                    const SizedBox(width: 8),
+                    Flexible(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Flexible(
+                                child: Text(
+                                  dayLabel,
+                                  textAlign: TextAlign.center,
+                                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                                        color: _primary,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              if (isToday) ...[
+                                const SizedBox(width: 6),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: _primary,
+                                    borderRadius: BorderRadius.circular(999),
+                                  ),
+                                  child: Text(
+                                    trByLang(langCode, ar: 'اليوم', he: 'היום', en: 'Today'),
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            dateText,
+                            textAlign: TextAlign.center,
+                            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                                  color: _onSurface,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          Text(
+                            hasExistingLogsForDate
+                                ? trByLang(
+                                    langCode,
+                                    ar: 'مسجل مسبقاً • اضغط للتغيير',
+                                    he: 'נרשם בעבר • לחץ לשינוי',
+                                    en: 'Logged • Tap to change',
+                                  )
+                                : trByLang(
+                                    langCode,
+                                    ar: 'اضغط لاختيار تاريخ من التقويم',
+                                    he: 'לחץ לבחירת תאריך מהיומן',
+                                    en: 'Tap to pick date from calendar',
+                                  ),
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                              fontSize: 10.5,
+                              color: _outline,
+                              fontWeight: FontWeight.w500,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    const Icon(
+                      Icons.expand_more_rounded,
+                      size: 18,
+                      color: _primary,
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
-        ),
-      ],
+          const SizedBox(width: 8),
+          Material(
+            color: _surfaceContainerLow,
+            borderRadius: BorderRadius.circular(10),
+            child: IconButton(
+              onPressed: canGoNext ? () => _stepDate(1) : null,
+              tooltip: trByLang(langCode, ar: 'اليوم التالي', he: 'יום הבא', en: 'Next Day'),
+              icon: Icon(
+                Icons.chevron_right_rounded,
+                color: canGoNext ? _primary : _outline.withValues(alpha: 0.4),
+                size: 22,
+              ),
+              constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -962,10 +1252,10 @@ class _AttendanceLoggingViewState extends ConsumerState<AttendanceLoggingView> {
                     icon: Icons.check_rounded,
                     isActive: isPresent,
                     activeColor: _primary,
-                    onTap: () => setState(() {
-                      _studentStatuses[student.studentId] =
-                          AttendanceStatus.present;
-                    }),
+                    onTap: () => _setStudentStatus(
+                      student.studentId,
+                      AttendanceStatus.present,
+                    ),
                   ),
                 ),
                 const SizedBox(width: 4),
@@ -975,10 +1265,10 @@ class _AttendanceLoggingViewState extends ConsumerState<AttendanceLoggingView> {
                     icon: Icons.schedule_rounded,
                     isActive: isLate,
                     activeColor: _secondary,
-                    onTap: () => setState(() {
-                      _studentStatuses[student.studentId] =
-                          AttendanceStatus.late;
-                    }),
+                    onTap: () => _setStudentStatus(
+                      student.studentId,
+                      AttendanceStatus.late,
+                    ),
                   ),
                 ),
                 const SizedBox(width: 4),
@@ -988,10 +1278,10 @@ class _AttendanceLoggingViewState extends ConsumerState<AttendanceLoggingView> {
                     icon: Icons.close_rounded,
                     isActive: isAbsent,
                     activeColor: _error,
-                    onTap: () => setState(() {
-                      _studentStatuses[student.studentId] =
-                          AttendanceStatus.absent;
-                    }),
+                    onTap: () => _setStudentStatus(
+                      student.studentId,
+                      AttendanceStatus.absent,
+                    ),
                   ),
                 ),
                 const SizedBox(width: 4),
@@ -1001,10 +1291,10 @@ class _AttendanceLoggingViewState extends ConsumerState<AttendanceLoggingView> {
                     icon: Icons.verified_user_outlined,
                     isActive: isExcused,
                     activeColor: _tertiary,
-                    onTap: () => setState(() {
-                      _studentStatuses[student.studentId] =
-                          AttendanceStatus.excused;
-                    }),
+                    onTap: () => _setStudentStatus(
+                      student.studentId,
+                      AttendanceStatus.excused,
+                    ),
                   ),
                 ),
               ],

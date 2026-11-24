@@ -163,6 +163,7 @@ class AdminController extends AsyncNotifier<void> {
     List<String> scheduleDays = const [],
     String startTime = '',
     String endTime = '',
+    List<GroupScheduleSlot> scheduleSlots = const [],
     int capacity = 15,
   }) async {
     state = const AsyncLoading();
@@ -176,10 +177,41 @@ class AdminController extends AsyncNotifier<void> {
             scheduleDays: scheduleDays,
             startTime: startTime,
             endTime: endTime,
+            scheduleSlots: scheduleSlots,
             capacity: capacity,
           );
     });
     return created;
+  }
+
+  Future<bool> updateGroup({
+    required String groupId,
+    required String name,
+    required CenterTrack track,
+    required String teacherId,
+    String teacherName = '',
+    List<String> scheduleDays = const [],
+    String startTime = '',
+    String endTime = '',
+    List<GroupScheduleSlot> scheduleSlots = const [],
+    int capacity = 15,
+  }) async {
+    state = const AsyncLoading();
+    state = await AsyncValue.guard(() async {
+      await ref.read(adminRepositoryProvider).updateGroup(
+            groupId: groupId,
+            name: name,
+            track: track,
+            teacherId: teacherId,
+            teacherName: teacherName,
+            scheduleDays: scheduleDays,
+            startTime: startTime,
+            endTime: endTime,
+            scheduleSlots: scheduleSlots,
+            capacity: capacity,
+          );
+    });
+    return !state.hasError;
   }
 
   Future<Enrollment?> assignStudentToGroup({

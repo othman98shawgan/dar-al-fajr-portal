@@ -6,6 +6,7 @@ import '../../../l10n/app_localizations_tr.dart';
 import '../../auth/models/app_user.dart';
 import '../models/admin_models.dart';
 import '../providers/admin_providers.dart';
+import 'admin_dialogs.dart';
 
 class AdminUsersTab extends StatelessWidget {
   final String langCode;
@@ -264,9 +265,25 @@ class AdminGroupsTab extends ConsumerWidget {
                             ),
                           ],
                         ),
-                        IconButton(
-                          onPressed: () => ref.read(adminRepositoryProvider).deleteGroup(g.id),
-                          icon: const Icon(Icons.delete_outline_rounded, size: 18, color: Color(0xFF6D7A77)),
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            IconButton(
+                              onPressed: () => showAdminEditGroupDialog(
+                                context,
+                                ref,
+                                langCode,
+                                group: g,
+                                isDemoFallback: isDemoFallback,
+                              ),
+                              tooltip: trByLang(langCode, ar: 'تعديل الحلقة', he: 'ערוך קבוצה', en: 'Edit Group'),
+                              icon: const Icon(Icons.edit_outlined, size: 18, color: DarAlFajrTheme.primary),
+                            ),
+                            IconButton(
+                              onPressed: () => ref.read(adminRepositoryProvider).deleteGroup(g.id),
+                              icon: const Icon(Icons.delete_outline_rounded, size: 18, color: Color(0xFF6D7A77)),
+                            ),
+                          ],
                         ),
                       ],
                     ),
@@ -287,13 +304,16 @@ class AdminGroupsTab extends ConsumerWidget {
                     ),
                     const SizedBox(height: 4),
                     Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Icon(Icons.schedule_rounded, size: 16, color: Color(0xFF6D7A77)),
+                        const Padding(
+                          padding: EdgeInsets.only(top: 2),
+                          child: Icon(Icons.schedule_rounded, size: 16, color: Color(0xFF6D7A77)),
+                        ),
                         const SizedBox(width: 4),
                         Expanded(
                           child: Text(
-                            '${g.scheduleDays.join("، ")} • ${g.startTime} - ${g.endTime}',
-                            overflow: TextOverflow.ellipsis,
+                            g.formatScheduleSummary(langCode, multiline: true),
                           ),
                         ),
                       ],
@@ -308,7 +328,7 @@ class AdminGroupsTab extends ConsumerWidget {
   }
 }
 
-class AdminEnrollmentsTab extends StatelessWidget {
+class AdminEnrollmentsTab extends ConsumerWidget {
   final String langCode;
   final List<Enrollment> enrollments;
   final VoidCallback onOpenEnrollDrawer;
@@ -321,7 +341,7 @@ class AdminEnrollmentsTab extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return ListView(
       padding: const EdgeInsets.all(24),
       children: [
@@ -383,9 +403,24 @@ class AdminEnrollmentsTab extends StatelessWidget {
                       leading: const CircleAvatar(child: Icon(Icons.how_to_reg_rounded)),
                       title: Text(e.studentName, style: const TextStyle(fontWeight: FontWeight.bold)),
                       subtitle: Text('${e.groupName} • ${e.groupArrivalTime ?? "—"}'),
-                      trailing: e.oneOnOneSlotTime != null
-                          ? Chip(avatar: const Icon(Icons.stars_rounded, size: 16), label: Text(e.oneOnOneSlotTime!))
-                          : Text(trByLang(langCode, ar: 'بدون موعد فردي', he: 'ללא תור אישי', en: 'No 1-on-1 slot')),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (e.oneOnOneSlotTime != null)
+                            Chip(avatar: const Icon(Icons.stars_rounded, size: 16), label: Text(e.oneOnOneSlotTime!))
+                          else
+                            Text(
+                              trByLang(langCode, ar: 'بدون موعد فردي', he: 'ללא תור אישי', en: 'No 1-on-1 slot'),
+                              style: const TextStyle(fontSize: 12, color: Color(0xFF6D7A77)),
+                            ),
+                          const SizedBox(width: 6),
+                          IconButton(
+                            onPressed: () => ref.read(adminRepositoryProvider).deleteEnrollment(e.id),
+                            tooltip: trByLang(langCode, ar: 'إلغاء التسجيل', he: 'הסר רישום', en: 'Remove Enrollment'),
+                            icon: const Icon(Icons.delete_outline_rounded, size: 18, color: Color(0xFF6D7A77)),
+                          ),
+                        ],
+                      ),
                     );
                   },
                 ),
