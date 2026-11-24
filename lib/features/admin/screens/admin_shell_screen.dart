@@ -737,7 +737,12 @@ class _AdminShellScreenState extends ConsumerState<AdminShellScreen> {
         return AdminUsersTab(
           langCode: langCode,
           users: allUsers,
-          onAddUserPressed: () => showAdminAddStudentOrUserDialog(context, ref, langCode),
+          onAddUserPressed: () => showAdminAddStudentOrUserDialog(
+            context,
+            ref,
+            langCode,
+            initialRole: UserRole.teacher,
+          ),
         );
       case 2:
         return AdminGroupsTab(

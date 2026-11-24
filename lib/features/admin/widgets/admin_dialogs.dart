@@ -156,17 +156,45 @@ Future<void> showAdminGradingSettingsDialog(
   );
 }
 
+Future<void> _pickAdminTime(
+  BuildContext context,
+  TextEditingController controller,
+) async {
+  final parts = controller.text.trim().split(':');
+  final initialHour = int.tryParse(parts.firstOrNull ?? '') ?? 17;
+  final initialMinute = int.tryParse(parts.length > 1 ? parts[1] : '') ?? 0;
+  final picked = await showTimePicker(
+    context: context,
+    initialTime: TimeOfDay(
+      hour: initialHour.clamp(0, 23),
+      minute: initialMinute.clamp(0, 59),
+    ),
+  );
+  if (picked != null) {
+    final hh = picked.hour.toString().padLeft(2, '0');
+    final mm = picked.minute.toString().padLeft(2, '0');
+    controller.text = '$hh:$mm';
+  }
+}
+
 void showAdminAddStudentOrUserDialog(
   BuildContext context,
   WidgetRef ref,
-  String langCode,
-) {
+  String langCode, {
+  UserRole initialRole = UserRole.student,
+}) {
+  final parents = ref.read(adminParentsProvider).value ?? const <AppUser>[];
   final nameController = TextEditingController();
   final parentNameController = TextEditingController();
   final emailController = TextEditingController();
   final tempPasswordController = TextEditingController(text: 'Fajr@2026');
   final phoneController = TextEditingController();
-  UserRole selectedRole = UserRole.student;
+  UserRole selectedRole = initialRole == UserRole.admin ? UserRole.teacher : initialRole;
+  const manualParentKey = '__manual__';
+  String selectedParentId = parents.isNotEmpty ? parents.first.uid : manualParentKey;
+  bool isSaving = false;
+  String? errorMessage;
+  String? successMessage;
   final messenger = ScaffoldMessenger.maybeOf(context);
 
   showDialog<void>(
@@ -174,6 +202,121 @@ void showAdminAddStudentOrUserDialog(
     builder: (dialogContext) {
       return StatefulBuilder(
         builder: (context, setDialogState) {
+          Future<void> submit({required bool keepOpen}) async {
+            final fullName = nameController.text.trim();
+            final email = emailController.text.trim();
+            final tempPass = tempPasswordController.text.trim();
+            final phone = phoneController.text.trim();
+
+            if (fullName.isEmpty) {
+              setDialogState(() {
+                errorMessage = trByLang(
+                  langCode,
+                  ar: 'يرجى إدخال الاسم الكامل.',
+                  he: 'נא להזין שם מלא.',
+                  en: 'Please enter the full name.',
+                );
+              });
+              return;
+            }
+
+            if (selectedRole != UserRole.student && (email.isEmpty || !email.contains('@'))) {
+              setDialogState(() {
+                errorMessage = trByLang(
+                  langCode,
+                  ar: 'البريد الإلكتروني مطلوب لحسابات المعلمين وأولياء الأمور.',
+                  he: 'נדרש אימייל תקין לחשבונות מורים והורים.',
+                  en: 'A valid email is required for Teacher and Parent accounts.',
+                );
+              });
+              return;
+            }
+
+            if ((selectedRole != UserRole.student || email.isNotEmpty) && tempPass.length < 6) {
+              setDialogState(() {
+                errorMessage = trByLang(
+                  langCode,
+                  ar: 'كلمة المرور المؤقتة يجب أن تكون 6 أحرف على الأقل.',
+                  he: 'הסיסמה הזמנית חייבת להכיל לפחות 6 תווים.',
+                  en: 'Temporary password must be at least 6 characters.',
+                );
+              });
+              return;
+            }
+
+            setDialogState(() {
+              isSaving = true;
+              errorMessage = null;
+              successMessage = null;
+            });
+
+            if (selectedRole == UserRole.student) {
+              final linkedParent = parents.where((p) => p.uid == selectedParentId).firstOrNull;
+              final resolvedParentId = linkedParent?.uid ?? 'parent-default';
+              final resolvedParentName = linkedParent?.fullName ??
+                  (parentNameController.text.trim().isEmpty
+                      ? 'ولي الأمر'
+                      : parentNameController.text.trim());
+
+              await ref.read(adminControllerProvider.notifier).createStudent(
+                    fullName: fullName,
+                    parentId: resolvedParentId,
+                    parentName: resolvedParentName,
+                    email: email,
+                    temporaryPassword: tempPass,
+                    phoneNumber: phone.isNotEmpty ? phone : linkedParent?.phoneNumber,
+                  );
+            } else {
+              await ref.read(adminControllerProvider.notifier).createTeacherOrParent(
+                    email: email,
+                    temporaryPassword: tempPass,
+                    fullName: fullName,
+                    role: selectedRole,
+                    phoneNumber: phone,
+                    preferredLanguage: langCode,
+                  );
+            }
+
+            if (!dialogContext.mounted) return;
+
+            final ctrlState = ref.read(adminControllerProvider);
+            if (ctrlState.hasError) {
+              setDialogState(() {
+                isSaving = false;
+                errorMessage = ctrlState.error.toString();
+              });
+              return;
+            }
+
+            if (keepOpen) {
+              nameController.clear();
+              emailController.clear();
+              phoneController.clear();
+              parentNameController.clear();
+              setDialogState(() {
+                isSaving = false;
+                successMessage = trByLang(
+                  langCode,
+                  ar: 'تمت إضافة "$fullName" بنجاح! يمكنك إضافة التالي الآن.',
+                  he: '"$fullName" נוסף בהצלחה! ניתן להוסיף את הבא.',
+                  en: 'Added "$fullName"! Ready for the next entry.',
+                );
+              });
+              return;
+            }
+
+            Navigator.of(dialogContext).pop();
+            messenger?.showSnackBar(
+              SnackBar(
+                content: Text(
+                  trByLang(langCode, ar: 'تمت الإضافة بنجاح!', he: 'נוסף בהצלחה!', en: 'Created successfully!'),
+                ),
+                backgroundColor: DarAlFajrTheme.primary,
+                behavior: SnackBarBehavior.floating,
+              ),
+            );
+          }
+
           return AlertDialog(
             title: Text(
               trByLang(
@@ -184,40 +327,81 @@ void showAdminAddStudentOrUserDialog(
               ),
             ),
             content: SizedBox(
-              width: 420,
+              width: 440,
               child: SingleChildScrollView(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    DropdownButtonFormField<UserRole>(
-                      initialValue: selectedRole,
-                      isExpanded: true,
-                      decoration: InputDecoration(
-                        labelText: trByLang(langCode, ar: 'نوع الحساب', he: 'סוג חשבון', en: 'Account Role'),
-                      ),
-                      items: [
-                        DropdownMenuItem(
-                          value: UserRole.student,
-                          child: Text(trByLang(langCode, ar: 'طالب (Student)', he: 'תלמיד', en: 'Student')),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        ChoiceChip(
+                          avatar: const Icon(Icons.face_rounded, size: 16),
+                          label: Text(trByLang(langCode, ar: 'طالب', he: 'תלמיד', en: 'Student')),
+                          selected: selectedRole == UserRole.student,
+                          onSelected: isSaving
+                              ? null
+                              : (_) => setDialogState(() {
+                                    selectedRole = UserRole.student;
+                                    errorMessage = null;
+                                  }),
                         ),
-                        DropdownMenuItem(
-                          value: UserRole.parent,
-                          child: Text(trByLang(langCode, ar: 'ولي أمر (Parent)', he: 'הורה', en: 'Parent')),
+                        ChoiceChip(
+                          avatar: const Icon(Icons.family_restroom_rounded, size: 16),
+                          label: Text(trByLang(langCode, ar: 'ولي أمر', he: 'הורה', en: 'Parent')),
+                          selected: selectedRole == UserRole.parent,
+                          onSelected: isSaving
+                              ? null
+                              : (_) => setDialogState(() {
+                                    selectedRole = UserRole.parent;
+                                    errorMessage = null;
+                                  }),
                         ),
-                        DropdownMenuItem(
-                          value: UserRole.teacher,
-                          child: Text(trByLang(langCode, ar: 'معلم / شيخ (Teacher)', he: 'מורה', en: 'Teacher')),
+                        ChoiceChip(
+                          avatar: const Icon(Icons.school_rounded, size: 16),
+                          label: Text(trByLang(langCode, ar: 'معلم / شيخ', he: 'מורה', en: 'Teacher')),
+                          selected: selectedRole == UserRole.teacher,
+                          onSelected: isSaving
+                              ? null
+                              : (_) => setDialogState(() {
+                                    selectedRole = UserRole.teacher;
+                                    errorMessage = null;
+                                  }),
                         ),
                       ],
-                      onChanged: (val) {
-                        if (val != null) {
-                          setDialogState(() {
-                            selectedRole = val;
-                          });
-                        }
-                      },
                     ),
+                    if (errorMessage != null) ...[
+                      const SizedBox(height: 10),
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: Colors.red.shade50,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.red.shade200),
+                        ),
+                        child: Text(
+                          errorMessage!,
+                          style: TextStyle(fontSize: 12, color: Colors.red.shade800),
+                        ),
+                      ),
+                    ],
+                    if (successMessage != null) ...[
+                      const SizedBox(height: 10),
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: Colors.green.shade50,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.green.shade200),
+                        ),
+                        child: Text(
+                          successMessage!,
+                          style: TextStyle(fontSize: 12, color: Colors.green.shade800),
+                        ),
+                      ),
+                    ],
                     const SizedBox(height: 12),
                     TextField(
                       controller: nameController,
@@ -227,19 +411,63 @@ void showAdminAddStudentOrUserDialog(
                     ),
                     if (selectedRole == UserRole.student) ...[
                       const SizedBox(height: 12),
-                      TextField(
-                        controller: parentNameController,
-                        decoration: InputDecoration(
-                          labelText: trByLang(langCode, ar: 'اسم ولي الأمر *', he: 'שם ההורה *', en: 'Parent Name *'),
+                      if (parents.isNotEmpty)
+                        DropdownButtonFormField<String>(
+                          initialValue: selectedParentId,
+                          isExpanded: true,
+                          decoration: InputDecoration(
+                            labelText: trByLang(
+                              langCode,
+                              ar: 'ربط بحساب ولي الأمر',
+                              he: 'שיוך לחשבון הורה',
+                              en: 'Link to Parent Account',
+                            ),
+                          ),
+                          items: [
+                            ...parents.map(
+                              (p) => DropdownMenuItem<String>(
+                                value: p.uid,
+                                child: Text('${p.fullName} (${p.email})', overflow: TextOverflow.ellipsis),
+                              ),
+                            ),
+                            DropdownMenuItem<String>(
+                              value: manualParentKey,
+                              child: Text(
+                                trByLang(
+                                  langCode,
+                                  ar: 'إدخال اسم ولي الأمر يدوياً',
+                                  he: 'הזנת שם הורה ידנית',
+                                  en: 'Enter parent name manually',
+                                ),
+                              ),
+                            ),
+                          ],
+                          onChanged: isSaving
+                              ? null
+                              : (val) {
+                                  if (val != null) {
+                                    setDialogState(() => selectedParentId = val);
+                                  }
+                                },
                         ),
-                      ),
+                      if (parents.isEmpty || selectedParentId == manualParentKey) ...[
+                        if (parents.isNotEmpty) const SizedBox(height: 12),
+                        TextField(
+                          controller: parentNameController,
+                          decoration: InputDecoration(
+                            labelText: trByLang(langCode, ar: 'اسم ولي الأمر', he: 'שם ההורה', en: 'Parent Name'),
+                          ),
+                        ),
+                      ],
                     ],
                     const SizedBox(height: 12),
                     TextField(
                       controller: emailController,
                       keyboardType: TextInputType.emailAddress,
                       decoration: InputDecoration(
-                        labelText: trByLang(langCode, ar: 'البريد الإلكتروني', he: 'דוא״ל', en: 'Email Address'),
+                        labelText: selectedRole == UserRole.student
+                            ? trByLang(langCode, ar: 'البريد الإلكتروني (اختياري للطالب)', he: 'דוא״ל (אופציונלי לתלמיד)', en: 'Email (Optional for Student)')
+                            : trByLang(langCode, ar: 'البريد الإلكتروني *', he: 'דוא״ל *', en: 'Email Address *'),
                       ),
                     ),
                     const SizedBox(height: 12),
@@ -268,46 +496,24 @@ void showAdminAddStudentOrUserDialog(
             ),
             actions: [
               TextButton(
-                onPressed: () => Navigator.of(dialogContext).pop(),
+                onPressed: isSaving ? null : () => Navigator.of(dialogContext).pop(),
                 child: Text(trByLang(langCode, ar: 'إلغاء', he: 'ביטול', en: 'Cancel')),
               ),
+              OutlinedButton(
+                onPressed: isSaving ? null : () => submit(keepOpen: true),
+                child: Text(
+                  trByLang(langCode, ar: 'حفظ وإضافة آخر', he: 'שמור והוסף עוד', en: 'Save & Add Another'),
+                ),
+              ),
               ElevatedButton(
-                onPressed: () async {
-                  if (nameController.text.trim().isEmpty) return;
-                  Navigator.of(dialogContext).pop();
-
-                  if (selectedRole == UserRole.student) {
-                    await ref.read(adminControllerProvider.notifier).createStudent(
-                          fullName: nameController.text.trim(),
-                          parentId: 'parent-default',
-                          parentName: parentNameController.text.trim().isEmpty
-                              ? 'ولي الأمر'
-                              : parentNameController.text.trim(),
-                          email: emailController.text.trim(),
-                          temporaryPassword: tempPasswordController.text.trim(),
-                          phoneNumber: phoneController.text.trim(),
-                        );
-                  } else {
-                    await ref.read(adminControllerProvider.notifier).createTeacherOrParent(
-                          email: emailController.text.trim(),
-                          temporaryPassword: tempPasswordController.text.trim(),
-                          fullName: nameController.text.trim(),
-                          role: selectedRole,
-                          phoneNumber: phoneController.text.trim(),
-                        );
-                  }
-
-                  messenger?.showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        trByLang(langCode, ar: 'تمت الإضافة بنجاح!', he: 'נוסף בהצלחה!', en: 'Created successfully!'),
-                      ),
-                      backgroundColor: DarAlFajrTheme.primary,
-                      behavior: SnackBarBehavior.floating,
-                    ),
-                  );
-                },
-                child: Text(trByLang(langCode, ar: 'حفظ وإضافة', he: 'שמור', en: 'Save')),
+                onPressed: isSaving ? null : () => submit(keepOpen: false),
+                child: isSaving
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                      )
+                    : Text(trByLang(langCode, ar: 'حفظ وإضافة', he: 'שמור', en: 'Save')),
               ),
             ],
           );
@@ -415,6 +621,9 @@ void showAdminGroupFormDialog(
             : (isDemoFallback ? 'الشيخ عبد الرحمن' : '')),
   );
   final messenger = ScaffoldMessenger.maybeOf(context);
+  bool isSaving = false;
+  String? errorMessage;
+  String? successMessage;
 
   showDialog<void>(
     context: context,
@@ -422,6 +631,134 @@ void showAdminGroupFormDialog(
       return StatefulBuilder(
         builder: (context, setDialogState) {
           final orderedSelectedDays = adminWeekDaysAr.where(selectedDays.contains).toList();
+
+          Future<void> submitGroup({required bool keepOpen}) async {
+            final groupName = nameController.text.trim();
+            if (groupName.isEmpty) {
+              setDialogState(() {
+                errorMessage = trByLang(
+                  langCode,
+                  ar: 'يرجى إدخال اسم الحلقة.',
+                  he: 'נא להזין שם קבוצה.',
+                  en: 'Please enter the group name.',
+                );
+              });
+              return;
+            }
+
+            setDialogState(() {
+              isSaving = true;
+              errorMessage = null;
+              successMessage = null;
+            });
+
+            final enteredTeacher = teacherController.text.trim();
+            final matchedTeacher = teachers
+                .where(
+                  (t) =>
+                      t.uid == selectedTeacherId ||
+                      t.fullName == enteredTeacher,
+                )
+                .firstOrNull;
+            final parsedCapacity =
+                (int.tryParse(capacityController.text.trim()) ?? 15)
+                    .clamp(1, 200);
+
+            final slots = orderedSelectedDays.map((day) {
+              final s = customPerDayTimes
+                  ? perDayStartCtrls[day]!.text.trim()
+                  : startTimeController.text.trim();
+              final e = customPerDayTimes
+                  ? perDayEndCtrls[day]!.text.trim()
+                  : endTimeController.text.trim();
+              return GroupScheduleSlot(
+                day: day,
+                startTime: s.isNotEmpty ? s : startTimeController.text.trim(),
+                endTime: e.isNotEmpty ? e : endTimeController.text.trim(),
+              );
+            }).toList();
+
+            final resolvedStart = slots.firstOrNull?.startTime ?? startTimeController.text.trim();
+            final resolvedEnd = slots.firstOrNull?.endTime ?? endTimeController.text.trim();
+            final resolvedTeacherId = matchedTeacher?.uid ??
+                (existingGroup?.teacherId.isNotEmpty == true
+                    ? existingGroup!.teacherId
+                    : (isDemoFallback ? 'teacher-1' : ''));
+            final resolvedTeacherName = matchedTeacher?.fullName ?? enteredTeacher;
+
+            if (isEditing) {
+              await ref.read(adminControllerProvider.notifier).updateGroup(
+                    groupId: existingGroup.id,
+                    name: groupName,
+                    track: selectedTrack,
+                    teacherId: resolvedTeacherId,
+                    teacherName: resolvedTeacherName,
+                    scheduleDays: orderedSelectedDays,
+                    startTime: resolvedStart,
+                    endTime: resolvedEnd,
+                    scheduleSlots: slots,
+                    capacity: parsedCapacity,
+                  );
+            } else {
+              await ref.read(adminControllerProvider.notifier).createGroup(
+                    name: groupName,
+                    track: selectedTrack,
+                    teacherId: resolvedTeacherId,
+                    teacherName: resolvedTeacherName,
+                    scheduleDays: orderedSelectedDays,
+                    startTime: resolvedStart,
+                    endTime: resolvedEnd,
+                    scheduleSlots: slots,
+                    capacity: parsedCapacity,
+                  );
+            }
+
+            if (!dialogContext.mounted) return;
+            final ctrlState = ref.read(adminControllerProvider);
+            if (ctrlState.hasError) {
+              setDialogState(() {
+                isSaving = false;
+                errorMessage = ctrlState.error.toString();
+              });
+              return;
+            }
+
+            if (keepOpen && !isEditing) {
+              nameController.clear();
+              setDialogState(() {
+                isSaving = false;
+                successMessage = trByLang(
+                  langCode,
+                  ar: 'تم إنشاء "$groupName"! يمكنك إنشاء الحلقة التالية الآن.',
+                  he: '"$groupName" נוצרה! ניתן ליצור את הקבוצה הבאה.',
+                  en: 'Created "$groupName"! Ready for the next group.',
+                );
+              });
+              return;
+            }
+
+            Navigator.of(dialogContext).pop();
+            messenger?.showSnackBar(
+              SnackBar(
+                content: Text(
+                  isEditing
+                      ? trByLang(
+                          langCode,
+                          ar: 'تم تحديث بيانات وجدول الحلقة بنجاح!',
+                          he: 'הקבוצה עודכנה בהצלחה!',
+                          en: 'Study group updated successfully!',
+                        )
+                      : trByLang(
+                          langCode,
+                          ar: 'تم إنشاء الحلقة بنجاح!',
+                          he: 'הקבוצה נוצרה בהצלחה!',
+                          en: 'Study group created successfully!',
+                        ),
+                ),
+                backgroundColor: DarAlFajrTheme.primary,
+              ),
+            );
+          }
 
           return AlertDialog(
             title: Text(
@@ -446,6 +783,36 @@ void showAdminGroupFormDialog(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
+                    if (errorMessage != null) ...[
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        margin: const EdgeInsets.only(bottom: 10),
+                        decoration: BoxDecoration(
+                          color: Colors.red.shade50,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.red.shade200),
+                        ),
+                        child: Text(
+                          errorMessage!,
+                          style: TextStyle(fontSize: 12, color: Colors.red.shade800),
+                        ),
+                      ),
+                    ],
+                    if (successMessage != null) ...[
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        margin: const EdgeInsets.only(bottom: 10),
+                        decoration: BoxDecoration(
+                          color: Colors.green.shade50,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.green.shade200),
+                        ),
+                        child: Text(
+                          successMessage!,
+                          style: TextStyle(fontSize: 12, color: Colors.green.shade800),
+                        ),
+                      ),
+                    ],
                     TextField(
                       controller: nameController,
                       decoration: InputDecoration(
@@ -612,6 +979,10 @@ void showAdminGroupFormDialog(
                                   he: 'שעת התחלה',
                                   en: 'Start Time',
                                 ),
+                                suffixIcon: IconButton(
+                                  icon: const Icon(Icons.access_time_rounded, size: 18),
+                                  onPressed: () => _pickAdminTime(dialogContext, startTimeController),
+                                ),
                               ),
                             ),
                           ),
@@ -625,6 +996,10 @@ void showAdminGroupFormDialog(
                                   ar: 'وقت الانتهاء',
                                   he: 'שעת סיום',
                                   en: 'End Time',
+                                ),
+                                suffixIcon: IconButton(
+                                  icon: const Icon(Icons.access_time_rounded, size: 18),
+                                  onPressed: () => _pickAdminTime(dialogContext, endTimeController),
                                 ),
                               ),
                             ),
@@ -668,6 +1043,10 @@ void showAdminGroupFormDialog(
                                   decoration: InputDecoration(
                                     isDense: true,
                                     labelText: trByLang(langCode, ar: 'البدء', he: 'התחלה', en: 'Start'),
+                                    suffixIcon: IconButton(
+                                      icon: const Icon(Icons.access_time_rounded, size: 16),
+                                      onPressed: () => _pickAdminTime(dialogContext, perDayStartCtrls[day]!),
+                                    ),
                                   ),
                                 ),
                               ),
@@ -678,6 +1057,10 @@ void showAdminGroupFormDialog(
                                   decoration: InputDecoration(
                                     isDense: true,
                                     labelText: trByLang(langCode, ar: 'الانتهاء', he: 'סיום', en: 'End'),
+                                    suffixIcon: IconButton(
+                                      icon: const Icon(Icons.access_time_rounded, size: 16),
+                                      onPressed: () => _pickAdminTime(dialogContext, perDayEndCtrls[day]!),
+                                    ),
                                   ),
                                 ),
                               ),
@@ -705,99 +1088,29 @@ void showAdminGroupFormDialog(
             ),
             actions: [
               TextButton(
-                onPressed: () => Navigator.of(dialogContext).pop(),
+                onPressed: isSaving ? null : () => Navigator.of(dialogContext).pop(),
                 child: Text(
                   trByLang(langCode, ar: 'إلغاء', he: 'ביטול', en: 'Cancel'),
                 ),
               ),
-              ElevatedButton(
-                onPressed: () async {
-                  if (nameController.text.trim().isEmpty) return;
-                  final enteredTeacher = teacherController.text.trim();
-                  final matchedTeacher = teachers
-                      .where(
-                        (t) =>
-                            t.uid == selectedTeacherId ||
-                            t.fullName == enteredTeacher,
-                      )
-                      .firstOrNull;
-                  final parsedCapacity =
-                      (int.tryParse(capacityController.text.trim()) ?? 15)
-                          .clamp(1, 200);
-
-                  final slots = orderedSelectedDays.map((day) {
-                    final s = customPerDayTimes
-                        ? perDayStartCtrls[day]!.text.trim()
-                        : startTimeController.text.trim();
-                    final e = customPerDayTimes
-                        ? perDayEndCtrls[day]!.text.trim()
-                        : endTimeController.text.trim();
-                    return GroupScheduleSlot(
-                      day: day,
-                      startTime: s.isNotEmpty ? s : startTimeController.text.trim(),
-                      endTime: e.isNotEmpty ? e : endTimeController.text.trim(),
-                    );
-                  }).toList();
-
-                  final resolvedStart = slots.firstOrNull?.startTime ?? startTimeController.text.trim();
-                  final resolvedEnd = slots.firstOrNull?.endTime ?? endTimeController.text.trim();
-                  final resolvedTeacherId = matchedTeacher?.uid ??
-                      (existingGroup?.teacherId.isNotEmpty == true
-                          ? existingGroup!.teacherId
-                          : (isDemoFallback ? 'teacher-1' : ''));
-                  final resolvedTeacherName = matchedTeacher?.fullName ?? enteredTeacher;
-
-                  Navigator.of(dialogContext).pop();
-                  if (isEditing) {
-                    await ref.read(adminControllerProvider.notifier).updateGroup(
-                          groupId: existingGroup.id,
-                          name: nameController.text.trim(),
-                          track: selectedTrack,
-                          teacherId: resolvedTeacherId,
-                          teacherName: resolvedTeacherName,
-                          scheduleDays: orderedSelectedDays,
-                          startTime: resolvedStart,
-                          endTime: resolvedEnd,
-                          scheduleSlots: slots,
-                          capacity: parsedCapacity,
-                        );
-                  } else {
-                    await ref.read(adminControllerProvider.notifier).createGroup(
-                          name: nameController.text.trim(),
-                          track: selectedTrack,
-                          teacherId: resolvedTeacherId,
-                          teacherName: resolvedTeacherName,
-                          scheduleDays: orderedSelectedDays,
-                          startTime: resolvedStart,
-                          endTime: resolvedEnd,
-                          scheduleSlots: slots,
-                          capacity: parsedCapacity,
-                        );
-                  }
-                  messenger?.showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        isEditing
-                            ? trByLang(
-                                langCode,
-                                ar: 'تم تحديث بيانات وجدول الحلقة بنجاح!',
-                                he: 'הקבוצה עודכנה בהצלחה!',
-                                en: 'Study group updated successfully!',
-                              )
-                            : trByLang(
-                                langCode,
-                                ar: 'تم إنشاء الحلقة بنجاح!',
-                                he: 'הקבוצה נוצרה בהצלחה!',
-                                en: 'Study group created successfully!',
-                              ),
-                      ),
-                      backgroundColor: DarAlFajrTheme.primary,
-                    ),
-                  );
-                },
-                child: Text(
-                  trByLang(langCode, ar: 'حفظ الحلقة', he: 'שמור', en: 'Save Group'),
+              if (!isEditing)
+                OutlinedButton(
+                  onPressed: isSaving ? null : () => submitGroup(keepOpen: true),
+                  child: Text(
+                    trByLang(langCode, ar: 'حفظ وإضافة أخرى', he: 'שמור והוסף עוד', en: 'Save & Add Another'),
+                  ),
                 ),
+              ElevatedButton(
+                onPressed: isSaving ? null : () => submitGroup(keepOpen: false),
+                child: isSaving
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                      )
+                    : Text(
+                        trByLang(langCode, ar: 'حفظ الحلقة', he: 'שמור', en: 'Save Group'),
+                      ),
               ),
             ],
           );
