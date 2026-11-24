@@ -177,347 +177,481 @@ Future<void> _pickAdminTime(
   }
 }
 
+Future<void> _showAdminFormSheet({
+  required BuildContext context,
+  required Widget Function(BuildContext sheetContext, StateSetter setSheetState) builder,
+}) {
+  final isRtl = Directionality.of(context) == TextDirection.rtl;
+  return showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    useSafeArea: true,
+    backgroundColor: Colors.transparent,
+    builder: (sheetContext) {
+      return Directionality(
+        textDirection: isRtl ? TextDirection.rtl : TextDirection.ltr,
+        child: Align(
+          alignment: Alignment.bottomCenter,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 560),
+            child: Material(
+              color: Colors.white,
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+              elevation: 12,
+              clipBehavior: Clip.antiAlias,
+              child: Padding(
+                padding: EdgeInsets.only(
+                  left: 20,
+                  right: 20,
+                  top: 12,
+                  bottom: MediaQuery.of(sheetContext).viewInsets.bottom + 20,
+                ),
+                child: StatefulBuilder(
+                  builder: (ctx, setSheetState) => builder(sheetContext, setSheetState),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    },
+  );
+}
+
+Widget _buildSheetHeader(BuildContext sheetContext, String title) {
+  return Column(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      Center(
+        child: Container(
+          width: 40,
+          height: 4,
+          margin: const EdgeInsets.only(bottom: 12),
+          decoration: BoxDecoration(
+            color: Colors.grey.shade300,
+            borderRadius: BorderRadius.circular(2),
+          ),
+        ),
+      ),
+      Row(
+        children: [
+          Expanded(
+            child: Text(
+              title,
+              style: const TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: DarAlFajrTheme.onSurface,
+              ),
+            ),
+          ),
+          IconButton(
+            onPressed: () => Navigator.of(sheetContext).pop(),
+            icon: const Icon(Icons.close_rounded),
+            style: IconButton.styleFrom(
+              backgroundColor: const Color(0xFFE6E8EA),
+              foregroundColor: const Color(0xFF3D4947),
+            ),
+          ),
+        ],
+      ),
+      const SizedBox(height: 12),
+    ],
+  );
+}
+
 void showAdminAddStudentOrUserDialog(
   BuildContext context,
   WidgetRef ref,
   String langCode, {
   UserRole initialRole = UserRole.student,
+  StudentProfile? existingStudent,
 }) {
+  final isEditingStudent = existingStudent != null;
   final parents = ref.read(adminParentsProvider).value ?? const <AppUser>[];
-  final nameController = TextEditingController();
-  final parentNameController = TextEditingController();
-  final emailController = TextEditingController();
+  final nameController = TextEditingController(text: existingStudent?.fullName ?? '');
+  final parentNameController = TextEditingController(text: existingStudent?.parentName ?? '');
+  final emailController = TextEditingController(text: existingStudent?.email ?? '');
   final tempPasswordController = TextEditingController(text: 'Fajr@2026');
-  final phoneController = TextEditingController();
-  UserRole selectedRole = initialRole == UserRole.admin ? UserRole.teacher : initialRole;
+  final phoneController = TextEditingController(text: existingStudent?.phoneNumber ?? '');
+  UserRole selectedRole = isEditingStudent
+      ? UserRole.student
+      : (initialRole == UserRole.admin ? UserRole.teacher : initialRole);
   const manualParentKey = '__manual__';
-  String selectedParentId = parents.isNotEmpty ? parents.first.uid : manualParentKey;
+  String selectedParentId;
+  if (isEditingStudent) {
+    final hasMatchingParent = parents.any((p) => p.uid == existingStudent.parentId);
+    selectedParentId = hasMatchingParent ? existingStudent.parentId : manualParentKey;
+  } else {
+    selectedParentId = parents.isNotEmpty ? parents.first.uid : manualParentKey;
+  }
   bool isSaving = false;
   String? errorMessage;
   String? successMessage;
   final messenger = ScaffoldMessenger.maybeOf(context);
 
-  showDialog<void>(
+  _showAdminFormSheet(
     context: context,
-    builder: (dialogContext) {
-      return StatefulBuilder(
-        builder: (context, setDialogState) {
-          Future<void> submit({required bool keepOpen}) async {
-            final fullName = nameController.text.trim();
-            final email = emailController.text.trim();
-            final tempPass = tempPasswordController.text.trim();
-            final phone = phoneController.text.trim();
+    builder: (sheetContext, setSheetState) {
+      Future<void> submit({required bool keepOpen}) async {
+        final fullName = nameController.text.trim();
+        final email = emailController.text.trim();
+        final tempPass = tempPasswordController.text.trim();
+        final phone = phoneController.text.trim();
 
-            if (fullName.isEmpty) {
-              setDialogState(() {
-                errorMessage = trByLang(
-                  langCode,
-                  ar: 'يرجى إدخال الاسم الكامل.',
-                  he: 'נא להזין שם מלא.',
-                  en: 'Please enter the full name.',
-                );
-              });
-              return;
-            }
-
-            if (selectedRole != UserRole.student && (email.isEmpty || !email.contains('@'))) {
-              setDialogState(() {
-                errorMessage = trByLang(
-                  langCode,
-                  ar: 'البريد الإلكتروني مطلوب لحسابات المعلمين وأولياء الأمور.',
-                  he: 'נדרש אימייל תקין לחשבונות מורים והורים.',
-                  en: 'A valid email is required for Teacher and Parent accounts.',
-                );
-              });
-              return;
-            }
-
-            if ((selectedRole != UserRole.student || email.isNotEmpty) && tempPass.length < 6) {
-              setDialogState(() {
-                errorMessage = trByLang(
-                  langCode,
-                  ar: 'كلمة المرور المؤقتة يجب أن تكون 6 أحرف على الأقل.',
-                  he: 'הסיסמה הזמנית חייבת להכיל לפחות 6 תווים.',
-                  en: 'Temporary password must be at least 6 characters.',
-                );
-              });
-              return;
-            }
-
-            setDialogState(() {
-              isSaving = true;
-              errorMessage = null;
-              successMessage = null;
-            });
-
-            if (selectedRole == UserRole.student) {
-              final linkedParent = parents.where((p) => p.uid == selectedParentId).firstOrNull;
-              final resolvedParentId = linkedParent?.uid ?? 'parent-default';
-              final resolvedParentName = linkedParent?.fullName ??
-                  (parentNameController.text.trim().isEmpty
-                      ? 'ولي الأمر'
-                      : parentNameController.text.trim());
-
-              await ref.read(adminControllerProvider.notifier).createStudent(
-                    fullName: fullName,
-                    parentId: resolvedParentId,
-                    parentName: resolvedParentName,
-                    email: email,
-                    temporaryPassword: tempPass,
-                    phoneNumber: phone.isNotEmpty ? phone : linkedParent?.phoneNumber,
-                  );
-            } else {
-              await ref.read(adminControllerProvider.notifier).createTeacherOrParent(
-                    email: email,
-                    temporaryPassword: tempPass,
-                    fullName: fullName,
-                    role: selectedRole,
-                    phoneNumber: phone,
-                    preferredLanguage: langCode,
-                  );
-            }
-
-            if (!dialogContext.mounted) return;
-
-            final ctrlState = ref.read(adminControllerProvider);
-            if (ctrlState.hasError) {
-              setDialogState(() {
-                isSaving = false;
-                errorMessage = ctrlState.error.toString();
-              });
-              return;
-            }
-
-            if (keepOpen) {
-              nameController.clear();
-              emailController.clear();
-              phoneController.clear();
-              parentNameController.clear();
-              setDialogState(() {
-                isSaving = false;
-                successMessage = trByLang(
-                  langCode,
-                  ar: 'تمت إضافة "$fullName" بنجاح! يمكنك إضافة التالي الآن.',
-                  he: '"$fullName" נוסף בהצלחה! ניתן להוסיף את הבא.',
-                  en: 'Added "$fullName"! Ready for the next entry.',
-                );
-              });
-              return;
-            }
-
-            Navigator.of(dialogContext).pop();
-            messenger?.showSnackBar(
-              SnackBar(
-                content: Text(
-                  trByLang(langCode, ar: 'تمت الإضافة بنجاح!', he: 'נוסף בהצלחה!', en: 'Created successfully!'),
-                ),
-                backgroundColor: DarAlFajrTheme.primary,
-                behavior: SnackBarBehavior.floating,
-              ),
+        if (fullName.isEmpty) {
+          setSheetState(() {
+            errorMessage = trByLang(
+              langCode,
+              ar: 'يرجى إدخال الاسم الكامل.',
+              he: 'נא להזין שם מלא.',
+              en: 'Please enter the full name.',
             );
-          }
+          });
+          return;
+        }
 
-          return AlertDialog(
-            title: Text(
-              trByLang(
-                langCode,
-                ar: 'إضافة طالب أو مستخدم جديد',
-                he: 'הוספת תלמיד או משתמש חדש',
-                en: 'Add New Student or User',
+        if (!isEditingStudent &&
+            selectedRole != UserRole.student &&
+            (email.isEmpty || !email.contains('@'))) {
+          setSheetState(() {
+            errorMessage = trByLang(
+              langCode,
+              ar: 'البريد الإلكتروني مطلوب لحسابات المعلمين وأولياء الأمور.',
+              he: 'נדרש אימייל תקין לחשבונות מורים והורים.',
+              en: 'A valid email is required for Teacher and Parent accounts.',
+            );
+          });
+          return;
+        }
+
+        if (!isEditingStudent &&
+            (selectedRole != UserRole.student || email.isNotEmpty) &&
+            tempPass.length < 6) {
+          setSheetState(() {
+            errorMessage = trByLang(
+              langCode,
+              ar: 'كلمة المرور المؤقتة يجب أن تكون 6 أحرف على الأقل.',
+              he: 'הסיסמה הזמנית חייבת להכיל לפחות 6 תווים.',
+              en: 'Temporary password must be at least 6 characters.',
+            );
+          });
+          return;
+        }
+
+        setSheetState(() {
+          isSaving = true;
+          errorMessage = null;
+          successMessage = null;
+        });
+
+        if (isEditingStudent) {
+          final linkedParent = parents.where((p) => p.uid == selectedParentId).firstOrNull;
+          final resolvedParentId = linkedParent?.uid ?? existingStudent.parentId;
+          final resolvedParentName = linkedParent?.fullName ??
+              (parentNameController.text.trim().isEmpty
+                  ? existingStudent.parentName
+                  : parentNameController.text.trim());
+
+          await ref.read(adminControllerProvider.notifier).updateStudent(
+                studentId: existingStudent.id,
+                fullName: fullName,
+                parentId: resolvedParentId,
+                parentName: resolvedParentName,
+                email: email,
+                phoneNumber: phone,
+              );
+        } else if (selectedRole == UserRole.student) {
+          final linkedParent = parents.where((p) => p.uid == selectedParentId).firstOrNull;
+          final resolvedParentId = linkedParent?.uid ?? 'parent-default';
+          final resolvedParentName = linkedParent?.fullName ??
+              (parentNameController.text.trim().isEmpty
+                  ? 'ولي الأمر'
+                  : parentNameController.text.trim());
+
+          await ref.read(adminControllerProvider.notifier).createStudent(
+                fullName: fullName,
+                parentId: resolvedParentId,
+                parentName: resolvedParentName,
+                email: email,
+                temporaryPassword: tempPass,
+                phoneNumber: phone.isNotEmpty ? phone : linkedParent?.phoneNumber,
+              );
+        } else {
+          await ref.read(adminControllerProvider.notifier).createTeacherOrParent(
+                email: email,
+                temporaryPassword: tempPass,
+                fullName: fullName,
+                role: selectedRole,
+                phoneNumber: phone,
+                preferredLanguage: langCode,
+              );
+        }
+
+        if (!sheetContext.mounted) return;
+
+        final ctrlState = ref.read(adminControllerProvider);
+        if (ctrlState.hasError) {
+          setSheetState(() {
+            isSaving = false;
+            errorMessage = ctrlState.error.toString();
+          });
+          return;
+        }
+
+        if (keepOpen && !isEditingStudent) {
+          nameController.clear();
+          emailController.clear();
+          phoneController.clear();
+          parentNameController.clear();
+          setSheetState(() {
+            isSaving = false;
+            successMessage = trByLang(
+              langCode,
+              ar: 'تمت إضافة "$fullName" بنجاح! يمكنك إضافة التالي الآن.',
+              he: '"$fullName" נוסף בהצלחה! ניתן להוסיף את הבא.',
+              en: 'Added "$fullName"! Ready for the next entry.',
+            );
+          });
+          return;
+        }
+
+        Navigator.of(sheetContext).pop();
+        messenger?.showSnackBar(
+          SnackBar(
+            content: Text(
+              isEditingStudent
+                  ? trByLang(langCode, ar: 'تم تحديث بيانات الطالب بنجاح!', he: 'פרטי התלמיד עודכנו בהצלחה!', en: 'Student updated successfully!')
+                  : trByLang(langCode, ar: 'تمت الإضافة بنجاح!', he: 'נוסף בהצלחה!', en: 'Created successfully!'),
+            ),
+            backgroundColor: DarAlFajrTheme.primary,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+
+      return SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _buildSheetHeader(
+              sheetContext,
+              isEditingStudent
+                  ? trByLang(
+                      langCode,
+                      ar: 'تعديل بيانات الطالب',
+                      he: 'עריכת פרטי תלמיד',
+                      en: 'Edit Student Profile',
+                    )
+                  : trByLang(
+                      langCode,
+                      ar: 'إضافة طالب أو مستخدم جديد',
+                      he: 'הוספת תלמיד או משתמש חדש',
+                      en: 'Add New Student or User',
+                    ),
+            ),
+            if (!isEditingStudent)
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  ChoiceChip(
+                    avatar: const Icon(Icons.face_rounded, size: 16),
+                    label: Text(trByLang(langCode, ar: 'طالب', he: 'תלמיד', en: 'Student')),
+                    selected: selectedRole == UserRole.student,
+                    onSelected: isSaving
+                        ? null
+                        : (_) => setSheetState(() {
+                              selectedRole = UserRole.student;
+                              errorMessage = null;
+                            }),
+                  ),
+                  ChoiceChip(
+                    avatar: const Icon(Icons.family_restroom_rounded, size: 16),
+                    label: Text(trByLang(langCode, ar: 'ولي أمر', he: 'הורה', en: 'Parent')),
+                    selected: selectedRole == UserRole.parent,
+                    onSelected: isSaving
+                        ? null
+                        : (_) => setSheetState(() {
+                              selectedRole = UserRole.parent;
+                              errorMessage = null;
+                            }),
+                  ),
+                  ChoiceChip(
+                    avatar: const Icon(Icons.school_rounded, size: 16),
+                    label: Text(trByLang(langCode, ar: 'معلم / شيخ', he: 'מורה', en: 'Teacher')),
+                    selected: selectedRole == UserRole.teacher,
+                    onSelected: isSaving
+                        ? null
+                        : (_) => setSheetState(() {
+                              selectedRole = UserRole.teacher;
+                              errorMessage = null;
+                            }),
+                  ),
+                ],
+              ),
+            if (errorMessage != null) ...[
+              const SizedBox(height: 10),
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.red.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.red.shade200),
+                ),
+                child: Text(
+                  errorMessage!,
+                  style: TextStyle(fontSize: 12, color: Colors.red.shade800),
+                ),
+              ),
+            ],
+            if (successMessage != null) ...[
+              const SizedBox(height: 10),
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.green.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.green.shade200),
+                ),
+                child: Text(
+                  successMessage!,
+                  style: TextStyle(fontSize: 12, color: Colors.green.shade800),
+                ),
+              ),
+            ],
+            const SizedBox(height: 12),
+            TextField(
+              controller: nameController,
+              decoration: InputDecoration(
+                labelText: trByLang(langCode, ar: 'الاسم الكامل *', he: 'שם מלא *', en: 'Full Name *'),
               ),
             ),
-            content: SizedBox(
-              width: 440,
-              child: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: [
-                        ChoiceChip(
-                          avatar: const Icon(Icons.face_rounded, size: 16),
-                          label: Text(trByLang(langCode, ar: 'طالب', he: 'תלמיד', en: 'Student')),
-                          selected: selectedRole == UserRole.student,
-                          onSelected: isSaving
-                              ? null
-                              : (_) => setDialogState(() {
-                                    selectedRole = UserRole.student;
-                                    errorMessage = null;
-                                  }),
-                        ),
-                        ChoiceChip(
-                          avatar: const Icon(Icons.family_restroom_rounded, size: 16),
-                          label: Text(trByLang(langCode, ar: 'ولي أمر', he: 'הורה', en: 'Parent')),
-                          selected: selectedRole == UserRole.parent,
-                          onSelected: isSaving
-                              ? null
-                              : (_) => setDialogState(() {
-                                    selectedRole = UserRole.parent;
-                                    errorMessage = null;
-                                  }),
-                        ),
-                        ChoiceChip(
-                          avatar: const Icon(Icons.school_rounded, size: 16),
-                          label: Text(trByLang(langCode, ar: 'معلم / شيخ', he: 'מורה', en: 'Teacher')),
-                          selected: selectedRole == UserRole.teacher,
-                          onSelected: isSaving
-                              ? null
-                              : (_) => setDialogState(() {
-                                    selectedRole = UserRole.teacher;
-                                    errorMessage = null;
-                                  }),
-                        ),
-                      ],
+            if (selectedRole == UserRole.student) ...[
+              const SizedBox(height: 12),
+              if (parents.isNotEmpty)
+                DropdownButtonFormField<String>(
+                  initialValue: selectedParentId,
+                  isExpanded: true,
+                  decoration: InputDecoration(
+                    labelText: trByLang(
+                      langCode,
+                      ar: 'ربط بحساب ولي الأمر',
+                      he: 'שיוך לחשבון הורה',
+                      en: 'Link to Parent Account',
                     ),
-                    if (errorMessage != null) ...[
-                      const SizedBox(height: 10),
-                      Container(
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          color: Colors.red.shade50,
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: Colors.red.shade200),
-                        ),
-                        child: Text(
-                          errorMessage!,
-                          style: TextStyle(fontSize: 12, color: Colors.red.shade800),
-                        ),
-                      ),
-                    ],
-                    if (successMessage != null) ...[
-                      const SizedBox(height: 10),
-                      Container(
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          color: Colors.green.shade50,
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: Colors.green.shade200),
-                        ),
-                        child: Text(
-                          successMessage!,
-                          style: TextStyle(fontSize: 12, color: Colors.green.shade800),
-                        ),
-                      ),
-                    ],
-                    const SizedBox(height: 12),
-                    TextField(
-                      controller: nameController,
-                      decoration: InputDecoration(
-                        labelText: trByLang(langCode, ar: 'الاسم الكامل *', he: 'שם מלא *', en: 'Full Name *'),
+                  ),
+                  items: [
+                    ...parents.map(
+                      (p) => DropdownMenuItem<String>(
+                        value: p.uid,
+                        child: Text('${p.fullName} (${p.email})', overflow: TextOverflow.ellipsis),
                       ),
                     ),
-                    if (selectedRole == UserRole.student) ...[
-                      const SizedBox(height: 12),
-                      if (parents.isNotEmpty)
-                        DropdownButtonFormField<String>(
-                          initialValue: selectedParentId,
-                          isExpanded: true,
-                          decoration: InputDecoration(
-                            labelText: trByLang(
-                              langCode,
-                              ar: 'ربط بحساب ولي الأمر',
-                              he: 'שיוך לחשבון הורה',
-                              en: 'Link to Parent Account',
-                            ),
-                          ),
-                          items: [
-                            ...parents.map(
-                              (p) => DropdownMenuItem<String>(
-                                value: p.uid,
-                                child: Text('${p.fullName} (${p.email})', overflow: TextOverflow.ellipsis),
-                              ),
-                            ),
-                            DropdownMenuItem<String>(
-                              value: manualParentKey,
-                              child: Text(
-                                trByLang(
-                                  langCode,
-                                  ar: 'إدخال اسم ولي الأمر يدوياً',
-                                  he: 'הזנת שם הורה ידנית',
-                                  en: 'Enter parent name manually',
-                                ),
-                              ),
-                            ),
-                          ],
-                          onChanged: isSaving
-                              ? null
-                              : (val) {
-                                  if (val != null) {
-                                    setDialogState(() => selectedParentId = val);
-                                  }
-                                },
-                        ),
-                      if (parents.isEmpty || selectedParentId == manualParentKey) ...[
-                        if (parents.isNotEmpty) const SizedBox(height: 12),
-                        TextField(
-                          controller: parentNameController,
-                          decoration: InputDecoration(
-                            labelText: trByLang(langCode, ar: 'اسم ولي الأمر', he: 'שם ההורה', en: 'Parent Name'),
-                          ),
-                        ),
-                      ],
-                    ],
-                    const SizedBox(height: 12),
-                    TextField(
-                      controller: emailController,
-                      keyboardType: TextInputType.emailAddress,
-                      decoration: InputDecoration(
-                        labelText: selectedRole == UserRole.student
-                            ? trByLang(langCode, ar: 'البريد الإلكتروني (اختياري للطالب)', he: 'דוא״ל (אופציונלי לתלמיד)', en: 'Email (Optional for Student)')
-                            : trByLang(langCode, ar: 'البريد الإلكتروني *', he: 'דוא״ל *', en: 'Email Address *'),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    TextField(
-                      controller: tempPasswordController,
-                      decoration: InputDecoration(
-                        labelText: trByLang(
+                    DropdownMenuItem<String>(
+                      value: manualParentKey,
+                      child: Text(
+                        trByLang(
                           langCode,
-                          ar: 'كلمة المرور المؤقتة (للدخول الأول)',
-                          he: 'סיסמה זמנית',
-                          en: 'Temporary Password (First-Login)',
+                          ar: 'إدخال اسم ولي الأمر يدوياً',
+                          he: 'הזנת שם הורה ידנית',
+                          en: 'Enter parent name manually',
                         ),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    TextField(
-                      controller: phoneController,
-                      keyboardType: TextInputType.phone,
-                      decoration: InputDecoration(
-                        labelText: trByLang(langCode, ar: 'رقم الهاتف', he: 'מספר טלפון', en: 'Phone Number'),
                       ),
                     ),
                   ],
+                  onChanged: isSaving
+                      ? null
+                      : (val) {
+                          if (val != null) {
+                            setSheetState(() => selectedParentId = val);
+                          }
+                        },
                 ),
+              if (parents.isEmpty || selectedParentId == manualParentKey) ...[
+                if (parents.isNotEmpty) const SizedBox(height: 12),
+                TextField(
+                  controller: parentNameController,
+                  decoration: InputDecoration(
+                    labelText: trByLang(langCode, ar: 'اسم ولي الأمر', he: 'שם ההורה', en: 'Parent Name'),
+                  ),
+                ),
+              ],
+            ],
+            const SizedBox(height: 12),
+            TextField(
+              controller: emailController,
+              keyboardType: TextInputType.emailAddress,
+              decoration: InputDecoration(
+                labelText: selectedRole == UserRole.student
+                    ? trByLang(langCode, ar: 'البريد الإلكتروني (اختياري للطالب)', he: 'דוא״ל (אופציונלי לתלמיד)', en: 'Email (Optional for Student)')
+                    : trByLang(langCode, ar: 'البريد الإلكتروني *', he: 'דוא״ל *', en: 'Email Address *'),
               ),
             ),
-            actions: [
-              TextButton(
-                onPressed: isSaving ? null : () => Navigator.of(dialogContext).pop(),
-                child: Text(trByLang(langCode, ar: 'إلغاء', he: 'ביטול', en: 'Cancel')),
-              ),
-              OutlinedButton(
-                onPressed: isSaving ? null : () => submit(keepOpen: true),
-                child: Text(
-                  trByLang(langCode, ar: 'حفظ وإضافة آخر', he: 'שמור והוסף עוד', en: 'Save & Add Another'),
+            if (!isEditingStudent) ...[
+              const SizedBox(height: 12),
+              TextField(
+                controller: tempPasswordController,
+                decoration: InputDecoration(
+                  labelText: trByLang(
+                    langCode,
+                    ar: 'كلمة المرور المؤقتة (للدخول الأول)',
+                    he: 'סיסמה זמנית',
+                    en: 'Temporary Password (First-Login)',
+                  ),
                 ),
               ),
-              ElevatedButton(
-                onPressed: isSaving ? null : () => submit(keepOpen: false),
-                child: isSaving
-                    ? const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                      )
-                    : Text(trByLang(langCode, ar: 'حفظ وإضافة', he: 'שמור', en: 'Save')),
-              ),
             ],
-          );
-        },
+            const SizedBox(height: 12),
+            TextField(
+              controller: phoneController,
+              keyboardType: TextInputType.phone,
+              decoration: InputDecoration(
+                labelText: trByLang(langCode, ar: 'رقم الهاتف', he: 'מספר טלפון', en: 'Phone Number'),
+              ),
+            ),
+            const SizedBox(height: 20),
+            Row(
+              children: [
+                if (!isEditingStudent) ...[
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: isSaving ? null : () => submit(keepOpen: true),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                      ),
+                      child: Text(
+                        trByLang(langCode, ar: 'حفظ وإضافة آخر', he: 'שמור והוסף עוד', en: 'Save & Add Another'),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                ],
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: isSaving ? null : () => submit(keepOpen: false),
+                    style: ElevatedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                    ),
+                    child: isSaving
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                          )
+                        : Text(
+                            isEditingStudent
+                                ? trByLang(langCode, ar: 'حفظ التعديلات', he: 'שמור שינויים', en: 'Save Changes')
+                                : trByLang(langCode, ar: 'حفظ وإضافة', he: 'שמור', en: 'Save'),
+                          ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
       );
     },
   );
@@ -625,12 +759,10 @@ void showAdminGroupFormDialog(
   String? errorMessage;
   String? successMessage;
 
-  showDialog<void>(
+  _showAdminFormSheet(
     context: context,
-    builder: (dialogContext) {
-      return StatefulBuilder(
-        builder: (context, setDialogState) {
-          final orderedSelectedDays = adminWeekDaysAr.where(selectedDays.contains).toList();
+    builder: (dialogContext, setDialogState) {
+      final orderedSelectedDays = adminWeekDaysAr.where(selectedDays.contains).toList();
 
           Future<void> submitGroup({required bool keepOpen}) async {
             final groupName = nameController.text.trim();
@@ -760,8 +892,13 @@ void showAdminGroupFormDialog(
             );
           }
 
-          return AlertDialog(
-            title: Text(
+      return SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _buildSheetHeader(
+              dialogContext,
               isEditing
                   ? trByLang(
                       langCode,
@@ -776,13 +913,6 @@ void showAdminGroupFormDialog(
                       en: 'Create New Study Group',
                     ),
             ),
-            content: SizedBox(
-              width: 460,
-              child: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
                     if (errorMessage != null) ...[
                       Container(
                         padding: const EdgeInsets.all(10),
@@ -1082,40 +1212,46 @@ void showAdminGroupFormDialog(
                         ),
                       ),
                     ],
+                    const SizedBox(height: 20),
+                    Row(
+                      children: [
+                        if (!isEditing) ...[
+                          Expanded(
+                            child: OutlinedButton(
+                              onPressed: isSaving ? null : () => submitGroup(keepOpen: true),
+                              style: OutlinedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(vertical: 14),
+                              ),
+                              child: Text(
+                                trByLang(langCode, ar: 'حفظ وإضافة أخرى', he: 'שמור והוסף עוד', en: 'Save & Add Another'),
+                                textAlign: TextAlign.center,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                        ],
+                        Expanded(
+                          child: ElevatedButton(
+                            onPressed: isSaving ? null : () => submitGroup(keepOpen: false),
+                            style: ElevatedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                            ),
+                            child: isSaving
+                                ? const SizedBox(
+                                    width: 18,
+                                    height: 18,
+                                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                  )
+                                : Text(
+                                    trByLang(langCode, ar: 'حفظ الحلقة', he: 'שמור', en: 'Save Group'),
+                                  ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ],
                 ),
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: isSaving ? null : () => Navigator.of(dialogContext).pop(),
-                child: Text(
-                  trByLang(langCode, ar: 'إلغاء', he: 'ביטול', en: 'Cancel'),
-                ),
-              ),
-              if (!isEditing)
-                OutlinedButton(
-                  onPressed: isSaving ? null : () => submitGroup(keepOpen: true),
-                  child: Text(
-                    trByLang(langCode, ar: 'حفظ وإضافة أخرى', he: 'שמור והוסף עוד', en: 'Save & Add Another'),
-                  ),
-                ),
-              ElevatedButton(
-                onPressed: isSaving ? null : () => submitGroup(keepOpen: false),
-                child: isSaving
-                    ? const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                      )
-                    : Text(
-                        trByLang(langCode, ar: 'حفظ الحلقة', he: 'שמור', en: 'Save Group'),
-                      ),
-              ),
-            ],
-          );
-        },
-      );
+              );
     },
   );
 }

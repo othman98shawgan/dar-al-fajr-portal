@@ -154,6 +154,24 @@ class AdminRepository {
     return student;
   }
 
+  Future<void> updateStudent({
+    required String studentId,
+    required String fullName,
+    required String parentId,
+    String? parentName,
+    String? email,
+    String? phoneNumber,
+  }) async {
+    await _firestore.collection(studentsCollection).doc(studentId).update({
+      'fullName': fullName.trim(),
+      'parentId': parentId,
+      'parentName': parentName?.trim(),
+      'email': email?.trim().isNotEmpty == true ? email!.trim() : null,
+      'phoneNumber': phoneNumber?.trim().isNotEmpty == true ? phoneNumber!.trim() : null,
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+  }
+
   Future<void> deleteStudent(String studentId) async {
     await _firestore.collection(studentsCollection).doc(studentId).delete();
   }

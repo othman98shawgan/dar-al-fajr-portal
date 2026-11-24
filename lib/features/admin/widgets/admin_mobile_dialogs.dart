@@ -98,7 +98,7 @@ void showMobileAdminActionModal(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  trByLang(langCode, ar: 'تسجيل طالب جديد', he: 'רישום תלמיד חדש', en: 'Register New Student'),
+                                  trByLang(langCode, ar: 'إضافة طالب أو مستخدم', he: 'הוספת תלמיד או משתמש', en: 'Add Student or User'),
                                   style: Theme.of(context).textTheme.titleSmall?.copyWith(
                                         fontWeight: FontWeight.bold,
                                         color: DarAlFajrTheme.onSurface,
@@ -108,9 +108,9 @@ void showMobileAdminActionModal(
                                 Text(
                                   trByLang(
                                     langCode,
-                                    ar: 'إضافة طالب وربط ولي أمره واختيار المسار',
-                                    he: 'הוספת תלמיד, קישור הורה ובחירת מסלול',
-                                    en: 'Add student, link parent, and select track',
+                                    ar: 'تسجيل طالب، ولي أمر، أو معلم جديد',
+                                    he: 'רישום תלמיד, הורה או מורה חדש',
+                                    en: 'Register a new student, parent, or teacher',
                                   ),
                                   style: Theme.of(context).textTheme.labelSmall?.copyWith(color: const Color(0xFF6D7A77)),
                                 ),
@@ -165,65 +165,6 @@ void showMobileAdminActionModal(
                                     ar: 'تحديد المعلم المشرف والأيام ومسار الحفظ',
                                     he: 'הגדרת מורה אחראי, ימים ומסלול שינון',
                                     en: 'Assign teacher, weekly days, and track',
-                                  ),
-                                  style: Theme.of(context).textTheme.labelSmall?.copyWith(color: const Color(0xFF6D7A77)),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const Icon(Icons.chevron_right_rounded, color: Color(0xFF6D7A77)),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Material(
-                  color: const Color(0xFFF2F4F6),
-                  borderRadius: BorderRadius.circular(16),
-                  child: InkWell(
-                    borderRadius: BorderRadius.circular(16),
-                    onTap: () {
-                      Navigator.of(modalCtx).pop();
-                      showAdminAddStudentOrUserDialog(
-                        context,
-                        ref,
-                        langCode,
-                        initialRole: UserRole.teacher,
-                      );
-                    },
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Row(
-                        children: [
-                          Container(
-                            width: 48,
-                            height: 48,
-                            decoration: BoxDecoration(
-                              color: DarAlFajrTheme.accent.withValues(alpha: 0.14),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: const Icon(Icons.badge_rounded, color: DarAlFajrTheme.accent, size: 24),
-                          ),
-                          const SizedBox(width: 14),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  trByLang(langCode, ar: 'إضافة معلم أو ولي أمر', he: 'הוספת מורה או הורה', en: 'Add Teacher or Parent'),
-                                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                                        fontWeight: FontWeight.bold,
-                                        color: DarAlFajrTheme.onSurface,
-                                      ),
-                                ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  trByLang(
-                                    langCode,
-                                    ar: 'إنشاء حساب معلم أو ولي أمر بكلمة مرور مؤقتة',
-                                    he: 'יצירת חשבון מורה או הורה עם סיסמה זמנית',
-                                    en: 'Create teacher or parent account with temp password',
                                   ),
                                   style: Theme.of(context).textTheme.labelSmall?.copyWith(color: const Color(0xFF6D7A77)),
                                 ),

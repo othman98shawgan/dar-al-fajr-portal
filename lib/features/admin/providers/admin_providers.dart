@@ -155,6 +155,28 @@ class AdminController extends AsyncNotifier<void> {
     return created;
   }
 
+  Future<bool> updateStudent({
+    required String studentId,
+    required String fullName,
+    required String parentId,
+    String? parentName,
+    String? email,
+    String? phoneNumber,
+  }) async {
+    state = const AsyncLoading();
+    state = await AsyncValue.guard(() async {
+      await ref.read(adminRepositoryProvider).updateStudent(
+            studentId: studentId,
+            fullName: fullName,
+            parentId: parentId,
+            parentName: parentName,
+            email: email,
+            phoneNumber: phoneNumber,
+          );
+    });
+    return !state.hasError;
+  }
+
   Future<StudyGroup?> createGroup({
     required String name,
     required CenterTrack track,

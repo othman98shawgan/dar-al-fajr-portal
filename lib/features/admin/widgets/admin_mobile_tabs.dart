@@ -239,6 +239,24 @@ class AdminMobileStudentsTab extends ConsumerWidget {
                   child: _MobileStudentCard(
                     student: student,
                     langCode: langCode,
+                    onEdit: () {
+                      final liveStudents = ref.read(adminStudentsProvider).value ?? const <StudentProfile>[];
+                      final profile = liveStudents.where((s) => s.id == student.id).firstOrNull ??
+                          StudentProfile(
+                            id: student.id,
+                            fullName: student.fullName,
+                            parentId: 'parent-default',
+                            parentName: student.parentName,
+                            email: student.parentEmail,
+                            phoneNumber: student.parentPhone,
+                          );
+                      showAdminAddStudentOrUserDialog(
+                        context,
+                        ref,
+                        langCode,
+                        existingStudent: profile,
+                      );
+                    },
                     onEnroll: () => showMobileEnrollmentSheet(
                       context,
                       ref,
@@ -709,19 +727,31 @@ class _MobileTrackChip extends StatelessWidget {
   }
 }
 
-class _MobileStudentCard extends StatelessWidget {
+class _MobileStudentCard extends StatefulWidget {
   final MobileStudentCardData student;
   final String langCode;
+  final VoidCallback onEdit;
   final VoidCallback onEnroll;
 
   const _MobileStudentCard({
     required this.student,
     required this.langCode,
+    required this.onEdit,
     required this.onEnroll,
   });
 
   @override
+  State<_MobileStudentCard> createState() => _MobileStudentCardState();
+}
+
+class _MobileStudentCardState extends State<_MobileStudentCard> {
+  bool _isExpanded = false;
+
+  @override
   Widget build(BuildContext context) {
+    final student = widget.student;
+    final langCode = widget.langCode;
+
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -738,9 +768,12 @@ class _MobileStudentCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
+          InkWell(
+            borderRadius: BorderRadius.circular(12),
+            onTap: () => setState(() => _isExpanded = !_isExpanded),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
               Stack(
                 clipBehavior: Clip.none,
                 children: [
@@ -829,8 +862,16 @@ class _MobileStudentCard extends StatelessWidget {
                   ],
                 ),
               ),
+              const SizedBox(width: 4),
+              Icon(
+                _isExpanded ? Icons.expand_less_rounded : Icons.expand_more_rounded,
+                color: const Color(0xFF6D7A77),
+                size: 20,
+              ),
             ],
           ),
+          ),
+          if (_isExpanded) ...[
           const SizedBox(height: 10),
           Container(
             padding: const EdgeInsets.all(10),
@@ -976,11 +1017,7 @@ class _MobileStudentCard extends StatelessWidget {
               Expanded(
                 flex: 1,
                 child: OutlinedButton.icon(
-                  onPressed: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('تعديل ملف الطالب: ${student.fullName}')),
-                    );
-                  },
+                  onPressed: widget.onEdit,
                   icon: const Icon(Icons.edit_note_rounded, size: 16),
                   label: Text(trByLang(langCode, ar: 'تعديل', he: 'ערוך', en: 'Edit')),
                   style: OutlinedButton.styleFrom(
@@ -996,7 +1033,7 @@ class _MobileStudentCard extends StatelessWidget {
               Expanded(
                 flex: 2,
                 child: ElevatedButton.icon(
-                  onPressed: onEnroll,
+                  onPressed: widget.onEnroll,
                   icon: const Icon(Icons.group_add_rounded, size: 16),
                   label: Text(trByLang(langCode, ar: 'تسجيل في حلقة', he: 'רישום לקבוצה', en: 'Enroll in Group')),
                   style: ElevatedButton.styleFrom(
@@ -1010,6 +1047,7 @@ class _MobileStudentCard extends StatelessWidget {
               ),
             ],
           ),
+          ],
         ],
       ),
     );
