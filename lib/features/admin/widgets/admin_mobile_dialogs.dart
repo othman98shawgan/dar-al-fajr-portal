@@ -98,7 +98,7 @@ void showMobileAdminActionModal(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  trByLang(langCode, ar: 'إضافة طالب أو مستخدم', he: 'הוספת תלמיד או משתמש', en: 'Add Student or User'),
+                                  trByLang(langCode, ar: 'إنشاء طالب أو مستخدم', he: 'יצירת תלמיד או משתמש', en: 'Create Student or User'),
                                   style: Theme.of(context).textTheme.titleSmall?.copyWith(
                                         fontWeight: FontWeight.bold,
                                         color: DarAlFajrTheme.onSurface,

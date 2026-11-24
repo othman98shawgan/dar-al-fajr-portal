@@ -446,9 +446,9 @@ void showAdminAddStudentOrUserDialog(
                     )
                   : trByLang(
                       langCode,
-                      ar: 'إضافة طالب أو مستخدم جديد',
-                      he: 'הוספת תלמיד או משתמש חדש',
-                      en: 'Add New Student or User',
+                      ar: 'إنشاء طالب أو مستخدم',
+                      he: 'יצירת תלמיד או משתמש',
+                      en: 'Create Student or User',
                     ),
             ),
             if (!isEditingStudent)
@@ -622,7 +622,7 @@ void showAdminAddStudentOrUserDialog(
                         padding: const EdgeInsets.symmetric(vertical: 14),
                       ),
                       child: Text(
-                        trByLang(langCode, ar: 'حفظ وإضافة آخر', he: 'שמור והוסף עוד', en: 'Save & Add Another'),
+                        trByLang(langCode, ar: 'إنشاء وإضافة آخر', he: 'צור והוסף עוד', en: 'Create & Add Another'),
                         textAlign: TextAlign.center,
                       ),
                     ),
@@ -644,7 +644,7 @@ void showAdminAddStudentOrUserDialog(
                         : Text(
                             isEditingStudent
                                 ? trByLang(langCode, ar: 'حفظ التعديلات', he: 'שמור שינויים', en: 'Save Changes')
-                                : trByLang(langCode, ar: 'حفظ وإضافة', he: 'שמור', en: 'Save'),
+                                : trByLang(langCode, ar: 'إنشاء', he: 'יצירה', en: 'Create'),
                           ),
                   ),
                 ),
@@ -695,7 +695,6 @@ void showAdminGroupFormDialog(
   required bool isDemoFallback,
 }) {
   final isEditing = existingGroup != null;
-  final teachers = ref.read(adminTeachersProvider).value ?? [];
   final nameController = TextEditingController(text: existingGroup?.name ?? '');
   CenterTrack selectedTrack = existingGroup?.track ?? CenterTrack.hifz;
 
@@ -741,19 +740,8 @@ void showAdminGroupFormDialog(
         (s) => s.startTime != existingSlots.first.startTime || s.endTime != existingSlots.first.endTime,
       );
 
-  String? selectedTeacherId = existingGroup?.teacherId.isNotEmpty == true
-      ? existingGroup!.teacherId
-      : (teachers.isNotEmpty ? teachers.first.uid : null);
-  if (teachers.isNotEmpty && !teachers.any((t) => t.uid == selectedTeacherId)) {
-    selectedTeacherId = teachers.first.uid;
-  }
-  final teacherController = TextEditingController(
-    text: existingGroup?.teacherName.isNotEmpty == true
-        ? existingGroup!.teacherName
-        : (teachers.isNotEmpty
-            ? teachers.first.fullName
-            : (isDemoFallback ? 'الشيخ عبد الرحمن' : '')),
-  );
+  String? selectedTeacherId =
+      existingGroup?.teacherId.isNotEmpty == true ? existingGroup!.teacherId : null;
   final messenger = ScaffoldMessenger.maybeOf(context);
   bool isSaving = false;
   String? errorMessage;
@@ -762,7 +750,25 @@ void showAdminGroupFormDialog(
   _showAdminFormSheet(
     context: context,
     builder: (dialogContext, setDialogState) {
-      final orderedSelectedDays = adminWeekDaysAr.where(selectedDays.contains).toList();
+      return Consumer(
+        builder: (consumerContext, cRef, _) {
+          final directTeachers = cRef.watch(adminTeachersProvider).value ?? const <AppUser>[];
+          final allUsers = cRef.watch(adminAllUsersProvider).value ?? const <AppUser>[];
+          final activeTeachers = directTeachers.isNotEmpty
+              ? directTeachers
+              : allUsers.where((u) => u.role == UserRole.teacher).toList();
+          final allEnrollments = cRef.watch(adminEnrollmentsProvider).value ?? const <Enrollment>[];
+          final groupRosterCount = isEditing
+              ? allEnrollments.where((e) => e.groupId == existingGroup.id).length
+              : 0;
+
+          if (activeTeachers.isNotEmpty &&
+              (selectedTeacherId == null ||
+                  !activeTeachers.any((t) => t.uid == selectedTeacherId))) {
+            selectedTeacherId = activeTeachers.first.uid;
+          }
+
+          final orderedSelectedDays = adminWeekDaysAr.where(selectedDays.contains).toList();
 
           Future<void> submitGroup({required bool keepOpen}) async {
             final groupName = nameController.text.trim();
@@ -778,20 +784,26 @@ void showAdminGroupFormDialog(
               return;
             }
 
+            final matchedTeacher =
+                activeTeachers.where((t) => t.uid == selectedTeacherId).firstOrNull;
+            if (matchedTeacher == null && !isDemoFallback) {
+              setDialogState(() {
+                errorMessage = trByLang(
+                  langCode,
+                  ar: 'يرجى اختيار معلم نشط من قائمة المستخدمين أولاً.',
+                  he: 'יש לבחור מורה פעיל מרשימת המשתמשים.',
+                  en: 'Please select an active teacher from the users list.',
+                );
+              });
+              return;
+            }
+
             setDialogState(() {
               isSaving = true;
               errorMessage = null;
               successMessage = null;
             });
 
-            final enteredTeacher = teacherController.text.trim();
-            final matchedTeacher = teachers
-                .where(
-                  (t) =>
-                      t.uid == selectedTeacherId ||
-                      t.fullName == enteredTeacher,
-                )
-                .firstOrNull;
             final parsedCapacity =
                 (int.tryParse(capacityController.text.trim()) ?? 15)
                     .clamp(1, 200);
@@ -816,7 +828,8 @@ void showAdminGroupFormDialog(
                 (existingGroup?.teacherId.isNotEmpty == true
                     ? existingGroup!.teacherId
                     : (isDemoFallback ? 'teacher-1' : ''));
-            final resolvedTeacherName = matchedTeacher?.fullName ?? enteredTeacher;
+            final resolvedTeacherName = matchedTeacher?.fullName ??
+                (existingGroup?.teacherName ?? '');
 
             if (isEditing) {
               await ref.read(adminControllerProvider.notifier).updateGroup(
@@ -981,7 +994,7 @@ void showAdminGroupFormDialog(
                       },
                     ),
                     const SizedBox(height: 12),
-                    if (teachers.isNotEmpty)
+                    if (activeTeachers.isNotEmpty)
                       DropdownButtonFormField<String>(
                         initialValue: selectedTeacherId,
                         isExpanded: true,
@@ -993,34 +1006,47 @@ void showAdminGroupFormDialog(
                             en: 'Assigned Teacher *',
                           ),
                         ),
-                        items: teachers
+                        items: activeTeachers
                             .map(
                               (t) => DropdownMenuItem<String>(
                                 value: t.uid,
-                                child: Text(t.fullName),
+                                child: Text(
+                                  t.email.isNotEmpty ? '${t.fullName} (${t.email})' : t.fullName,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
                               ),
                             )
                             .toList(),
-                        onChanged: (val) {
-                          setDialogState(() {
-                            selectedTeacherId = val;
-                            final picked = teachers.where((t) => t.uid == val).firstOrNull;
-                            if (picked != null) {
-                              teacherController.text = picked.fullName;
-                            }
-                          });
-                        },
+                        onChanged: isSaving
+                            ? null
+                            : (val) {
+                                setDialogState(() => selectedTeacherId = val);
+                              },
                       )
                     else
-                      TextField(
-                        controller: teacherController,
-                        decoration: InputDecoration(
-                          labelText: trByLang(
-                            langCode,
-                            ar: 'اسم الشيخ / المعلم',
-                            he: 'שם המורה',
-                            en: 'Teacher Name',
-                          ),
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.amber.shade50,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: Colors.amber.shade300),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(Icons.info_outline_rounded, size: 18, color: Colors.amber.shade900),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                trByLang(
+                                  langCode,
+                                  ar: 'لا يوجد معلمون نشطون بعد. يرجى إنشاء حساب معلم من قائمة المستخدمين أولاً.',
+                                  he: 'אין מורים פעילים עדיין. יש ליצור חשבון מורה תחילה.',
+                                  en: 'No active teacher accounts found. Please create a teacher user first.',
+                                ),
+                                style: TextStyle(fontSize: 12, color: Colors.amber.shade900),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     const SizedBox(height: 12),
@@ -1212,7 +1238,32 @@ void showAdminGroupFormDialog(
                         ),
                       ),
                     ],
-                    const SizedBox(height: 20),
+                    if (isEditing) ...[
+                      const SizedBox(height: 16),
+                      OutlinedButton.icon(
+                        onPressed: isSaving
+                            ? null
+                            : () => showAdminGroupRosterModal(
+                                  dialogContext,
+                                  existingGroup,
+                                  langCode,
+                                ),
+                        icon: const Icon(Icons.groups_rounded, size: 18),
+                        label: Text(
+                          trByLang(
+                            langCode,
+                            ar: 'إدارة طلاب الحلقة ($groupRosterCount / ${existingGroup.capacity})',
+                            he: 'ניהול תלמידי הקבוצה ($groupRosterCount / ${existingGroup.capacity})',
+                            en: 'Manage Student Roster ($groupRosterCount / ${existingGroup.capacity})',
+                          ),
+                        ),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          foregroundColor: DarAlFajrTheme.primary,
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 16),
                     Row(
                       children: [
                         if (!isEditing) ...[
@@ -1252,6 +1303,307 @@ void showAdminGroupFormDialog(
                   ],
                 ),
               );
+        },
+      );
+    },
+  );
+}
+
+void showAdminGroupRosterModal(
+  BuildContext context,
+  StudyGroup group,
+  String langCode,
+) {
+  String? selectedStudentId;
+  bool isAdding = false;
+  String? deletingEnrollmentId;
+  String? errorMessage;
+
+  _showAdminFormSheet(
+    context: context,
+    builder: (sheetContext, setSheetState) {
+      return Consumer(
+        builder: (consumerContext, ref, _) {
+          final allStudents = ref.watch(adminStudentsProvider).value ?? const <StudentProfile>[];
+          final allEnrollments = ref.watch(adminEnrollmentsProvider).value ?? const <Enrollment>[];
+          final groupEnrollments =
+              allEnrollments.where((e) => e.groupId == group.id).toList();
+          final enrolledStudentIds = groupEnrollments.map((e) => e.studentId).toSet();
+          final availableStudents =
+              allStudents.where((s) => !enrolledStudentIds.contains(s.id)).toList();
+
+          if (availableStudents.isEmpty) {
+            selectedStudentId = null;
+          } else if (selectedStudentId == null ||
+              !availableStudents.any((s) => s.id == selectedStudentId)) {
+            selectedStudentId = availableStudents.first.id;
+          }
+
+          Future<void> addStudent() async {
+            final student = availableStudents
+                .where((s) => s.id == selectedStudentId)
+                .firstOrNull;
+            if (student == null) return;
+
+            setSheetState(() {
+              isAdding = true;
+              errorMessage = null;
+            });
+
+            await ref.read(adminControllerProvider.notifier).assignStudentToGroup(
+                  studentId: student.id,
+                  studentName: student.fullName,
+                  groupId: group.id,
+                  groupName: group.name,
+                  track: group.track,
+                );
+
+            if (!sheetContext.mounted) return;
+            final ctrlState = ref.read(adminControllerProvider);
+            setSheetState(() {
+              isAdding = false;
+              if (ctrlState.hasError) {
+                errorMessage = ctrlState.error.toString();
+              }
+            });
+          }
+
+          Future<void> removeEnrollment(Enrollment enrollment) async {
+            final confirmed = await showDialog<bool>(
+              context: sheetContext,
+              builder: (confirmCtx) => AlertDialog(
+                title: Text(
+                  trByLang(langCode, ar: 'إزالة الطالب من الحلقة', he: 'הסרת תלמיד מהקבוצה', en: 'Remove Student from Group'),
+                ),
+                content: Text(
+                  trByLang(
+                    langCode,
+                    ar: 'هل تريد إزالة "${enrollment.studentName}" من "${group.name}"؟',
+                    he: 'להסיר את "${enrollment.studentName}" מהקבוצה "${group.name}"?',
+                    en: 'Remove "${enrollment.studentName}" from "${group.name}"?',
+                  ),
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.of(confirmCtx).pop(false),
+                    child: Text(trByLang(langCode, ar: 'إلغاء', he: 'ביטול', en: 'Cancel')),
+                  ),
+                  ElevatedButton(
+                    style: ElevatedButton.styleFrom(backgroundColor: Colors.red.shade700),
+                    onPressed: () => Navigator.of(confirmCtx).pop(true),
+                    child: Text(trByLang(langCode, ar: 'إزالة', he: 'הסר', en: 'Remove')),
+                  ),
+                ],
+              ),
+            );
+            if (confirmed != true || !sheetContext.mounted) return;
+
+            setSheetState(() {
+              deletingEnrollmentId = enrollment.id;
+              errorMessage = null;
+            });
+            try {
+              await ref.read(adminRepositoryProvider).deleteEnrollment(enrollment.id);
+            } catch (e) {
+              if (sheetContext.mounted) {
+                setSheetState(() => errorMessage = e.toString());
+              }
+            } finally {
+              if (sheetContext.mounted) {
+                setSheetState(() => deletingEnrollmentId = null);
+              }
+            }
+          }
+
+          return ConstrainedBox(
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.of(sheetContext).size.height * 0.78,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _buildSheetHeader(
+                  sheetContext,
+                  '${group.name} (${groupEnrollments.length}/${group.capacity})',
+                ),
+                if (errorMessage != null) ...[
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    margin: const EdgeInsets.only(bottom: 10),
+                    decoration: BoxDecoration(
+                      color: Colors.red.shade50,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.red.shade200),
+                    ),
+                    child: Text(
+                      errorMessage!,
+                      style: TextStyle(fontSize: 12, color: Colors.red.shade800),
+                    ),
+                  ),
+                ],
+                // Add Student to Roster Section
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF2F4F6),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Text(
+                        trByLang(
+                          langCode,
+                          ar: 'إضافة طالب إلى الحلقة',
+                          he: 'הוספת תלמיד לקבוצה',
+                          en: 'Add Student to Group',
+                        ),
+                        style: const TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.bold,
+                          color: DarAlFajrTheme.onSurface,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      if (availableStudents.isNotEmpty)
+                        Row(
+                          children: [
+                            Expanded(
+                              child: DropdownButtonFormField<String>(
+                                initialValue: selectedStudentId,
+                                isExpanded: true,
+                                decoration: InputDecoration(
+                                  isDense: true,
+                                  filled: true,
+                                  fillColor: Colors.white,
+                                  labelText: trByLang(langCode, ar: 'اختر الطالب', he: 'בחר תלמיד', en: 'Select Student'),
+                                ),
+                                items: availableStudents
+                                    .map(
+                                      (s) => DropdownMenuItem<String>(
+                                        value: s.id,
+                                        child: Text(s.fullName, overflow: TextOverflow.ellipsis),
+                                      ),
+                                    )
+                                    .toList(),
+                                onChanged: isAdding
+                                    ? null
+                                    : (val) => setSheetState(() => selectedStudentId = val),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            ElevatedButton.icon(
+                              onPressed: isAdding ? null : addStudent,
+                              icon: isAdding
+                                  ? const SizedBox(
+                                      width: 14,
+                                      height: 14,
+                                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                    )
+                                  : const Icon(Icons.person_add_alt_1_rounded, size: 16),
+                              label: Text(trByLang(langCode, ar: 'إضافة', he: 'הוסף', en: 'Add')),
+                              style: ElevatedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                              ),
+                            ),
+                          ],
+                        )
+                      else
+                        Text(
+                          trByLang(
+                            langCode,
+                            ar: 'جميع الطلاب المسجلين في المركز مضافون بالفعل إلى هذه الحلقة.',
+                            he: 'כל התלמידים כבר רשומים לקבוצה זו.',
+                            en: 'All students are already enrolled in this group.',
+                          ),
+                          style: const TextStyle(fontSize: 12, color: Color(0xFF6D7A77)),
+                        ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 14),
+                Text(
+                  trByLang(
+                    langCode,
+                    ar: 'الطلاب المسجلون حالياً (${groupEnrollments.length})',
+                    he: 'תלמידים רשומים (${groupEnrollments.length})',
+                    en: 'Enrolled Students (${groupEnrollments.length})',
+                  ),
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF3D4947),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                if (groupEnrollments.isEmpty)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 24),
+                    child: Center(
+                      child: Text(
+                        trByLang(
+                          langCode,
+                          ar: 'لا يوجد طلاب في هذه الحلقة بعد',
+                          he: 'אין תלמידים בקבוצה זו עדיין',
+                          en: 'No students enrolled in this group yet',
+                        ),
+                        style: const TextStyle(color: Color(0xFF6D7A77), fontSize: 13),
+                      ),
+                    ),
+                  )
+                else
+                  Flexible(
+                    child: ListView.separated(
+                      shrinkWrap: true,
+                      itemCount: groupEnrollments.length,
+                      separatorBuilder: (_, _) => const Divider(height: 1),
+                      itemBuilder: (context, index) {
+                        final e = groupEnrollments[index];
+                        final isDeleting = deletingEnrollmentId == e.id;
+                        return ListTile(
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                          leading: CircleAvatar(
+                            radius: 18,
+                            backgroundColor: DarAlFajrTheme.primary.withValues(alpha: 0.12),
+                            child: Text(
+                              e.studentName.isNotEmpty ? e.studentName[0] : '?',
+                              style: const TextStyle(
+                                color: DarAlFajrTheme.primary,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                          title: Text(
+                            e.studentName,
+                            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                          ),
+                          subtitle: e.oneOnOneSlotTime != null && e.oneOnOneSlotTime!.isNotEmpty
+                              ? Text(
+                                  e.oneOnOneSlotTime!,
+                                  style: const TextStyle(fontSize: 11.5, color: Color(0xFF6D7A77)),
+                                )
+                              : null,
+                          trailing: isDeleting
+                              ? const SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                )
+                              : IconButton(
+                                  icon: Icon(Icons.delete_outline_rounded, color: Colors.red.shade600, size: 20),
+                                  tooltip: trByLang(langCode, ar: 'إزالة من الحلقة', he: 'הסר מהקבוצה', en: 'Remove from group'),
+                                  onPressed: () => removeEnrollment(e),
+                                ),
+                        );
+                      },
+                    ),
+                  ),
+              ],
+            ),
+          );
+        },
+      );
     },
   );
 }
