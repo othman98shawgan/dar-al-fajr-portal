@@ -415,16 +415,22 @@ void main() {
           ),
         ];
 
+        final tomorrowWeekday = (today.weekday % 7) + 1;
+        final scheduledOnlyOtherDay = ScheduleDayHelper.canonicalArabicDay(tomorrowWeekday);
+
         await tester.pumpWidget(
           ProviderScope(
             overrides: [
               teacherGroupsProvider.overrideWith(
-                (ref) => Stream.value(const [
+                (ref) => Stream.value([
                   StudyGroup(
                     id: 'grp-maali',
                     name: 'طلاب المعالي',
                     track: CenterTrack.hifz,
                     teacherId: 't-1',
+                    scheduleDays: [scheduledOnlyOtherDay],
+                    startTime: '16:30',
+                    endTime: '18:00',
                   ),
                 ]),
               ),
@@ -460,12 +466,39 @@ void main() {
           findsOneWidget,
         );
 
+        // Next Day button is disabled on Today (cannot step into future)
+        final nextBtnOnToday = tester.widget<IconButton>(
+          find.ancestor(
+            of: find.byTooltip('اليوم التالي'),
+            matching: find.byType(IconButton),
+          ),
+        );
+        expect(nextBtnOnToday.onPressed, isNull);
+
+        // Saving on a non-scheduled day prompts confirmation dialog that can be cancelled
+        await tester.tap(find.text('تحديث سجل الحضور'));
+        await tester.pumpAndSettle();
+        expect(find.text('يوم خارج جدول الحلقة'), findsOneWidget);
+        expect(find.text('تأكيد وحفظ'), findsOneWidget);
+        await tester.tap(find.text('إلغاء'));
+        await tester.pumpAndSettle();
+        expect(find.text('يوم خارج جدول الحلقة'), findsNothing);
+
         // Step to previous day using arrow button
         await tester.tap(find.byTooltip('اليوم السابق'));
         await tester.pumpAndSettle();
 
         expect(find.text('اليوم'), findsNothing);
         expect(find.text('حفظ الحضور واعتماد السجل'), findsOneWidget);
+
+        // Next Day button is re-enabled when viewing a past day
+        final nextBtnOnPast = tester.widget<IconButton>(
+          find.ancestor(
+            of: find.byTooltip('اليوم التالي'),
+            matching: find.byType(IconButton),
+          ),
+        );
+        expect(nextBtnOnPast.onPressed, isNotNull);
       },
     );
   });

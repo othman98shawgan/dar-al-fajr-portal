@@ -125,9 +125,18 @@ class _AttendanceLoggingViewState extends ConsumerState<AttendanceLoggingView> {
   bool _isSameDay(DateTime a, DateTime b) =>
       a.year == b.year && a.month == b.month && a.day == b.day;
 
+  bool _isFutureDate(DateTime date) {
+    final now = DateTime.now();
+    final todayOnly = DateTime(now.year, now.month, now.day);
+    final candidate = DateTime(date.year, date.month, date.day);
+    return candidate.isAfter(todayOnly);
+  }
+
   void _stepDate(int deltaDays) {
+    final nextDate = _selectedDate.add(Duration(days: deltaDays));
+    if (_isFutureDate(nextDate)) return;
     setState(() {
-      _selectedDate = _selectedDate.add(Duration(days: deltaDays));
+      _selectedDate = nextDate;
       _showSuccessBanner = false;
     });
   }
@@ -171,13 +180,15 @@ class _AttendanceLoggingViewState extends ConsumerState<AttendanceLoggingView> {
 
   Future<void> _pickDate() async {
     final now = DateTime.now();
+    final todayOnly = DateTime(now.year, now.month, now.day);
+    final initial = _isFutureDate(_selectedDate) ? todayOnly : _selectedDate;
     final picked = await showDatePicker(
       context: context,
-      initialDate: _selectedDate,
+      initialDate: initial,
       firstDate: DateTime(2024),
-      lastDate: DateTime(now.year + 5),
+      lastDate: todayOnly,
     );
-    if (picked != null && mounted) {
+    if (picked != null && !_isFutureDate(picked) && mounted) {
       setState(() {
         _selectedDate = picked;
         _showSuccessBanner = false;
@@ -197,12 +208,85 @@ class _AttendanceLoggingViewState extends ConsumerState<AttendanceLoggingView> {
 
   Future<void> _handleSaveAttendance({
     required String effectiveGroupId,
+    required StudyGroup? matchedGroup,
     required List<_StudentAttendanceRowItem> students,
     required Map<String, AttendanceStatus> effectiveStatuses,
     required bool isUpdatingExisting,
     required String langCode,
   }) async {
     if (_isSaving) return;
+
+    if (_isFutureDate(_selectedDate)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            trByLang(
+              langCode,
+              ar: 'لا يمكن تسجيل الحضور لتاريخ مستقبلي',
+              he: 'לא ניתן לרשום נוכחות לתאריך עתידי',
+              en: 'Cannot record attendance for a future date',
+            ),
+          ),
+          backgroundColor: _error,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    final scheduledSlots = matchedGroup?.effectiveScheduleSlots ?? const <GroupScheduleSlot>[];
+    if (scheduledSlots.isNotEmpty &&
+        matchedGroup!.slotsForWeekday(_selectedDate.weekday).isEmpty) {
+      final selectedDayName =
+          ScheduleDayHelper.localizedDayName(_selectedDate.weekday, langCode);
+      final scheduledDaysText = scheduledSlots
+          .map(
+            (s) => s.weekday != null
+                ? ScheduleDayHelper.localizedDayName(s.weekday!, langCode)
+                : s.day,
+          )
+          .toSet()
+          .join(' • ');
+
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (dlgCtx) => AlertDialog(
+          title: Text(
+            trByLang(
+              langCode,
+              ar: 'يوم خارج جدول الحلقة',
+              he: 'יום מחוץ למערכת הקבוצה',
+              en: 'Non-Scheduled Group Day',
+            ),
+          ),
+          content: Text(
+            trByLang(
+              langCode,
+              ar: 'يوم $selectedDayName ليس ضمن الأيام المجدولة لهذه الحلقة ($scheduledDaysText). هل تريد المتابعة وتسجيل الحضور على أي حال؟',
+              he: 'יום $selectedDayName אינו בימי הקבוצה הקבועים ($scheduledDaysText). האם להמשיך ולרשום נוכחות?',
+              en: '$selectedDayName is not one of this group\'s scheduled days ($scheduledDaysText). Do you want to record attendance anyway?',
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dlgCtx).pop(false),
+              child: Text(trByLang(langCode, ar: 'إلغاء', he: 'ביטול', en: 'Cancel')),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.of(dlgCtx).pop(true),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: _primary,
+                foregroundColor: Colors.white,
+              ),
+              child: Text(
+                trByLang(langCode, ar: 'تأكيد وحفظ', he: 'אשר ושמור', en: 'Confirm & Save'),
+              ),
+            ),
+          ],
+        ),
+      );
+      if (confirmed != true || !mounted) return;
+    }
 
     setState(() {
       _isSaving = true;
@@ -286,9 +370,12 @@ class _AttendanceLoggingViewState extends ConsumerState<AttendanceLoggingView> {
 
     final teacherGroups =
         ref.watch(teacherGroupsProvider).asData?.value ?? const [];
+    final allGroups =
+        ref.watch(allGroupsStreamProvider).asData?.value ?? const [];
     final matchedGroup = teacherGroups
-        .where((g) => g.id == effectiveGroupId)
-        .firstOrNull;
+            .where((g) => g.id == effectiveGroupId)
+            .firstOrNull ??
+        allGroups.where((g) => g.id == effectiveGroupId).firstOrNull;
 
     final groupTitle = matchedGroup?.name.isNotEmpty == true
         ? matchedGroup!.name
@@ -667,6 +754,7 @@ class _AttendanceLoggingViewState extends ConsumerState<AttendanceLoggingView> {
                                         : () => _handleSaveAttendance(
                                               effectiveGroupId:
                                                   effectiveGroupId,
+                                              matchedGroup: matchedGroup,
                                               students: students,
                                               effectiveStatuses:
                                                   effectiveStatuses,
@@ -804,9 +892,9 @@ class _AttendanceLoggingViewState extends ConsumerState<AttendanceLoggingView> {
     required bool hasExistingLogsForDate,
   }) {
     final isToday = _isSameDay(_selectedDate, DateTime.now());
+    final canGoNext = !_isFutureDate(_selectedDate.add(const Duration(days: 1)));
     final dayLabel = ScheduleDayHelper.localizedDayName(_selectedDate.weekday, langCode);
     final dateText = _formatDateLabel(_selectedDate, langCode);
-    final isRtl = Directionality.of(context) == TextDirection.rtl;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
@@ -830,8 +918,8 @@ class _AttendanceLoggingViewState extends ConsumerState<AttendanceLoggingView> {
             child: IconButton(
               onPressed: () => _stepDate(-1),
               tooltip: trByLang(langCode, ar: 'اليوم السابق', he: 'יום קודם', en: 'Previous Day'),
-              icon: Icon(
-                isRtl ? Icons.chevron_right_rounded : Icons.chevron_left_rounded,
+              icon: const Icon(
+                Icons.chevron_left_rounded,
                 color: _primary,
                 size: 22,
               ),
@@ -861,14 +949,16 @@ class _AttendanceLoggingViewState extends ConsumerState<AttendanceLoggingView> {
                     Flexible(
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                        crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
                           Row(
                             mainAxisSize: MainAxisSize.min,
+                            mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               Flexible(
                                 child: Text(
                                   dayLabel,
+                                  textAlign: TextAlign.center,
                                   style: Theme.of(context).textTheme.labelMedium?.copyWith(
                                         color: _primary,
                                         fontWeight: FontWeight.bold,
@@ -899,6 +989,7 @@ class _AttendanceLoggingViewState extends ConsumerState<AttendanceLoggingView> {
                           const SizedBox(height: 2),
                           Text(
                             dateText,
+                            textAlign: TextAlign.center,
                             style: Theme.of(context).textTheme.titleSmall?.copyWith(
                                   color: _onSurface,
                                   fontWeight: FontWeight.bold,
@@ -919,6 +1010,7 @@ class _AttendanceLoggingViewState extends ConsumerState<AttendanceLoggingView> {
                                     he: 'לחץ לבחירת תאריך מהיומן',
                                     en: 'Tap to pick date from calendar',
                                   ),
+                            textAlign: TextAlign.center,
                             style: const TextStyle(
                               fontSize: 10.5,
                               color: _outline,
@@ -945,11 +1037,11 @@ class _AttendanceLoggingViewState extends ConsumerState<AttendanceLoggingView> {
             color: _surfaceContainerLow,
             borderRadius: BorderRadius.circular(10),
             child: IconButton(
-              onPressed: () => _stepDate(1),
+              onPressed: canGoNext ? () => _stepDate(1) : null,
               tooltip: trByLang(langCode, ar: 'اليوم التالي', he: 'יום הבא', en: 'Next Day'),
               icon: Icon(
-                isRtl ? Icons.chevron_left_rounded : Icons.chevron_right_rounded,
-                color: _primary,
+                Icons.chevron_right_rounded,
+                color: canGoNext ? _primary : _outline.withValues(alpha: 0.4),
                 size: 22,
               ),
               constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
