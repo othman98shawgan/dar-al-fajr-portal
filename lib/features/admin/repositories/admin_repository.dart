@@ -96,6 +96,24 @@ class AdminRepository {
     );
   }
 
+  Future<void> updateUser({
+    required String uid,
+    required String fullName,
+    String? phoneNumber,
+    required UserRole role,
+  }) async {
+    await _firestore.collection(usersCollection).doc(uid).update({
+      'fullName': fullName.trim(),
+      'phoneNumber': phoneNumber?.trim().isNotEmpty == true ? phoneNumber!.trim() : null,
+      'role': role.toJson(),
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+  }
+
+  Future<void> deleteUser(String uid) async {
+    await _firestore.collection(usersCollection).doc(uid).delete();
+  }
+
   // ---------------------------------------------------------------------------
   // Students Roster Management
   // ---------------------------------------------------------------------------

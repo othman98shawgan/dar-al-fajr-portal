@@ -5,6 +5,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../l10n/app_localizations_tr.dart';
 import '../models/admin_models.dart';
 import '../providers/admin_providers.dart';
+import 'admin_dialogs.dart';
 import 'admin_shell_models.dart';
 
 class AdminStudentsTab extends ConsumerWidget {
@@ -586,7 +587,29 @@ class AdminStudentsTab extends ConsumerWidget {
                                                   visualDensity: VisualDensity.compact,
                                                   padding: const EdgeInsets.all(4),
                                                   constraints: const BoxConstraints(),
-                                                  onPressed: () => onSelectStudentRow(row),
+                                                  onPressed: row.isFromFirestore
+                                                      ? () {
+                                                          final liveStudents =
+                                                              ref.read(adminStudentsProvider).value ??
+                                                                  const <StudentProfile>[];
+                                                          final profile = liveStudents
+                                                                  .where((s) => s.id == row.id)
+                                                                  .firstOrNull ??
+                                                              StudentProfile(
+                                                                id: row.id,
+                                                                fullName: row.fullName,
+                                                                parentId: 'parent-default',
+                                                                parentName: row.parentName,
+                                                                email: row.parentEmail,
+                                                              );
+                                                          showAdminAddStudentOrUserDialog(
+                                                            context,
+                                                            ref,
+                                                            langCode,
+                                                            existingStudent: profile,
+                                                          );
+                                                        }
+                                                      : () => onSelectStudentRow(row),
                                                   icon: const Icon(Icons.edit_outlined, size: 18, color: Color(0xFF3D4947)),
                                                 ),
                                                 const SizedBox(width: 4),
@@ -595,7 +618,27 @@ class AdminStudentsTab extends ConsumerWidget {
                                                   padding: const EdgeInsets.all(4),
                                                   constraints: const BoxConstraints(),
                                                   onPressed: row.isFromFirestore
-                                                      ? () => ref.read(adminRepositoryProvider).deleteStudent(row.id)
+                                                      ? () async {
+                                                          final confirmed = await confirmAdminDelete(
+                                                            context,
+                                                            langCode: langCode,
+                                                            title: trByLang(
+                                                              langCode,
+                                                              ar: 'حذف الطالب',
+                                                              he: 'מחיקת תלמיד',
+                                                              en: 'Delete Student',
+                                                            ),
+                                                            message: trByLang(
+                                                              langCode,
+                                                              ar: 'هل تريد حذف ملف الطالب "${row.fullName}"؟',
+                                                              he: 'למחוק את התלמיד "${row.fullName}"?',
+                                                              en: 'Delete student "${row.fullName}"?',
+                                                            ),
+                                                          );
+                                                          if (confirmed) {
+                                                            await ref.read(adminRepositoryProvider).deleteStudent(row.id);
+                                                          }
+                                                        }
                                                       : null,
                                                   icon: const Icon(
                                                     Icons.delete_outline_rounded,

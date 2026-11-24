@@ -130,6 +130,32 @@ class AdminController extends AsyncNotifier<void> {
     return created;
   }
 
+  Future<bool> updateUser({
+    required String uid,
+    required String fullName,
+    String? phoneNumber,
+    required UserRole role,
+  }) async {
+    state = const AsyncLoading();
+    state = await AsyncValue.guard(() async {
+      await ref.read(adminRepositoryProvider).updateUser(
+            uid: uid,
+            fullName: fullName,
+            phoneNumber: phoneNumber,
+            role: role,
+          );
+    });
+    return !state.hasError;
+  }
+
+  Future<bool> deleteUser(String uid) async {
+    state = const AsyncLoading();
+    state = await AsyncValue.guard(() async {
+      await ref.read(adminRepositoryProvider).deleteUser(uid);
+    });
+    return !state.hasError;
+  }
+
   Future<StudentProfile?> createStudent({
     required String fullName,
     required String parentId,

@@ -234,11 +234,15 @@ class AdminMobileStudentsTab extends ConsumerWidget {
             delegate: SliverChildBuilderDelegate(
               (context, index) {
                 final student = studentCards[index];
+                final allEnrollments = ref.watch(adminEnrollmentsProvider).value ?? const <Enrollment>[];
+                final studentEnrollments =
+                    allEnrollments.where((e) => e.studentId == student.id).toList();
                 return Padding(
                   padding: const EdgeInsets.only(bottom: 12),
                   child: _MobileStudentCard(
                     student: student,
                     langCode: langCode,
+                    enrollments: studentEnrollments,
                     onEdit: () {
                       final liveStudents = ref.read(adminStudentsProvider).value ?? const <StudentProfile>[];
                       final profile = liveStudents.where((s) => s.id == student.id).firstOrNull ??
@@ -256,6 +260,40 @@ class AdminMobileStudentsTab extends ConsumerWidget {
                         langCode,
                         existingStudent: profile,
                       );
+                    },
+                    onDelete: student.isFromFirestore
+                        ? () async {
+                            final confirmed = await confirmAdminDelete(
+                              context,
+                              langCode: langCode,
+                              title: trByLang(langCode, ar: 'حذف الطالب', he: 'מחיקת תלמיד', en: 'Delete Student'),
+                              message: trByLang(
+                                langCode,
+                                ar: 'هل تريد حذف ملف الطالب "${student.fullName}"؟',
+                                he: 'למחוק את התלמיד "${student.fullName}"?',
+                                en: 'Delete student "${student.fullName}"?',
+                              ),
+                            );
+                            if (confirmed) {
+                              await ref.read(adminRepositoryProvider).deleteStudent(student.id);
+                            }
+                          }
+                        : null,
+                    onUnenroll: (enrollment) async {
+                      final confirmed = await confirmAdminDelete(
+                        context,
+                        langCode: langCode,
+                        title: trByLang(langCode, ar: 'إلغاء التسجيل', he: 'הסרת רישום', en: 'Remove Enrollment'),
+                        message: trByLang(
+                          langCode,
+                          ar: 'هل تريد إزالة "${student.fullName}" من "${enrollment.groupName}"؟',
+                          he: 'להסיר את "${student.fullName}" מהקבוצה "${enrollment.groupName}"?',
+                          en: 'Remove "${student.fullName}" from "${enrollment.groupName}"?',
+                        ),
+                      );
+                      if (confirmed) {
+                        await ref.read(adminRepositoryProvider).deleteEnrollment(enrollment.id);
+                      }
                     },
                     onEnroll: () => showMobileEnrollmentSheet(
                       context,
@@ -329,6 +367,22 @@ class AdminMobileGroupsTab extends ConsumerWidget {
                 group: g,
                 isDemoFallback: isDemoMode,
               ),
+              onDelete: () async {
+                final confirmed = await confirmAdminDelete(
+                  context,
+                  langCode: langCode,
+                  title: trByLang(langCode, ar: 'حذف الحلقة', he: 'מחיקת קבוצה', en: 'Delete Group'),
+                  message: trByLang(
+                    langCode,
+                    ar: 'هل تريد حذف حلقة "${g.name}"؟',
+                    he: 'למחוק את הקבוצה "${g.name}"?',
+                    en: 'Delete study group "${g.name}"?',
+                  ),
+                );
+                if (confirmed) {
+                  await ref.read(adminRepositoryProvider).deleteGroup(g.id);
+                }
+              },
             ),
           )
         else if (isDemoMode) ...[
@@ -397,7 +451,12 @@ class AdminMobileUsersTab extends ConsumerWidget {
             ),
             IconButton(
               icon: const Icon(Icons.person_add_alt_1_rounded, color: DarAlFajrTheme.primary),
-              onPressed: () => showMobileCreateStudentDialog(context, ref, langCode),
+              onPressed: () => showAdminAddStudentOrUserDialog(
+                context,
+                ref,
+                langCode,
+                initialRole: UserRole.teacher,
+              ),
             ),
           ],
         ),
@@ -407,8 +466,9 @@ class AdminMobileUsersTab extends ConsumerWidget {
             (u) => _MobileUserCard(
               name: u.fullName,
               email: u.email,
-              role: u.role.displayName,
+              role: u.role.localizedName(langCode),
               isPendingFirstLogin: u.isFirstLogin,
+              onTap: () => showAdminUserProfileModal(context, ref, u, langCode),
             ),
           )
         else if (isDemoMode) ...[
@@ -730,13 +790,19 @@ class _MobileTrackChip extends StatelessWidget {
 class _MobileStudentCard extends StatefulWidget {
   final MobileStudentCardData student;
   final String langCode;
+  final List<Enrollment> enrollments;
   final VoidCallback onEdit;
+  final VoidCallback? onDelete;
+  final Future<void> Function(Enrollment enrollment) onUnenroll;
   final VoidCallback onEnroll;
 
   const _MobileStudentCard({
     required this.student,
     required this.langCode,
+    this.enrollments = const [],
     required this.onEdit,
+    this.onDelete,
+    required this.onUnenroll,
     required this.onEnroll,
   });
 
@@ -1011,9 +1077,38 @@ class _MobileStudentCardState extends State<_MobileStudentCard> {
                 ),
             ],
           ),
+          if (widget.enrollments.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: widget.enrollments.map((e) {
+                return InputChip(
+                  label: Text(e.groupName, style: const TextStyle(fontSize: 11.5)),
+                  backgroundColor: DarAlFajrTheme.primary.withValues(alpha: 0.08),
+                  deleteIcon: const Icon(Icons.close_rounded, size: 15),
+                  deleteIconColor: Colors.red.shade600,
+                  onDeleted: () => widget.onUnenroll(e),
+                  visualDensity: VisualDensity.compact,
+                );
+              }).toList(),
+            ),
+          ],
           const SizedBox(height: 12),
           Row(
             children: [
+              if (widget.onDelete != null) ...[
+                IconButton(
+                  onPressed: widget.onDelete,
+                  icon: Icon(Icons.delete_outline_rounded, size: 20, color: Colors.red.shade600),
+                  tooltip: trByLang(langCode, ar: 'حذف الطالب', he: 'מחק תלמיד', en: 'Delete Student'),
+                  style: IconButton.styleFrom(
+                    backgroundColor: Colors.red.shade50,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                ),
+                const SizedBox(width: 8),
+              ],
               Expanded(
                 flex: 1,
                 child: OutlinedButton.icon(
@@ -1062,6 +1157,7 @@ class _MobileGroupCard extends StatelessWidget {
   final int studentsCount;
   final int? capacity;
   final VoidCallback? onEdit;
+  final VoidCallback? onDelete;
 
   const _MobileGroupCard({
     required this.name,
@@ -1071,6 +1167,7 @@ class _MobileGroupCard extends StatelessWidget {
     required this.studentsCount,
     this.capacity,
     this.onEdit,
+    this.onDelete,
   });
 
   @override
@@ -1102,6 +1199,13 @@ class _MobileGroupCard extends StatelessWidget {
                 IconButton(
                   onPressed: onEdit,
                   icon: const Icon(Icons.edit_outlined, size: 18, color: DarAlFajrTheme.primary),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                ),
+              if (onDelete != null)
+                IconButton(
+                  onPressed: onDelete,
+                  icon: Icon(Icons.delete_outline_rounded, size: 18, color: Colors.red.shade600),
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
                 ),
@@ -1161,19 +1265,20 @@ class _MobileUserCard extends StatelessWidget {
   final String email;
   final String role;
   final bool isPendingFirstLogin;
+  final VoidCallback? onTap;
 
   const _MobileUserCard({
     required this.name,
     required this.email,
     required this.role,
     required this.isPendingFirstLogin,
+    this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(14),
@@ -1181,7 +1286,15 @@ class _MobileUserCard extends StatelessWidget {
           BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 6, offset: const Offset(0, 2)),
         ],
       ),
-      child: Row(
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(14),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(14),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Row(
         children: [
           CircleAvatar(
             radius: 20,
@@ -1223,6 +1336,9 @@ class _MobileUserCard extends StatelessWidget {
             ],
           ),
         ],
+      ),
+          ),
+        ),
       ),
     );
   }

@@ -8,7 +8,7 @@ import '../models/admin_models.dart';
 import '../providers/admin_providers.dart';
 import 'admin_dialogs.dart';
 
-class AdminUsersTab extends StatelessWidget {
+class AdminUsersTab extends ConsumerWidget {
   final String langCode;
   final List<AppUser> users;
   final VoidCallback onAddUserPressed;
@@ -21,7 +21,7 @@ class AdminUsersTab extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return ListView(
       padding: const EdgeInsets.all(24),
       children: [
@@ -89,6 +89,7 @@ class AdminUsersTab extends StatelessWidget {
               itemBuilder: (context, index) {
                 final u = users[index];
                 return ListTile(
+                  onTap: () => showAdminUserProfileModal(context, ref, u, langCode),
                   leading: CircleAvatar(
                     backgroundColor: DarAlFajrTheme.primary.withValues(alpha: 0.15),
                     child: Text(
@@ -109,7 +110,7 @@ class AdminUsersTab extends StatelessWidget {
                       borderRadius: BorderRadius.circular(999),
                     ),
                     child: Text(
-                      u.role.name.toUpperCase(),
+                      u.role.localizedName(langCode),
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 12,
@@ -280,7 +281,22 @@ class AdminGroupsTab extends ConsumerWidget {
                               icon: const Icon(Icons.edit_outlined, size: 18, color: DarAlFajrTheme.primary),
                             ),
                             IconButton(
-                              onPressed: () => ref.read(adminRepositoryProvider).deleteGroup(g.id),
+                              onPressed: () async {
+                                final confirmed = await confirmAdminDelete(
+                                  context,
+                                  langCode: langCode,
+                                  title: trByLang(langCode, ar: 'حذف الحلقة', he: 'מחיקת קבוצה', en: 'Delete Group'),
+                                  message: trByLang(
+                                    langCode,
+                                    ar: 'هل تريد حذف حلقة "${g.name}"؟',
+                                    he: 'למחוק את הקבוצה "${g.name}"?',
+                                    en: 'Delete study group "${g.name}"?',
+                                  ),
+                                );
+                                if (confirmed) {
+                                  await ref.read(adminRepositoryProvider).deleteGroup(g.id);
+                                }
+                              },
                               icon: const Icon(Icons.delete_outline_rounded, size: 18, color: Color(0xFF6D7A77)),
                             ),
                           ],
@@ -415,7 +431,22 @@ class AdminEnrollmentsTab extends ConsumerWidget {
                             ),
                           const SizedBox(width: 6),
                           IconButton(
-                            onPressed: () => ref.read(adminRepositoryProvider).deleteEnrollment(e.id),
+                            onPressed: () async {
+                              final confirmed = await confirmAdminDelete(
+                                context,
+                                langCode: langCode,
+                                title: trByLang(langCode, ar: 'إلغاء التسجيل', he: 'הסרת רישום', en: 'Remove Enrollment'),
+                                message: trByLang(
+                                  langCode,
+                                  ar: 'هل تريد إزالة "${e.studentName}" من "${e.groupName}"؟',
+                                  he: 'להסיר את "${e.studentName}" מהקבוצה "${e.groupName}"?',
+                                  en: 'Remove "${e.studentName}" from "${e.groupName}"?',
+                                ),
+                              );
+                              if (confirmed) {
+                                await ref.read(adminRepositoryProvider).deleteEnrollment(e.id);
+                              }
+                            },
                             tooltip: trByLang(langCode, ar: 'إلغاء التسجيل', he: 'הסר רישום', en: 'Remove Enrollment'),
                             icon: const Icon(Icons.delete_outline_rounded, size: 18, color: Color(0xFF6D7A77)),
                           ),

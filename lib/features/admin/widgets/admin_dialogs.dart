@@ -1607,3 +1607,245 @@ void showAdminGroupRosterModal(
     },
   );
 }
+
+Future<bool> confirmAdminDelete(
+  BuildContext context, {
+  required String langCode,
+  required String title,
+  required String message,
+}) async {
+  final result = await showDialog<bool>(
+    context: context,
+    builder: (confirmCtx) => AlertDialog(
+      title: Text(title),
+      content: Text(message),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(confirmCtx).pop(false),
+          child: Text(trByLang(langCode, ar: 'إلغاء', he: 'ביטול', en: 'Cancel')),
+        ),
+        ElevatedButton(
+          style: ElevatedButton.styleFrom(backgroundColor: Colors.red.shade700),
+          onPressed: () => Navigator.of(confirmCtx).pop(true),
+          child: Text(trByLang(langCode, ar: 'حذف', he: 'מחק', en: 'Delete')),
+        ),
+      ],
+    ),
+  );
+  return result == true;
+}
+
+void showAdminUserProfileModal(
+  BuildContext context,
+  WidgetRef ref,
+  AppUser user,
+  String langCode,
+) {
+  final nameCtrl = TextEditingController(text: user.fullName);
+  final phoneCtrl = TextEditingController(text: user.phoneNumber ?? '');
+  UserRole selectedRole = user.role;
+  bool isSaving = false;
+  String? errorMessage;
+  final messenger = ScaffoldMessenger.maybeOf(context);
+
+  _showAdminFormSheet(
+    context: context,
+    builder: (sheetContext, setSheetState) {
+      Future<void> saveUser() async {
+        final fullName = nameCtrl.text.trim();
+        if (fullName.isEmpty) {
+          setSheetState(() {
+            errorMessage = trByLang(
+              langCode,
+              ar: 'يرجى إدخال الاسم الكامل.',
+              he: 'נא להזין שם מלא.',
+              en: 'Please enter the full name.',
+            );
+          });
+          return;
+        }
+        setSheetState(() {
+          isSaving = true;
+          errorMessage = null;
+        });
+
+        final ok = await ref.read(adminControllerProvider.notifier).updateUser(
+              uid: user.uid,
+              fullName: fullName,
+              phoneNumber: phoneCtrl.text.trim(),
+              role: selectedRole,
+            );
+
+        if (!sheetContext.mounted) return;
+        if (!ok) {
+          setSheetState(() {
+            isSaving = false;
+            errorMessage = ref.read(adminControllerProvider).error?.toString() ?? 'Update failed';
+          });
+          return;
+        }
+
+        Navigator.of(sheetContext).pop();
+        messenger?.showSnackBar(
+          SnackBar(
+            content: Text(
+              trByLang(langCode, ar: 'تم تحديث بيانات المستخدم بنجاح!', he: 'המשתמש עודכן בהצלחה!', en: 'User updated successfully!'),
+            ),
+            backgroundColor: DarAlFajrTheme.primary,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+
+      Future<void> handleDelete() async {
+        final confirmed = await confirmAdminDelete(
+          sheetContext,
+          langCode: langCode,
+          title: trByLang(langCode, ar: 'حذف المستخدم', he: 'מחיקת משתמש', en: 'Delete User'),
+          message: trByLang(
+            langCode,
+            ar: 'هل تريد حذف ملف "${user.fullName}" من قاعدة البيانات؟',
+            he: 'למחוק את פרופיל "${user.fullName}" ממסד הנתונים?',
+            en: 'Delete "${user.fullName}" from the database?',
+          ),
+        );
+        if (!confirmed || !sheetContext.mounted) return;
+
+        setSheetState(() {
+          isSaving = true;
+          errorMessage = null;
+        });
+
+        final ok = await ref.read(adminControllerProvider.notifier).deleteUser(user.uid);
+        if (!sheetContext.mounted) return;
+        if (!ok) {
+          setSheetState(() {
+            isSaving = false;
+            errorMessage = ref.read(adminControllerProvider).error?.toString() ?? 'Delete failed';
+          });
+          return;
+        }
+
+        Navigator.of(sheetContext).pop();
+        messenger?.showSnackBar(
+          SnackBar(
+            content: Text(
+              trByLang(langCode, ar: 'تم حذف المستخدم.', he: 'המשתמש נמחק.', en: 'User deleted.'),
+            ),
+            backgroundColor: DarAlFajrTheme.primary,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+
+      return SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _buildSheetHeader(
+              sheetContext,
+              trByLang(langCode, ar: 'ملف المستخدم', he: 'פרופיל משתמש', en: 'User Profile'),
+            ),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF2F4F6),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.mail_outline_rounded, size: 18, color: Color(0xFF6D7A77)),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      user.email,
+                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (errorMessage != null) ...[
+              const SizedBox(height: 10),
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.red.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.red.shade200),
+                ),
+                child: Text(errorMessage!, style: TextStyle(fontSize: 12, color: Colors.red.shade800)),
+              ),
+            ],
+            const SizedBox(height: 12),
+            TextField(
+              controller: nameCtrl,
+              decoration: InputDecoration(
+                labelText: trByLang(langCode, ar: 'الاسم الكامل *', he: 'שם מלא *', en: 'Full Name *'),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: phoneCtrl,
+              keyboardType: TextInputType.phone,
+              decoration: InputDecoration(
+                labelText: trByLang(langCode, ar: 'رقم الهاتف', he: 'מספר טלפון', en: 'Phone Number'),
+              ),
+            ),
+            const SizedBox(height: 14),
+            Text(
+              trByLang(langCode, ar: 'الدور:', he: 'תפקיד:', en: 'Role:'),
+              style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: Color(0xFF3D4947)),
+            ),
+            const SizedBox(height: 6),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [UserRole.teacher, UserRole.parent, UserRole.student, UserRole.admin]
+                  .map(
+                    (r) => ChoiceChip(
+                      label: Text(r.localizedName(langCode)),
+                      selected: selectedRole == r,
+                      onSelected: isSaving ? null : (_) => setSheetState(() => selectedRole = r),
+                    ),
+                  )
+                  .toList(),
+            ),
+            const SizedBox(height: 20),
+            Row(
+              children: [
+                OutlinedButton.icon(
+                  onPressed: isSaving ? null : handleDelete,
+                  icon: Icon(Icons.delete_outline_rounded, size: 18, color: Colors.red.shade700),
+                  label: Text(
+                    trByLang(langCode, ar: 'حذف', he: 'מחק', en: 'Delete'),
+                    style: TextStyle(color: Colors.red.shade700),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                    side: BorderSide(color: Colors.red.shade200),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: isSaving ? null : saveUser,
+                    style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 14)),
+                    child: isSaving
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                          )
+                        : Text(trByLang(langCode, ar: 'حفظ التعديلات', he: 'שמור שינויים', en: 'Save Changes')),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      );
+    },
+  );
+}
