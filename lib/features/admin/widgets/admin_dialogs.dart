@@ -268,7 +268,6 @@ void showAdminAddStudentOrUserDialog(
   StudentProfile? existingStudent,
 }) {
   final isEditingStudent = existingStudent != null;
-  final parents = ref.read(adminParentsProvider).value ?? const <AppUser>[];
   final nameController = TextEditingController(text: existingStudent?.fullName ?? '');
   final parentNameController = TextEditingController(text: existingStudent?.parentName ?? '');
   final emailController = TextEditingController(text: existingStudent?.email ?? '');
@@ -278,13 +277,7 @@ void showAdminAddStudentOrUserDialog(
       ? UserRole.student
       : (initialRole == UserRole.admin ? UserRole.teacher : initialRole);
   const manualParentKey = '__manual__';
-  String selectedParentId;
-  if (isEditingStudent) {
-    final hasMatchingParent = parents.any((p) => p.uid == existingStudent.parentId);
-    selectedParentId = hasMatchingParent ? existingStudent.parentId : manualParentKey;
-  } else {
-    selectedParentId = parents.isNotEmpty ? parents.first.uid : manualParentKey;
-  }
+  String? selectedParentId;
   bool isSaving = false;
   String? errorMessage;
   String? successMessage;
@@ -293,6 +286,95 @@ void showAdminAddStudentOrUserDialog(
   _showAdminFormSheet(
     context: context,
     builder: (sheetContext, setSheetState) {
+      return Consumer(
+        builder: (consumerContext, cRef, _) {
+          final directParents = cRef.watch(adminParentsProvider).value ?? const <AppUser>[];
+          final allUsers = cRef.watch(adminAllUsersProvider).value ?? const <AppUser>[];
+          final parents = directParents.isNotEmpty
+              ? directParents
+              : allUsers.where((u) => u.role == UserRole.parent).toList();
+          final allEnrollments = cRef.watch(adminEnrollmentsProvider).value ?? const <Enrollment>[];
+          final studentEnrollments = isEditingStudent
+              ? allEnrollments.where((e) => e.studentId == existingStudent.id).toList()
+              : const <Enrollment>[];
+
+          if (isEditingStudent) {
+            if (selectedParentId == null) {
+              final hasMatchingParent = parents.any((p) => p.uid == existingStudent.parentId);
+              selectedParentId = hasMatchingParent ? existingStudent.parentId : manualParentKey;
+            }
+          } else {
+            if (selectedParentId == null && parents.isNotEmpty) {
+              selectedParentId = parents.first.uid;
+            } else if (selectedParentId != null &&
+                selectedParentId != manualParentKey &&
+                !parents.any((p) => p.uid == selectedParentId)) {
+              selectedParentId = parents.isNotEmpty ? parents.first.uid : manualParentKey;
+            }
+          }
+          final effectiveParentId = selectedParentId ?? (parents.isNotEmpty ? parents.first.uid : manualParentKey);
+
+          Future<void> handleDeleteStudent() async {
+            if (!isEditingStudent) return;
+            final confirmed = await confirmAdminDelete(
+              sheetContext,
+              langCode: langCode,
+              title: trByLang(langCode, ar: 'حذف الطالب', he: 'מחיקת תלמיד', en: 'Delete Student'),
+              message: trByLang(
+                langCode,
+                ar: 'هل تريد حذف ملف الطالب "${existingStudent.fullName}"؟',
+                he: 'למחוק את התלמיד "${existingStudent.fullName}"?',
+                en: 'Delete student "${existingStudent.fullName}"?',
+              ),
+            );
+            if (!confirmed || !sheetContext.mounted) return;
+
+            setSheetState(() {
+              isSaving = true;
+              errorMessage = null;
+            });
+            try {
+              await cRef.read(adminRepositoryProvider).deleteStudent(existingStudent.id);
+              if (!sheetContext.mounted) return;
+              Navigator.of(sheetContext).pop();
+              messenger?.showSnackBar(
+                SnackBar(
+                  content: Text(trByLang(langCode, ar: 'تم حذف الطالب.', he: 'התלמיד נמחק.', en: 'Student deleted.')),
+                  backgroundColor: DarAlFajrTheme.primary,
+                  behavior: SnackBarBehavior.floating,
+                ),
+              );
+            } catch (e) {
+              if (sheetContext.mounted) {
+                setSheetState(() {
+                  isSaving = false;
+                  errorMessage = e.toString();
+                });
+              }
+            }
+          }
+
+          Future<void> handleUnenroll(Enrollment enrollment) async {
+            final confirmed = await confirmAdminDelete(
+              sheetContext,
+              langCode: langCode,
+              title: trByLang(langCode, ar: 'إلغاء التسجيل', he: 'הסרת רישום', en: 'Remove Enrollment'),
+              message: trByLang(
+                langCode,
+                ar: 'هل تريد إزالة الطالب من "${enrollment.groupName}"؟',
+                he: 'להסיר את התלמיד מהקבוצה "${enrollment.groupName}"?',
+                en: 'Remove student from "${enrollment.groupName}"?',
+              ),
+            );
+            if (!confirmed || !sheetContext.mounted) return;
+            try {
+              await cRef.read(adminRepositoryProvider).deleteEnrollment(enrollment.id);
+            } catch (e) {
+              if (sheetContext.mounted) {
+                setSheetState(() => errorMessage = e.toString());
+              }
+            }
+          }
       Future<void> submit({required bool keepOpen}) async {
         final fullName = nameController.text.trim();
         final email = emailController.text.trim();
@@ -346,7 +428,7 @@ void showAdminAddStudentOrUserDialog(
         });
 
         if (isEditingStudent) {
-          final linkedParent = parents.where((p) => p.uid == selectedParentId).firstOrNull;
+          final linkedParent = parents.where((p) => p.uid == effectiveParentId).firstOrNull;
           final resolvedParentId = linkedParent?.uid ?? existingStudent.parentId;
           final resolvedParentName = linkedParent?.fullName ??
               (parentNameController.text.trim().isEmpty
@@ -362,7 +444,7 @@ void showAdminAddStudentOrUserDialog(
                 phoneNumber: phone,
               );
         } else if (selectedRole == UserRole.student) {
-          final linkedParent = parents.where((p) => p.uid == selectedParentId).firstOrNull;
+          final linkedParent = parents.where((p) => p.uid == effectiveParentId).firstOrNull;
           final resolvedParentId = linkedParent?.uid ?? 'parent-default';
           final resolvedParentName = linkedParent?.fullName ??
               (parentNameController.text.trim().isEmpty
@@ -532,7 +614,7 @@ void showAdminAddStudentOrUserDialog(
               const SizedBox(height: 12),
               if (parents.isNotEmpty)
                 DropdownButtonFormField<String>(
-                  initialValue: selectedParentId,
+                  initialValue: effectiveParentId,
                   isExpanded: true,
                   decoration: InputDecoration(
                     labelText: trByLang(
@@ -569,7 +651,7 @@ void showAdminAddStudentOrUserDialog(
                           }
                         },
                 ),
-              if (parents.isEmpty || selectedParentId == manualParentKey) ...[
+              if (parents.isEmpty || effectiveParentId == manualParentKey) ...[
                 if (parents.isNotEmpty) const SizedBox(height: 12),
                 TextField(
                   controller: parentNameController,
@@ -611,10 +693,66 @@ void showAdminAddStudentOrUserDialog(
                 labelText: trByLang(langCode, ar: 'رقم الهاتف', he: 'מספר טלפון', en: 'Phone Number'),
               ),
             ),
+            if (isEditingStudent) ...[
+              const SizedBox(height: 16),
+              Text(
+                trByLang(
+                  langCode,
+                  ar: 'الحلقات المسجل بها (${studentEnrollments.length})',
+                  he: 'קבוצות רשומות (${studentEnrollments.length})',
+                  en: 'Enrolled Groups (${studentEnrollments.length})',
+                ),
+                style: const TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF3D4947),
+                ),
+              ),
+              const SizedBox(height: 8),
+              if (studentEnrollments.isEmpty)
+                Text(
+                  trByLang(
+                    langCode,
+                    ar: 'غير مسجل في أي حلقة حالياً.',
+                    he: 'לא רשום לקבוצות כרגע.',
+                    en: 'Not enrolled in any groups yet.',
+                  ),
+                  style: const TextStyle(fontSize: 12, color: Color(0xFF6D7A77)),
+                )
+              else
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: studentEnrollments.map((e) {
+                    return InputChip(
+                      label: Text(e.groupName, style: const TextStyle(fontSize: 12)),
+                      backgroundColor: DarAlFajrTheme.primary.withValues(alpha: 0.08),
+                      deleteIcon: const Icon(Icons.close_rounded, size: 16),
+                      deleteIconColor: Colors.red.shade600,
+                      onDeleted: isSaving ? null : () => handleUnenroll(e),
+                      visualDensity: VisualDensity.compact,
+                    );
+                  }).toList(),
+                ),
+            ],
             const SizedBox(height: 20),
             Row(
               children: [
-                if (!isEditingStudent) ...[
+                if (isEditingStudent) ...[
+                  OutlinedButton.icon(
+                    onPressed: isSaving ? null : handleDeleteStudent,
+                    icon: Icon(Icons.delete_outline_rounded, size: 18, color: Colors.red.shade700),
+                    label: Text(
+                      trByLang(langCode, ar: 'حذف', he: 'מחק', en: 'Delete'),
+                      style: TextStyle(color: Colors.red.shade700),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                      side: BorderSide(color: Colors.red.shade200),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                ] else ...[
                   Expanded(
                     child: OutlinedButton(
                       onPressed: isSaving ? null : () => submit(keepOpen: true),
@@ -652,6 +790,8 @@ void showAdminAddStudentOrUserDialog(
             ),
           ],
         ),
+      );
+        },
       );
     },
   );
@@ -1266,7 +1406,60 @@ void showAdminGroupFormDialog(
                     const SizedBox(height: 16),
                     Row(
                       children: [
-                        if (!isEditing) ...[
+                        if (isEditing) ...[
+                          OutlinedButton.icon(
+                            onPressed: isSaving
+                                ? null
+                                : () async {
+                                    final confirmed = await confirmAdminDelete(
+                                      dialogContext,
+                                      langCode: langCode,
+                                      title: trByLang(langCode, ar: 'حذف الحلقة', he: 'מחיקת קבוצה', en: 'Delete Group'),
+                                      message: trByLang(
+                                        langCode,
+                                        ar: 'هل تريد حذف حلقة "${existingGroup.name}"؟',
+                                        he: 'למחוק את הקבוצה "${existingGroup.name}"?',
+                                        en: 'Delete study group "${existingGroup.name}"?',
+                                      ),
+                                    );
+                                    if (!confirmed || !dialogContext.mounted) return;
+                                    setDialogState(() {
+                                      isSaving = true;
+                                      errorMessage = null;
+                                    });
+                                    try {
+                                      await cRef.read(adminRepositoryProvider).deleteGroup(existingGroup.id);
+                                      if (!dialogContext.mounted) return;
+                                      Navigator.of(dialogContext).pop();
+                                      messenger?.showSnackBar(
+                                        SnackBar(
+                                          content: Text(
+                                            trByLang(langCode, ar: 'تم حذف الحلقة.', he: 'הקבוצה נמחקה.', en: 'Study group deleted.'),
+                                          ),
+                                          backgroundColor: DarAlFajrTheme.primary,
+                                        ),
+                                      );
+                                    } catch (e) {
+                                      if (dialogContext.mounted) {
+                                        setDialogState(() {
+                                          isSaving = false;
+                                          errorMessage = e.toString();
+                                        });
+                                      }
+                                    }
+                                  },
+                            icon: Icon(Icons.delete_outline_rounded, size: 18, color: Colors.red.shade700),
+                            label: Text(
+                              trByLang(langCode, ar: 'حذف', he: 'מחק', en: 'Delete'),
+                              style: TextStyle(color: Colors.red.shade700),
+                            ),
+                            style: OutlinedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                              side: BorderSide(color: Colors.red.shade200),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                        ] else ...[
                           Expanded(
                             child: OutlinedButton(
                               onPressed: isSaving ? null : () => submitGroup(keepOpen: true),

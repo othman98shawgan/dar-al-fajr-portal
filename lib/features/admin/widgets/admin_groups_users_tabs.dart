@@ -266,40 +266,16 @@ class AdminGroupsTab extends ConsumerWidget {
                             ),
                           ],
                         ),
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            IconButton(
-                              onPressed: () => showAdminEditGroupDialog(
-                                context,
-                                ref,
-                                langCode,
-                                group: g,
-                                isDemoFallback: isDemoFallback,
-                              ),
-                              tooltip: trByLang(langCode, ar: 'تعديل الحلقة', he: 'ערוך קבוצה', en: 'Edit Group'),
-                              icon: const Icon(Icons.edit_outlined, size: 18, color: DarAlFajrTheme.primary),
-                            ),
-                            IconButton(
-                              onPressed: () async {
-                                final confirmed = await confirmAdminDelete(
-                                  context,
-                                  langCode: langCode,
-                                  title: trByLang(langCode, ar: 'حذف الحلقة', he: 'מחיקת קבוצה', en: 'Delete Group'),
-                                  message: trByLang(
-                                    langCode,
-                                    ar: 'هل تريد حذف حلقة "${g.name}"؟',
-                                    he: 'למחוק את הקבוצה "${g.name}"?',
-                                    en: 'Delete study group "${g.name}"?',
-                                  ),
-                                );
-                                if (confirmed) {
-                                  await ref.read(adminRepositoryProvider).deleteGroup(g.id);
-                                }
-                              },
-                              icon: const Icon(Icons.delete_outline_rounded, size: 18, color: Color(0xFF6D7A77)),
-                            ),
-                          ],
+                        IconButton(
+                          onPressed: () => showAdminEditGroupDialog(
+                            context,
+                            ref,
+                            langCode,
+                            group: g,
+                            isDemoFallback: isDemoFallback,
+                          ),
+                          tooltip: trByLang(langCode, ar: 'تعديل الحلقة', he: 'ערוך קבוצה', en: 'Edit Group'),
+                          icon: const Icon(Icons.edit_outlined, size: 18, color: DarAlFajrTheme.primary),
                         ),
                       ],
                     ),
