@@ -5,6 +5,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../l10n/app_localizations_tr.dart';
 import '../models/admin_models.dart';
 import '../providers/admin_providers.dart';
+import 'admin_dialogs.dart';
 import 'admin_shell_models.dart';
 
 class AdminStudentsTab extends ConsumerWidget {
@@ -86,6 +87,27 @@ class AdminStudentsTab extends ConsumerWidget {
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
+                  Builder(
+                    builder: (ctx) {
+                      final showArchived = ref.watch(adminShowArchivedProvider);
+                      final archivedCount = (ref.watch(adminStudentsProvider).asData?.value ?? const [])
+                          .where((s) => s.isArchived)
+                          .length;
+                      if (archivedCount == 0 && !showArchived) {
+                        return const SizedBox.shrink();
+                      }
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 6),
+                        child: FilterChip(
+                          label: Text(
+                            trByLang(langCode, ar: 'المؤرشف ($archivedCount)', he: 'ארכיון ($archivedCount)', en: 'Archived ($archivedCount)'),
+                          ),
+                          selected: showArchived,
+                          onSelected: (v) => ref.read(adminShowArchivedProvider.notifier).setShowArchived(v),
+                        ),
+                      );
+                    },
+                  ),
                   OutlinedButton.icon(
                     onPressed: onAddStudentPressed,
                     style: OutlinedButton.styleFrom(
@@ -578,32 +600,37 @@ class AdminStudentsTab extends ConsumerWidget {
                                                   ),
                                           ),
                                           SizedBox(
-                                            width: 100,
-                                            child: Row(
-                                              mainAxisAlignment: MainAxisAlignment.center,
-                                              children: [
-                                                IconButton(
-                                                  visualDensity: VisualDensity.compact,
-                                                  padding: const EdgeInsets.all(4),
-                                                  constraints: const BoxConstraints(),
-                                                  onPressed: () => onSelectStudentRow(row),
-                                                  icon: const Icon(Icons.edit_outlined, size: 18, color: Color(0xFF3D4947)),
-                                                ),
-                                                const SizedBox(width: 4),
-                                                IconButton(
-                                                  visualDensity: VisualDensity.compact,
-                                                  padding: const EdgeInsets.all(4),
-                                                  constraints: const BoxConstraints(),
-                                                  onPressed: row.isFromFirestore
-                                                      ? () => ref.read(adminRepositoryProvider).deleteStudent(row.id)
-                                                      : null,
-                                                  icon: const Icon(
-                                                    Icons.delete_outline_rounded,
-                                                    size: 18,
-                                                    color: Color(0xFF3D4947),
-                                                  ),
-                                                ),
-                                              ],
+                                            width: 80,
+                                            child: Center(
+                                              child: IconButton(
+                                                visualDensity: VisualDensity.compact,
+                                                padding: const EdgeInsets.all(4),
+                                                constraints: const BoxConstraints(),
+                                                onPressed: row.isFromFirestore
+                                                    ? () {
+                                                        final liveStudents =
+                                                            ref.read(adminStudentsProvider).value ??
+                                                                const <StudentProfile>[];
+                                                        final profile = liveStudents
+                                                                .where((s) => s.id == row.id)
+                                                                .firstOrNull ??
+                                                            StudentProfile(
+                                                              id: row.id,
+                                                              fullName: row.fullName,
+                                                              parentId: 'parent-default',
+                                                              parentName: row.parentName,
+                                                              email: row.parentEmail,
+                                                            );
+                                                        showAdminAddStudentOrUserDialog(
+                                                          context,
+                                                          ref,
+                                                          langCode,
+                                                          existingStudent: profile,
+                                                        );
+                                                      }
+                                                    : () => onSelectStudentRow(row),
+                                                icon: const Icon(Icons.edit_outlined, size: 18, color: Color(0xFF3D4947)),
+                                              ),
                                             ),
                                           ),
                                         ],

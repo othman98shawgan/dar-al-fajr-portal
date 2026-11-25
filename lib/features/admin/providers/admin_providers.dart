@@ -103,6 +103,17 @@ final adminTrackFilterProvider =
     NotifierProvider<AdminTrackFilterNotifier, CenterTrack?>(
         AdminTrackFilterNotifier.new);
 
+class AdminShowArchivedNotifier extends Notifier<bool> {
+  @override
+  bool build() => false;
+
+  void setShowArchived(bool value) => state = value;
+}
+
+final adminShowArchivedProvider =
+    NotifierProvider<AdminShowArchivedNotifier, bool>(
+        AdminShowArchivedNotifier.new);
+
 class AdminController extends AsyncNotifier<void> {
   @override
   FutureOr<void> build() {}
@@ -130,6 +141,32 @@ class AdminController extends AsyncNotifier<void> {
     return created;
   }
 
+  Future<bool> updateUser({
+    required String uid,
+    required String fullName,
+    String? phoneNumber,
+    required UserRole role,
+  }) async {
+    state = const AsyncLoading();
+    state = await AsyncValue.guard(() async {
+      await ref.read(adminRepositoryProvider).updateUser(
+            uid: uid,
+            fullName: fullName,
+            phoneNumber: phoneNumber,
+            role: role,
+          );
+    });
+    return !state.hasError;
+  }
+
+  Future<bool> deleteUser(String uid) async {
+    state = const AsyncLoading();
+    state = await AsyncValue.guard(() async {
+      await ref.read(adminRepositoryProvider).deleteUser(uid);
+    });
+    return !state.hasError;
+  }
+
   Future<StudentProfile?> createStudent({
     required String fullName,
     required String parentId,
@@ -153,6 +190,28 @@ class AdminController extends AsyncNotifier<void> {
           );
     });
     return created;
+  }
+
+  Future<bool> updateStudent({
+    required String studentId,
+    required String fullName,
+    required String parentId,
+    String? parentName,
+    String? email,
+    String? phoneNumber,
+  }) async {
+    state = const AsyncLoading();
+    state = await AsyncValue.guard(() async {
+      await ref.read(adminRepositoryProvider).updateStudent(
+            studentId: studentId,
+            fullName: fullName,
+            parentId: parentId,
+            parentName: parentName,
+            email: email,
+            phoneNumber: phoneNumber,
+          );
+    });
+    return !state.hasError;
   }
 
   Future<StudyGroup?> createGroup({

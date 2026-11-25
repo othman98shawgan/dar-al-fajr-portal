@@ -84,6 +84,34 @@ System Specification & Software Requirement Documentation for **Dar al-Fajr Port
 * [x] **Milestone 5:** Parent & Student Experience (Child Switcher, Chronological Arrival Schedule & Progress Dashboard UI).  
 * [x] **Milestone 6:** Security & Deployment (Firestore Security Rules auditing, performance optimization, and Production Deployment).
 
+## **Admin Actions & UX Enhancements (Post-v1.0 Backlog)**
+
+### **Completed**
+* [x] **Unified Creation Modals & Group Roster:** Convert Create Student/User and Create/Edit Group to modal bottom sheets (`Create` wording), enforce picking active Teacher users in Group form, and add Manage Student Roster modal (add/remove students) inside Edit Study Group.
+* [x] **User Language Preference Persistence:** Load `preferredLanguage` from `users/{uid}` on auth/startup and save updates to Firestore whenever the user switches language.
+
+### **Users (Teachers, Parents & Students)**
+* [x] **Mobile Users Tab Defaults & Localization:** Default Mobile Users tab `+` button to `UserRole.teacher` and localize role labels with `role.localizedName(langCode)`.
+* [x] **Users Search & Role Filter (Web & Mobile):** Add search and role filter (All / Teachers / Parents / Students / Admins) in Users tab.
+* [x] **Edit User (Web & Mobile):** Implement `updateUser` (name, phone, role) in `AdminRepository` and open a User Profile / Edit modal on tap/edit.
+* [x] **Delete User (Web & Mobile):** Allow deleting Firestore `users/{uid}` document with a confirmation dialog.
+
+### **Students**
+* [x] **Web Edit Student:** Wire Web's Student Edit button to open the Edit Student modal (separate from the Enrollment Drawer).
+* [x] **Delete Student Confirmation & Mobile Parity:** Add confirmation dialog before deleting Students on Web, and add Delete Student action + confirmation on Mobile Student cards.
+
+### **Study Groups (Halaqat)**
+* [x] **Delete Group Confirmation & Mobile Parity:** Add confirmation dialog before deleting Groups on Web, and add Delete Group action + confirmation on Mobile Group cards.
+
+### **Enrollments (Student ↔ Group + 1-on-1 Slots)**
+* [x] **Delete Enrollment Confirmation (Web):** Add confirmation dialog before removing an enrollment on Web.
+* [x] **Mobile Enrollment Visibility & Unenroll:** Show a student's active group enrollments inside expanded Mobile Student cards with Unenroll support (with confirmation).
+* [x] **Edit 1-on-1 Arrival Slots (Web & Mobile):** Allow editing 1-on-1 arrival day/time on existing enrollments without deleting and re-enrolling.
+
+### **Operations & Settings**
+* [x] **Mobile Attendance Audit:** Surface Attendance Audit on Mobile Admin.
+* [x] **Mobile Grading Penalty Settings:** Surface Grading Penalty Settings on Mobile Admin.
+
 ## Git
 For all Git, branching, and release operations, strictly follow the rules in ./GIT_WORKFLOW.md.
 - When preparing a Pull Request reminder (Step 4 of `./GIT_WORKFLOW.md`), always format the **PR Description** inside a fenced markdown code block (` ```markdown ... ``` `) so it can be easily copied with one click into GitHub.

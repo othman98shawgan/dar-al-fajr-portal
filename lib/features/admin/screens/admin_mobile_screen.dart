@@ -8,6 +8,7 @@ import '../../../core/services/locale_provider.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../l10n/app_localizations_tr.dart';
 import '../providers/admin_providers.dart';
+import '../widgets/admin_dialogs.dart';
 import '../widgets/admin_mobile_dialogs.dart';
 import '../widgets/admin_mobile_models.dart';
 import '../widgets/admin_mobile_tabs.dart';
@@ -74,19 +75,25 @@ class _AdminMobileScreenState extends ConsumerState<AdminMobileScreen> {
     final firestoreGroups = ref.watch(adminGroupsProvider).asData?.value ?? const [];
     final firestoreEnrollments = ref.watch(adminEnrollmentsProvider).asData?.value ?? const [];
     final allUsers = ref.watch(adminAllUsersProvider).asData?.value ?? const [];
+    final showArchived = ref.watch(adminShowArchivedProvider);
+
+    final visibleStudents = firestoreStudents.where((s) => s.isArchived == showArchived).toList();
+    final visibleGroups = firestoreGroups.where((g) => g.isArchived == showArchived).toList();
+    final activeStudentsCount = firestoreStudents.where((s) => !s.isArchived).length;
+    final activeGroupsCount = firestoreGroups.where((g) => !g.isArchived).length;
 
     final isDemoMode = _isDemoFallback;
     final studentCards = buildMobileStudentCards(
-      firestoreStudents: firestoreStudents,
+      firestoreStudents: visibleStudents,
       firestoreEnrollments: firestoreEnrollments,
       trackFilter: selectedTrackFilter,
       query: _searchQuery,
-      isDemoMode: isDemoMode,
+      isDemoMode: isDemoMode && !showArchived,
       isAscendingOrder: _isAscendingOrder,
     );
 
-    final totalStudentsCount = firestoreStudents.isNotEmpty ? firestoreStudents.length : (isDemoMode ? 142 : 0);
-    final totalGroupsCount = firestoreGroups.isNotEmpty ? firestoreGroups.length : (isDemoMode ? 12 : 0);
+    final totalStudentsCount = firestoreStudents.isNotEmpty ? activeStudentsCount : (isDemoMode ? 142 : 0);
+    final totalGroupsCount = firestoreGroups.isNotEmpty ? activeGroupsCount : (isDemoMode ? 12 : 0);
     final totalOneOnOneCount = firestoreEnrollments.isNotEmpty
         ? firestoreEnrollments.where((e) => e.oneOnOneSlotTime != null && e.oneOnOneSlotTime!.isNotEmpty).length
         : (isDemoMode ? 68 : 0);
@@ -114,53 +121,68 @@ class _AdminMobileScreenState extends ConsumerState<AdminMobileScreen> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Row(
-                      children: [
-                        Container(
-                          width: 40,
-                          height: 40,
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                              color: DarAlFajrTheme.primary.withValues(alpha: 0.15),
-                              width: 1.5,
+                    Expanded(
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 40,
+                            height: 40,
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: DarAlFajrTheme.primary.withValues(alpha: 0.15),
+                                width: 1.5,
+                              ),
+                            ),
+                            padding: const EdgeInsets.all(4),
+                            child: Image.asset('assets/logo.png', fit: BoxFit.contain),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Text(
+                                  trByLang(langCode, ar: 'إدارة دار الفجر', he: 'הנהלת דאר אל-פג׳ר', en: 'Dar al-Fajr Admin'),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                                        fontWeight: FontWeight.bold,
+                                        color: DarAlFajrTheme.primary,
+                                      ),
+                                ),
+                                Text(
+                                  selectedTab == 1
+                                      ? 'Students • الطلاب'
+                                      : selectedTab == 2
+                                          ? 'Groups • الحلقات'
+                                          : selectedTab == 0
+                                              ? 'Users • المستخدمين'
+                                              : 'Reports • التقارير',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                                        color: const Color(0xFF6D7A77),
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                ),
+                              ],
                             ),
                           ),
-                          padding: const EdgeInsets.all(4),
-                          child: Image.asset('assets/logo.png', fit: BoxFit.contain),
-                        ),
-                        const SizedBox(width: 10),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(
-                              trByLang(langCode, ar: 'إدارة دار الفجر', he: 'הנהלת דאר אל-פג׳ר', en: 'Dar al-Fajr Admin'),
-                              style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                                    fontWeight: FontWeight.bold,
-                                    color: DarAlFajrTheme.primary,
-                                  ),
-                            ),
-                            Text(
-                              selectedTab == 1
-                                  ? 'Students • الطلاب'
-                                  : selectedTab == 2
-                                      ? 'Groups • الحلقات'
-                                      : selectedTab == 0
-                                          ? 'Users • المستخدمين'
-                                          : 'Reports • التقارير',
-                              style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                                    color: const Color(0xFF6D7A77),
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                            ),
-                          ],
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                     Row(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
+                        IconButton(
+                          onPressed: () => showAdminGradingSettingsDialog(context, ref, langCode),
+                          tooltip: trByLang(langCode, ar: 'إعدادات خصم الدرجات', he: 'הגדרות ציונים', en: 'Grading Penalty Settings'),
+                          icon: const Icon(Icons.tune_rounded, color: Color(0xFF3D4947), size: 20),
+                          visualDensity: VisualDensity.compact,
+                        ),
                         Stack(
                           children: [
                             IconButton(
@@ -229,9 +251,9 @@ class _AdminMobileScreenState extends ConsumerState<AdminMobileScreen> {
             ),
             AdminMobileGroupsTab(
               langCode: langCode,
-              firestoreGroups: firestoreGroups,
+              firestoreGroups: visibleGroups,
               firestoreEnrollments: firestoreEnrollments,
-              isDemoMode: isDemoMode,
+              isDemoMode: isDemoMode && !showArchived,
             ),
             AdminMobileUsersTab(
               langCode: langCode,
@@ -241,6 +263,7 @@ class _AdminMobileScreenState extends ConsumerState<AdminMobileScreen> {
             AdminMobileReportsTab(
               langCode: langCode,
               students: firestoreStudents,
+              groups: firestoreGroups,
               enrollments: firestoreEnrollments,
               isDemoMode: isDemoMode,
             ),

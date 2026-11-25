@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../l10n/app_localizations_tr.dart';
+import '../../auth/models/app_user.dart';
 import '../models/admin_models.dart';
 import '../providers/admin_providers.dart';
 import '../repositories/admin_repository.dart';
@@ -97,7 +98,7 @@ void showMobileAdminActionModal(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  trByLang(langCode, ar: 'تسجيل طالب جديد', he: 'רישום תלמיד חדש', en: 'Register New Student'),
+                                  trByLang(langCode, ar: 'إنشاء طالب أو مستخدم', he: 'יצירת תלמיד או משתמש', en: 'Create Student or User'),
                                   style: Theme.of(context).textTheme.titleSmall?.copyWith(
                                         fontWeight: FontWeight.bold,
                                         color: DarAlFajrTheme.onSurface,
@@ -107,9 +108,9 @@ void showMobileAdminActionModal(
                                 Text(
                                   trByLang(
                                     langCode,
-                                    ar: 'إضافة طالب وربط ولي أمره واختيار المسار',
-                                    he: 'הוספת תלמיד, קישור הורה ובחירת מסלול',
-                                    en: 'Add student, link parent, and select track',
+                                    ar: 'تسجيل طالب، ولي أمر، أو معلم جديد',
+                                    he: 'רישום תלמיד, הורה או מורה חדש',
+                                    en: 'Register a new student, parent, or teacher',
                                   ),
                                   style: Theme.of(context).textTheme.labelSmall?.copyWith(color: const Color(0xFF6D7A77)),
                                 ),
@@ -191,93 +192,11 @@ void showMobileCreateStudentDialog(
   WidgetRef ref,
   String langCode,
 ) {
-  final nameCtrl = TextEditingController();
-  final parentNameCtrl = TextEditingController();
-  final emailCtrl = TextEditingController();
-  final phoneCtrl = TextEditingController();
-  final tempPassCtrl = TextEditingController(text: 'DarAlFajr@2026');
-  final messenger = ScaffoldMessenger.maybeOf(context);
-
-  showDialog<void>(
-    context: context,
-    builder: (dlgCtx) => AlertDialog(
-      title: Text(trByLang(langCode, ar: 'تسجيل طالب جديد', he: 'רישום תלמיד', en: 'New Student Registration')),
-      content: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: nameCtrl,
-              decoration: InputDecoration(
-                labelText: trByLang(langCode, ar: 'اسم الطالب الرباعي *', he: 'שם מלא *', en: 'Student Full Name *'),
-              ),
-            ),
-            const SizedBox(height: 10),
-            TextField(
-              controller: parentNameCtrl,
-              decoration: InputDecoration(
-                labelText: trByLang(langCode, ar: 'اسم ولي الأمر *', he: 'שם ההורה *', en: 'Parent Name *'),
-              ),
-            ),
-            const SizedBox(height: 10),
-            TextField(
-              controller: phoneCtrl,
-              keyboardType: TextInputType.phone,
-              decoration: InputDecoration(
-                labelText: trByLang(langCode, ar: 'رقم هاتف ولي الأمر', he: 'טלפון', en: 'Parent Phone'),
-              ),
-            ),
-            const SizedBox(height: 10),
-            TextField(
-              controller: emailCtrl,
-              keyboardType: TextInputType.emailAddress,
-              decoration: InputDecoration(
-                labelText: trByLang(langCode, ar: 'البريد الإلكتروني', he: 'דוא״ל', en: 'Email Address'),
-              ),
-            ),
-            const SizedBox(height: 10),
-            TextField(
-              controller: tempPassCtrl,
-              decoration: InputDecoration(
-                labelText: trByLang(langCode, ar: 'كلمة المرور المؤقتة', he: 'סיסמה ראשונית', en: 'Temporary Password'),
-              ),
-            ),
-          ],
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(dlgCtx).pop(),
-          child: Text(trByLang(langCode, ar: 'إلغاء', he: 'ביטול', en: 'Cancel')),
-        ),
-        ElevatedButton(
-          onPressed: () async {
-            if (nameCtrl.text.trim().isEmpty) return;
-            Navigator.of(dlgCtx).pop();
-
-            try {
-              final repo = ref.read(adminRepositoryProvider);
-              await repo.createStudent(
-                fullName: nameCtrl.text.trim(),
-                parentId: 'parent_general',
-                parentName: parentNameCtrl.text.trim().isNotEmpty ? parentNameCtrl.text.trim() : null,
-                email: emailCtrl.text.trim().isNotEmpty ? emailCtrl.text.trim() : null,
-                temporaryPassword: tempPassCtrl.text.trim(),
-                phoneNumber: phoneCtrl.text.trim().isNotEmpty ? phoneCtrl.text.trim() : null,
-              );
-            } catch (_) {}
-
-            messenger?.showSnackBar(
-              SnackBar(
-                content: Text(trByLang(langCode, ar: 'تم تسجيل الطالب بنجاح!', he: 'התלמיד נרשם בהצלחה!', en: 'Student registered successfully!')),
-                backgroundColor: DarAlFajrTheme.primary,
-              ),
-            );
-          },
-          child: Text(trByLang(langCode, ar: 'حفظ وتسجيل', he: 'שמור', en: 'Register')),
-        ),
-      ],
-    ),
+  showAdminAddStudentOrUserDialog(
+    context,
+    ref,
+    langCode,
+    initialRole: UserRole.student,
   );
 }
 

@@ -290,8 +290,8 @@ void main() {
       expect(find.text('الشيخ يوسف النجار'), findsWidgets);
       expect(find.text('الشيخ عبد الرحمن'), findsNothing);
 
-      // Cancel dialog
-      await tester.tap(find.text('إلغاء'));
+      // Close modal sheet
+      await tester.tap(find.byIcon(Icons.close_rounded));
       await tester.pumpAndSettle();
 
       // Switch to Reports tab and verify live metrics replace hardcoded '94%' / '118 جزءاً'

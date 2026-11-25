@@ -264,28 +264,34 @@ class _AdminShellScreenState extends ConsumerState<AdminShellScreen> {
     final firestoreGroups = ref.watch(adminGroupsProvider).asData?.value ?? const [];
     final firestoreEnrollments = ref.watch(adminEnrollmentsProvider).asData?.value ?? const [];
     final allUsers = ref.watch(adminAllUsersProvider).asData?.value ?? const [];
+    final showArchived = ref.watch(adminShowArchivedProvider);
 
-    final rosterRows = _buildRosterRows(firestoreStudents, firestoreEnrollments);
+    final visibleStudents = firestoreStudents.where((s) => s.isArchived == showArchived).toList();
+    final visibleGroups = firestoreGroups.where((g) => g.isArchived == showArchived).toList();
+    final activeStudentsCount = firestoreStudents.where((s) => !s.isArchived).length;
+    final activeGroupsCount = firestoreGroups.where((g) => !g.isArchived).length;
+
+    final rosterRows = _buildRosterRows(visibleStudents, firestoreEnrollments);
 
     final isDemoMode = _isDemoFallback;
     if (!isDemoMode) {
-      if (firestoreStudents.isNotEmpty &&
-          !firestoreStudents.any((s) => s.id == _selectedStudentId)) {
-        final first = firestoreStudents.first;
+      if (visibleStudents.isNotEmpty &&
+          !visibleStudents.any((s) => s.id == _selectedStudentId)) {
+        final first = visibleStudents.first;
         _selectedStudentId = first.id;
         _selectedStudentName = first.fullName;
         _selectedStudentCode = formatAdminStudentCode(first.id);
       }
-      if (firestoreGroups.isNotEmpty &&
-          !firestoreGroups.any((g) => g.id == _selectedGroupId)) {
-        final firstGroup = firestoreGroups.first;
+      if (visibleGroups.isNotEmpty &&
+          !visibleGroups.any((g) => g.id == _selectedGroupId)) {
+        final firstGroup = visibleGroups.first;
         _selectedGroupId = firstGroup.id;
         _selectedGroupLabel = firstGroup.name;
         _selectedTargetTrack = firstGroup.track;
       }
     }
-    final totalStudentsCount = firestoreStudents.isNotEmpty ? firestoreStudents.length : (isDemoMode ? 6 : 0);
-    final totalGroupsCount = firestoreGroups.isNotEmpty ? firestoreGroups.length : (isDemoMode ? 3 : 0);
+    final totalStudentsCount = firestoreStudents.isNotEmpty ? activeStudentsCount : (isDemoMode ? 6 : 0);
+    final totalGroupsCount = firestoreGroups.isNotEmpty ? activeGroupsCount : (isDemoMode ? 3 : 0);
     final totalOneOnOneCount = firestoreEnrollments.isNotEmpty
         ? firestoreEnrollments.where((e) => e.oneOnOneSlotTime != null && e.oneOnOneSlotTime!.isNotEmpty).length
         : (isDemoMode ? 3 : 0);
@@ -659,8 +665,8 @@ class _AdminShellScreenState extends ConsumerState<AdminShellScreen> {
                                 totalOneOnOneCount: totalOneOnOneCount,
                                 selectedTrackFilter: selectedTrackFilter,
                                 allUsers: allUsers,
-                                firestoreStudents: firestoreStudents,
-                                firestoreGroups: firestoreGroups,
+                                firestoreStudents: visibleStudents,
+                                firestoreGroups: visibleGroups,
                                 firestoreEnrollments: firestoreEnrollments,
                                 isDemoMode: isDemoMode,
                               ),
@@ -737,7 +743,12 @@ class _AdminShellScreenState extends ConsumerState<AdminShellScreen> {
         return AdminUsersTab(
           langCode: langCode,
           users: allUsers,
-          onAddUserPressed: () => showAdminAddStudentOrUserDialog(context, ref, langCode),
+          onAddUserPressed: () => showAdminAddStudentOrUserDialog(
+            context,
+            ref,
+            langCode,
+            initialRole: UserRole.teacher,
+          ),
         );
       case 2:
         return AdminGroupsTab(
