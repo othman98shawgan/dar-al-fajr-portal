@@ -177,17 +177,43 @@ class AdminGroupsTab extends ConsumerWidget {
                 ),
               ],
             ),
-            ElevatedButton.icon(
-              onPressed: onCreateGroupPressed,
-              icon: const Icon(Icons.add_circle_outline_rounded, size: 18),
-              label: Text(
-                trByLang(
-                  langCode,
-                  ar: '+ إنشاء حلقة جديدة',
-                  he: '+ קבוצה חדשה',
-                  en: '+ Create Group',
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Builder(
+                  builder: (ctx) {
+                    final showArchived = ref.watch(adminShowArchivedProvider);
+                    final archivedCount = (ref.watch(adminGroupsProvider).asData?.value ?? const [])
+                        .where((g) => g.isArchived)
+                        .length;
+                    if (archivedCount == 0 && !showArchived) {
+                      return const SizedBox.shrink();
+                    }
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      child: FilterChip(
+                        label: Text(
+                          trByLang(langCode, ar: 'المؤرشف ($archivedCount)', he: 'ארכיון ($archivedCount)', en: 'Archived ($archivedCount)'),
+                        ),
+                        selected: showArchived,
+                        onSelected: (v) => ref.read(adminShowArchivedProvider.notifier).setShowArchived(v),
+                      ),
+                    );
+                  },
                 ),
-              ),
+                ElevatedButton.icon(
+                  onPressed: onCreateGroupPressed,
+                  icon: const Icon(Icons.add_circle_outline_rounded, size: 18),
+                  label: Text(
+                    trByLang(
+                      langCode,
+                      ar: '+ إنشاء حلقة جديدة',
+                      he: '+ קבוצה חדשה',
+                      en: '+ Create Group',
+                    ),
+                  ),
+                ),
+              ],
             ),
           ],
         ),

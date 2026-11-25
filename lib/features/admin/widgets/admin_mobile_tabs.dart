@@ -210,6 +210,29 @@ class AdminMobileStudentsTab extends ConsumerWidget {
                         ],
                       ),
                     ),
+                    Builder(
+                      builder: (ctx) {
+                        final showArchived = ref.watch(adminShowArchivedProvider);
+                        final archivedCount = (ref.watch(adminStudentsProvider).asData?.value ?? const [])
+                            .where((s) => s.isArchived)
+                            .length;
+                        if (archivedCount == 0 && !showArchived) {
+                          return const SizedBox.shrink();
+                        }
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                          child: FilterChip(
+                            label: Text(
+                              trByLang(langCode, ar: 'المؤرشف ($archivedCount)', he: 'ארכיון ($archivedCount)', en: 'Archived ($archivedCount)'),
+                              style: const TextStyle(fontSize: 11),
+                            ),
+                            selected: showArchived,
+                            visualDensity: VisualDensity.compact,
+                            onSelected: (v) => ref.read(adminShowArchivedProvider.notifier).setShowArchived(v),
+                          ),
+                        );
+                      },
+                    ),
                     TextButton.icon(
                       onPressed: onToggleSortOrder,
                       icon: const Icon(Icons.swap_vert_rounded, size: 18),
@@ -305,6 +328,29 @@ class AdminMobileGroupsTab extends ConsumerWidget {
                 style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                 overflow: TextOverflow.ellipsis,
               ),
+            ),
+            Builder(
+              builder: (ctx) {
+                final showArchived = ref.watch(adminShowArchivedProvider);
+                final archivedCount = (ref.watch(adminGroupsProvider).asData?.value ?? const [])
+                    .where((g) => g.isArchived)
+                    .length;
+                if (archivedCount == 0 && !showArchived) {
+                  return const SizedBox.shrink();
+                }
+                return Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  child: FilterChip(
+                    label: Text(
+                      trByLang(langCode, ar: 'المؤرشف ($archivedCount)', he: 'ארכיון ($archivedCount)', en: 'Archived ($archivedCount)'),
+                      style: const TextStyle(fontSize: 11),
+                    ),
+                    selected: showArchived,
+                    visualDensity: VisualDensity.compact,
+                    onSelected: (v) => ref.read(adminShowArchivedProvider.notifier).setShowArchived(v),
+                  ),
+                );
+              },
             ),
             IconButton(
               icon: const Icon(Icons.add_circle_outline_rounded, color: DarAlFajrTheme.primary),

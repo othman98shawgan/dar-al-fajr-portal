@@ -57,6 +57,7 @@ class TeacherRepository {
         .map(
           (snapshot) => snapshot.docs
               .map((doc) => StudyGroup.fromFirestore(doc))
+              .where((g) => !g.isArchived)
               .toList(),
         );
   }
@@ -65,6 +66,7 @@ class TeacherRepository {
     return _firestore.collection(groupsCollection).snapshots().map(
           (snapshot) => snapshot.docs
               .map((doc) => StudyGroup.fromFirestore(doc))
+              .where((g) => !g.isArchived)
               .toList(),
         );
   }

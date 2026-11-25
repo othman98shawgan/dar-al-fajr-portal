@@ -103,6 +103,17 @@ final adminTrackFilterProvider =
     NotifierProvider<AdminTrackFilterNotifier, CenterTrack?>(
         AdminTrackFilterNotifier.new);
 
+class AdminShowArchivedNotifier extends Notifier<bool> {
+  @override
+  bool build() => false;
+
+  void setShowArchived(bool value) => state = value;
+}
+
+final adminShowArchivedProvider =
+    NotifierProvider<AdminShowArchivedNotifier, bool>(
+        AdminShowArchivedNotifier.new);
+
 class AdminController extends AsyncNotifier<void> {
   @override
   FutureOr<void> build() {}

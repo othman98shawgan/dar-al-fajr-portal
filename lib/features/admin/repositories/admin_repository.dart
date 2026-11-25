@@ -102,16 +102,69 @@ class AdminRepository {
     String? phoneNumber,
     required UserRole role,
   }) async {
-    await _firestore.collection(usersCollection).doc(uid).update({
-      'fullName': fullName.trim(),
+    final cleanName = fullName.trim();
+    final batch = _firestore.batch();
+    batch.update(_firestore.collection(usersCollection).doc(uid), {
+      'fullName': cleanName,
       'phoneNumber': phoneNumber?.trim().isNotEmpty == true ? phoneNumber!.trim() : null,
       'role': role.toJson(),
       'updatedAt': FieldValue.serverTimestamp(),
     });
+
+    // Sync denormalized teacherName on groups (or unassign if no longer a teacher)
+    final teacherGroups = await _firestore
+        .collection(groupsCollection)
+        .where('teacherId', isEqualTo: uid)
+        .get();
+    for (final doc in teacherGroups.docs) {
+      if (role == UserRole.teacher) {
+        batch.update(doc.reference, {'teacherName': cleanName});
+      } else {
+        batch.update(doc.reference, {'teacherId': '', 'teacherName': ''});
+      }
+    }
+
+    // Sync denormalized parentName on students linked to this parent
+    final parentStudents = await _firestore
+        .collection(studentsCollection)
+        .where('parentId', isEqualTo: uid)
+        .get();
+    for (final doc in parentStudents.docs) {
+      batch.update(doc.reference, {'parentName': cleanName});
+    }
+
+    await batch.commit();
   }
 
   Future<void> deleteUser(String uid) async {
-    await _firestore.collection(usersCollection).doc(uid).delete();
+    final batch = _firestore.batch();
+    batch.delete(_firestore.collection(usersCollection).doc(uid));
+
+    final teacherGroups = await _firestore
+        .collection(groupsCollection)
+        .where('teacherId', isEqualTo: uid)
+        .get();
+    for (final doc in teacherGroups.docs) {
+      batch.update(doc.reference, {'teacherId': '', 'teacherName': ''});
+    }
+
+    final parentStudents = await _firestore
+        .collection(studentsCollection)
+        .where('parentId', isEqualTo: uid)
+        .get();
+    for (final doc in parentStudents.docs) {
+      batch.update(doc.reference, {'parentId': ''});
+    }
+
+    final linkedStudents = await _firestore
+        .collection(studentsCollection)
+        .where('userId', isEqualTo: uid)
+        .get();
+    for (final doc in linkedStudents.docs) {
+      batch.update(doc.reference, {'userId': null});
+    }
+
+    await batch.commit();
   }
 
   // ---------------------------------------------------------------------------
@@ -180,18 +233,71 @@ class AdminRepository {
     String? email,
     String? phoneNumber,
   }) async {
-    await _firestore.collection(studentsCollection).doc(studentId).update({
-      'fullName': fullName.trim(),
+    final cleanName = fullName.trim();
+    final studentRef = _firestore.collection(studentsCollection).doc(studentId);
+    final studentSnap = await studentRef.get();
+    final linkedUserId = studentSnap.data()?['userId'] as String?;
+
+    final batch = _firestore.batch();
+    batch.update(studentRef, {
+      'fullName': cleanName,
       'parentId': parentId,
       'parentName': parentName?.trim(),
       'email': email?.trim().isNotEmpty == true ? email!.trim() : null,
       'phoneNumber': phoneNumber?.trim().isNotEmpty == true ? phoneNumber!.trim() : null,
       'updatedAt': FieldValue.serverTimestamp(),
     });
+
+    if (linkedUserId != null && linkedUserId.isNotEmpty) {
+      batch.set(
+        _firestore.collection(usersCollection).doc(linkedUserId),
+        {'fullName': cleanName, 'updatedAt': FieldValue.serverTimestamp()},
+        SetOptions(merge: true),
+      );
+    }
+
+    final enrollments = await _firestore
+        .collection(enrollmentsCollection)
+        .where('studentId', isEqualTo: studentId)
+        .get();
+    for (final doc in enrollments.docs) {
+      batch.update(doc.reference, {'studentName': cleanName});
+    }
+
+    await batch.commit();
+  }
+
+  Future<void> setStudentArchived(
+    String studentId, {
+    required bool archived,
+  }) async {
+    await _firestore.collection(studentsCollection).doc(studentId).update({
+      'isArchived': archived,
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
   }
 
   Future<void> deleteStudent(String studentId) async {
-    await _firestore.collection(studentsCollection).doc(studentId).delete();
+    final studentRef = _firestore.collection(studentsCollection).doc(studentId);
+    final studentSnap = await studentRef.get();
+    final linkedUserId = studentSnap.data()?['userId'] as String?;
+
+    final batch = _firestore.batch();
+    batch.delete(studentRef);
+
+    if (linkedUserId != null && linkedUserId.isNotEmpty) {
+      batch.delete(_firestore.collection(usersCollection).doc(linkedUserId));
+    }
+
+    final enrollments = await _firestore
+        .collection(enrollmentsCollection)
+        .where('studentId', isEqualTo: studentId)
+        .get();
+    for (final doc in enrollments.docs) {
+      batch.delete(doc.reference);
+    }
+
+    await batch.commit();
   }
 
   // ---------------------------------------------------------------------------
@@ -295,8 +401,10 @@ class AdminRepository {
         ? endTime.trim()
         : (resolvedSlots.firstOrNull?.endTime ?? '');
 
-    await _firestore.collection(groupsCollection).doc(groupId).set({
-      'name': name.trim(),
+    final cleanGroupName = name.trim();
+    final batch = _firestore.batch();
+    batch.set(_firestore.collection(groupsCollection).doc(groupId), {
+      'name': cleanGroupName,
       'track': track.toJson(),
       'teacherId': teacherId,
       'teacherName': teacherName.trim(),
@@ -306,10 +414,45 @@ class AdminRepository {
       'scheduleSlots': resolvedSlots.map((s) => s.toMap()).toList(),
       'capacity': capacity,
     }, SetOptions(merge: true));
+
+    final enrollments = await _firestore
+        .collection(enrollmentsCollection)
+        .where('groupId', isEqualTo: groupId)
+        .get();
+    for (final doc in enrollments.docs) {
+      batch.update(doc.reference, {
+        'groupName': cleanGroupName,
+        'track': track.toJson(),
+        'groupArrivalTime': resolvedStart.isNotEmpty ? resolvedStart : null,
+      });
+    }
+
+    await batch.commit();
+  }
+
+  Future<void> setGroupArchived(
+    String groupId, {
+    required bool archived,
+  }) async {
+    await _firestore.collection(groupsCollection).doc(groupId).update({
+      'isArchived': archived,
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
   }
 
   Future<void> deleteGroup(String groupId) async {
-    await _firestore.collection(groupsCollection).doc(groupId).delete();
+    final batch = _firestore.batch();
+    batch.delete(_firestore.collection(groupsCollection).doc(groupId));
+
+    final enrollments = await _firestore
+        .collection(enrollmentsCollection)
+        .where('groupId', isEqualTo: groupId)
+        .get();
+    for (final doc in enrollments.docs) {
+      batch.delete(doc.reference);
+    }
+
+    await batch.commit();
   }
 
   // ---------------------------------------------------------------------------

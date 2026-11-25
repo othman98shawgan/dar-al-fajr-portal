@@ -87,6 +87,27 @@ class AdminStudentsTab extends ConsumerWidget {
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
+                  Builder(
+                    builder: (ctx) {
+                      final showArchived = ref.watch(adminShowArchivedProvider);
+                      final archivedCount = (ref.watch(adminStudentsProvider).asData?.value ?? const [])
+                          .where((s) => s.isArchived)
+                          .length;
+                      if (archivedCount == 0 && !showArchived) {
+                        return const SizedBox.shrink();
+                      }
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 6),
+                        child: FilterChip(
+                          label: Text(
+                            trByLang(langCode, ar: 'المؤرشف ($archivedCount)', he: 'ארכיון ($archivedCount)', en: 'Archived ($archivedCount)'),
+                          ),
+                          selected: showArchived,
+                          onSelected: (v) => ref.read(adminShowArchivedProvider.notifier).setShowArchived(v),
+                        ),
+                      );
+                    },
+                  ),
                   OutlinedButton.icon(
                     onPressed: onAddStudentPressed,
                     style: OutlinedButton.styleFrom(

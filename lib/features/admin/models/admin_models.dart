@@ -77,6 +77,7 @@ class StudentProfile {
   final List<String> memorizedCenterUnits;
   final Map<int, String> juzStatuses;
   final Map<int, DateTime> lastRevisedJuzDates;
+  final bool isArchived;
   final DateTime? createdAt;
 
   const StudentProfile({
@@ -94,6 +95,7 @@ class StudentProfile {
     this.memorizedCenterUnits = const [],
     this.juzStatuses = const {},
     this.lastRevisedJuzDates = const {},
+    this.isArchived = false,
     this.createdAt,
   });
 
@@ -187,6 +189,7 @@ class StudentProfile {
       lastRevisedJuzDates: parseLastRevisedDates(
         map['lastRevisedJuzDates'] ?? map['last_revised_juz_dates'],
       ),
+      isArchived: (map['isArchived'] ?? map['is_archived'] ?? false) == true,
       createdAt: parseDate(map['createdAt'] ?? map['created_at']),
     );
   }
@@ -210,6 +213,7 @@ class StudentProfile {
       'lastRevisedJuzDates': lastRevisedJuzDates.map(
         (k, v) => MapEntry(k.toString(), Timestamp.fromDate(v)),
       ),
+      'isArchived': isArchived,
       'createdAt': createdAt != null
           ? Timestamp.fromDate(createdAt!)
           : FieldValue.serverTimestamp(),
@@ -472,6 +476,7 @@ class StudyGroup {
   final String endTime;
   final List<GroupScheduleSlot> scheduleSlots;
   final int capacity;
+  final bool isArchived;
   final DateTime? createdAt;
 
   const StudyGroup({
@@ -485,6 +490,7 @@ class StudyGroup {
     this.endTime = '',
     this.scheduleSlots = const [],
     this.capacity = 15,
+    this.isArchived = false,
     this.createdAt,
   });
 
@@ -618,6 +624,7 @@ class StudyGroup {
       endTime: rawEnd.isNotEmpty ? rawEnd : (slots.firstOrNull?.endTime ?? ''),
       scheduleSlots: slots,
       capacity: (map['capacity'] as num?)?.toInt() ?? 15,
+      isArchived: (map['isArchived'] ?? map['is_archived'] ?? false) == true,
       createdAt: parsedCreatedAt,
     );
   }
@@ -645,6 +652,7 @@ class StudyGroup {
       'endTime': resolvedEnd,
       'scheduleSlots': resolvedSlots.map((s) => s.toMap()).toList(),
       'capacity': capacity,
+      'isArchived': isArchived,
       'createdAt': createdAt != null
           ? Timestamp.fromDate(createdAt!)
           : FieldValue.serverTimestamp(),

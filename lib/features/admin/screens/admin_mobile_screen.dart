@@ -74,19 +74,25 @@ class _AdminMobileScreenState extends ConsumerState<AdminMobileScreen> {
     final firestoreGroups = ref.watch(adminGroupsProvider).asData?.value ?? const [];
     final firestoreEnrollments = ref.watch(adminEnrollmentsProvider).asData?.value ?? const [];
     final allUsers = ref.watch(adminAllUsersProvider).asData?.value ?? const [];
+    final showArchived = ref.watch(adminShowArchivedProvider);
+
+    final visibleStudents = firestoreStudents.where((s) => s.isArchived == showArchived).toList();
+    final visibleGroups = firestoreGroups.where((g) => g.isArchived == showArchived).toList();
+    final activeStudentsCount = firestoreStudents.where((s) => !s.isArchived).length;
+    final activeGroupsCount = firestoreGroups.where((g) => !g.isArchived).length;
 
     final isDemoMode = _isDemoFallback;
     final studentCards = buildMobileStudentCards(
-      firestoreStudents: firestoreStudents,
+      firestoreStudents: visibleStudents,
       firestoreEnrollments: firestoreEnrollments,
       trackFilter: selectedTrackFilter,
       query: _searchQuery,
-      isDemoMode: isDemoMode,
+      isDemoMode: isDemoMode && !showArchived,
       isAscendingOrder: _isAscendingOrder,
     );
 
-    final totalStudentsCount = firestoreStudents.isNotEmpty ? firestoreStudents.length : (isDemoMode ? 142 : 0);
-    final totalGroupsCount = firestoreGroups.isNotEmpty ? firestoreGroups.length : (isDemoMode ? 12 : 0);
+    final totalStudentsCount = firestoreStudents.isNotEmpty ? activeStudentsCount : (isDemoMode ? 142 : 0);
+    final totalGroupsCount = firestoreGroups.isNotEmpty ? activeGroupsCount : (isDemoMode ? 12 : 0);
     final totalOneOnOneCount = firestoreEnrollments.isNotEmpty
         ? firestoreEnrollments.where((e) => e.oneOnOneSlotTime != null && e.oneOnOneSlotTime!.isNotEmpty).length
         : (isDemoMode ? 68 : 0);
@@ -229,9 +235,9 @@ class _AdminMobileScreenState extends ConsumerState<AdminMobileScreen> {
             ),
             AdminMobileGroupsTab(
               langCode: langCode,
-              firestoreGroups: firestoreGroups,
+              firestoreGroups: visibleGroups,
               firestoreEnrollments: firestoreEnrollments,
-              isDemoMode: isDemoMode,
+              isDemoMode: isDemoMode && !showArchived,
             ),
             AdminMobileUsersTab(
               langCode: langCode,

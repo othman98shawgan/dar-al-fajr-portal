@@ -735,7 +735,63 @@ void showAdminAddStudentOrUserDialog(
                   }).toList(),
                 ),
             ],
-            const SizedBox(height: 20),
+            if (isEditingStudent) ...[
+              const SizedBox(height: 16),
+              OutlinedButton.icon(
+                onPressed: isSaving
+                    ? null
+                    : () async {
+                        final targetArchived = !existingStudent.isArchived;
+                        setSheetState(() {
+                          isSaving = true;
+                          errorMessage = null;
+                        });
+                        try {
+                          await cRef.read(adminRepositoryProvider).setStudentArchived(
+                                existingStudent.id,
+                                archived: targetArchived,
+                              );
+                          if (!sheetContext.mounted) return;
+                          Navigator.of(sheetContext).pop();
+                          messenger?.showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                targetArchived
+                                    ? trByLang(langCode, ar: 'تمت أرشفة الطالب مع الاحتفاظ ببياناته.', he: 'התלמיד הועבר לארכיון.', en: 'Student archived (data preserved).')
+                                    : trByLang(langCode, ar: 'تمت استعادة الطالب بنجاح!', he: 'התלמיד שוחזר בהצלחה!', en: 'Student restored!'),
+                              ),
+                              backgroundColor: DarAlFajrTheme.primary,
+                              behavior: SnackBarBehavior.floating,
+                            ),
+                          );
+                        } catch (e) {
+                          if (sheetContext.mounted) {
+                            setSheetState(() {
+                              isSaving = false;
+                              errorMessage = e.toString();
+                            });
+                          }
+                        }
+                      },
+                icon: Icon(
+                  existingStudent.isArchived ? Icons.unarchive_outlined : Icons.archive_outlined,
+                  size: 18,
+                  color: const Color(0xFF6E3900),
+                ),
+                label: Text(
+                  existingStudent.isArchived
+                      ? trByLang(langCode, ar: 'استعادة الطالب من الأرشيف', he: 'שחזר תלמיד מארכיון', en: 'Restore Student from Archive')
+                      : trByLang(langCode, ar: 'أرشفة الطالب (الاحتفاظ بالبيانات)', he: 'העבר לארכיון (שמור נתונים)', en: 'Archive Student (Keep Data)'),
+                  style: const TextStyle(color: Color(0xFF6E3900)),
+                ),
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  side: BorderSide(color: Colors.amber.shade400),
+                  backgroundColor: Colors.amber.shade50,
+                ),
+              ),
+            ],
+            const SizedBox(height: 16),
             Row(
               children: [
                 if (isEditingStudent) ...[
@@ -1402,6 +1458,59 @@ void showAdminGroupFormDialog(
                           foregroundColor: DarAlFajrTheme.primary,
                         ),
                       ),
+                      const SizedBox(height: 10),
+                      OutlinedButton.icon(
+                        onPressed: isSaving
+                            ? null
+                            : () async {
+                                final targetArchived = !existingGroup.isArchived;
+                                setDialogState(() {
+                                  isSaving = true;
+                                  errorMessage = null;
+                                });
+                                try {
+                                  await cRef.read(adminRepositoryProvider).setGroupArchived(
+                                        existingGroup.id,
+                                        archived: targetArchived,
+                                      );
+                                  if (!dialogContext.mounted) return;
+                                  Navigator.of(dialogContext).pop();
+                                  messenger?.showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                        targetArchived
+                                            ? trByLang(langCode, ar: 'تمت أرشفة الحلقة مع الاحتفاظ ببياناتها.', he: 'הקבוצה הועברה לארכיון.', en: 'Study group archived (data preserved).')
+                                            : trByLang(langCode, ar: 'تمت استعادة الحلقة بنجاح!', he: 'הקבוצה שוחזרה בהצלחה!', en: 'Study group restored!'),
+                                      ),
+                                      backgroundColor: DarAlFajrTheme.primary,
+                                    ),
+                                  );
+                                } catch (e) {
+                                  if (dialogContext.mounted) {
+                                    setDialogState(() {
+                                      isSaving = false;
+                                      errorMessage = e.toString();
+                                    });
+                                  }
+                                }
+                              },
+                        icon: Icon(
+                          existingGroup.isArchived ? Icons.unarchive_outlined : Icons.archive_outlined,
+                          size: 18,
+                          color: const Color(0xFF6E3900),
+                        ),
+                        label: Text(
+                          existingGroup.isArchived
+                              ? trByLang(langCode, ar: 'استعادة الحلقة من الأرشيف', he: 'שחזר קבוצה מארכיון', en: 'Restore Group from Archive')
+                              : trByLang(langCode, ar: 'أرشفة الحلقة (الاحتفاظ بالبيانات)', he: 'העבר לארכיון (שמור נתונים)', en: 'Archive Group (Keep Data)'),
+                          style: const TextStyle(color: Color(0xFF6E3900)),
+                        ),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          side: BorderSide(color: Colors.amber.shade400),
+                          backgroundColor: Colors.amber.shade50,
+                        ),
+                      ),
                     ],
                     const SizedBox(height: 16),
                     Row(
@@ -1522,8 +1631,9 @@ void showAdminGroupRosterModal(
           final groupEnrollments =
               allEnrollments.where((e) => e.groupId == group.id).toList();
           final enrolledStudentIds = groupEnrollments.map((e) => e.studentId).toSet();
-          final availableStudents =
-              allStudents.where((s) => !enrolledStudentIds.contains(s.id)).toList();
+          final availableStudents = allStudents
+              .where((s) => !s.isArchived && !enrolledStudentIds.contains(s.id))
+              .toList();
 
           if (availableStudents.isEmpty) {
             selectedStudentId = null;
