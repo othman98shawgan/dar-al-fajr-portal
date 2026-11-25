@@ -510,6 +510,17 @@ class AdminRepository {
     return enrollment;
   }
 
+  Future<void> updateEnrollmentSlot({
+    required String enrollmentId,
+    String? oneOnOneSlotTime,
+  }) async {
+    final cleanSlot = oneOnOneSlotTime?.trim();
+    await _firestore.collection(enrollmentsCollection).doc(enrollmentId).update({
+      'oneOnOneSlotTime': (cleanSlot != null && cleanSlot.isNotEmpty) ? cleanSlot : null,
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+  }
+
   Future<void> deleteEnrollment(String enrollmentId) async {
     await _firestore
         .collection(enrollmentsCollection)

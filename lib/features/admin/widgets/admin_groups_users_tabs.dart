@@ -8,7 +8,7 @@ import '../models/admin_models.dart';
 import '../providers/admin_providers.dart';
 import 'admin_dialogs.dart';
 
-class AdminUsersTab extends ConsumerWidget {
+class AdminUsersTab extends ConsumerStatefulWidget {
   final String langCode;
   final List<AppUser> users;
   final VoidCallback onAddUserPressed;
@@ -21,7 +21,25 @@ class AdminUsersTab extends ConsumerWidget {
   });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<AdminUsersTab> createState() => _AdminUsersTabState();
+}
+
+class _AdminUsersTabState extends ConsumerState<AdminUsersTab> {
+  String _searchQuery = '';
+  UserRole? _roleFilter;
+
+  @override
+  Widget build(BuildContext context) {
+    final langCode = widget.langCode;
+    final query = _searchQuery.trim().toLowerCase();
+    final filteredUsers = widget.users.where((u) {
+      if (_roleFilter != null && u.role != _roleFilter) return false;
+      if (query.isEmpty) return true;
+      return u.fullName.toLowerCase().contains(query) ||
+          u.email.toLowerCase().contains(query) ||
+          (u.phoneNumber?.toLowerCase().contains(query) ?? false);
+    }).toList();
+
     return ListView(
       padding: const EdgeInsets.all(24),
       children: [
@@ -53,7 +71,7 @@ class AdminUsersTab extends ConsumerWidget {
               ],
             ),
             ElevatedButton.icon(
-              onPressed: onAddUserPressed,
+              onPressed: widget.onAddUserPressed,
               icon: const Icon(Icons.person_add_rounded, size: 18),
               label: Text(
                 trByLang(langCode, ar: '+ إضافة مستخدم جديد', he: '+ הוסף משתמש חדש', en: '+ Add User'),
@@ -61,8 +79,44 @@ class AdminUsersTab extends ConsumerWidget {
             ),
           ],
         ),
-        const SizedBox(height: 20),
-        if (users.isEmpty)
+        const SizedBox(height: 16),
+        Wrap(
+          spacing: 10,
+          runSpacing: 10,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            SizedBox(
+              width: 280,
+              child: TextField(
+                onChanged: (v) => setState(() => _searchQuery = v),
+                decoration: InputDecoration(
+                  isDense: true,
+                  prefixIcon: const Icon(Icons.search_rounded, size: 18),
+                  hintText: trByLang(
+                    langCode,
+                    ar: 'بحث بالاسم أو البريد أو الهاتف...',
+                    he: 'חיפוש לפי שם, דוא״ל או טלפון...',
+                    en: 'Search by name, email, or phone...',
+                  ),
+                ),
+              ),
+            ),
+            ChoiceChip(
+              label: Text(trByLang(langCode, ar: 'الكل', he: 'הכל', en: 'All')),
+              selected: _roleFilter == null,
+              onSelected: (_) => setState(() => _roleFilter = null),
+            ),
+            ...[UserRole.teacher, UserRole.parent, UserRole.student, UserRole.admin].map(
+              (r) => ChoiceChip(
+                label: Text(r.localizedName(langCode)),
+                selected: _roleFilter == r,
+                onSelected: (_) => setState(() => _roleFilter = r),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        if (filteredUsers.isEmpty)
           Container(
             padding: const EdgeInsets.all(32),
             decoration: BoxDecoration(color: DarAlFajrTheme.surface, borderRadius: BorderRadius.circular(12)),
@@ -70,9 +124,9 @@ class AdminUsersTab extends ConsumerWidget {
               child: Text(
                 trByLang(
                   langCode,
-                  ar: 'لا يوجد مستخدمون حالياً في قاعدة البيانات.',
-                  he: 'אין משתמשים רשומים כרגע.',
-                  en: 'No users found in the database.',
+                  ar: 'لا يوجد مستخدمون مطابقون للبحث.',
+                  he: 'לא נמצאו משתמשים תואמים.',
+                  en: 'No matching users found.',
                 ),
                 textAlign: TextAlign.center,
                 style: const TextStyle(color: Color(0xFF6D7A77)),
@@ -84,10 +138,10 @@ class AdminUsersTab extends ConsumerWidget {
             child: ListView.separated(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
-              itemCount: users.length,
+              itemCount: filteredUsers.length,
               separatorBuilder: (_, _) => const Divider(height: 1),
               itemBuilder: (context, index) {
-                final u = users[index];
+                final u = filteredUsers[index];
                 return ListTile(
                   onTap: () => showAdminUserProfileModal(context, ref, u, langCode),
                   leading: CircleAvatar(
@@ -432,6 +486,11 @@ class AdminEnrollmentsTab extends ConsumerWidget {
                               style: const TextStyle(fontSize: 12, color: Color(0xFF6D7A77)),
                             ),
                           const SizedBox(width: 6),
+                          IconButton(
+                            onPressed: () => showAdminEditEnrollmentSlotModal(context, ref, e, langCode),
+                            tooltip: trByLang(langCode, ar: 'تعديل الموعد الفردي', he: 'ערוך תור אישי', en: 'Edit 1-on-1 Slot'),
+                            icon: const Icon(Icons.schedule_rounded, size: 18, color: DarAlFajrTheme.primary),
+                          ),
                           IconButton(
                             onPressed: () async {
                               final confirmed = await confirmAdminDelete(

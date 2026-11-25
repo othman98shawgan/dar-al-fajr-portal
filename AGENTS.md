@@ -92,7 +92,7 @@ System Specification & Software Requirement Documentation for **Dar al-Fajr Port
 
 ### **Users (Teachers, Parents & Students)**
 * [x] **Mobile Users Tab Defaults & Localization:** Default Mobile Users tab `+` button to `UserRole.teacher` and localize role labels with `role.localizedName(langCode)`.
-* [ ] **Users Search & Role Filter (Web & Mobile):** Add search and role filter (All / Teachers / Parents / Students / Admins) in Users tab.
+* [x] **Users Search & Role Filter (Web & Mobile):** Add search and role filter (All / Teachers / Parents / Students / Admins) in Users tab.
 * [x] **Edit User (Web & Mobile):** Implement `updateUser` (name, phone, role) in `AdminRepository` and open a User Profile / Edit modal on tap/edit.
 * [x] **Delete User (Web & Mobile):** Allow deleting Firestore `users/{uid}` document with a confirmation dialog.
 
@@ -106,11 +106,11 @@ System Specification & Software Requirement Documentation for **Dar al-Fajr Port
 ### **Enrollments (Student ↔ Group + 1-on-1 Slots)**
 * [x] **Delete Enrollment Confirmation (Web):** Add confirmation dialog before removing an enrollment on Web.
 * [x] **Mobile Enrollment Visibility & Unenroll:** Show a student's active group enrollments inside expanded Mobile Student cards with Unenroll support (with confirmation).
-* [ ] **Edit 1-on-1 Arrival Slots (Web & Mobile):** Allow editing 1-on-1 arrival day/time on existing enrollments without deleting and re-enrolling.
+* [x] **Edit 1-on-1 Arrival Slots (Web & Mobile):** Allow editing 1-on-1 arrival day/time on existing enrollments without deleting and re-enrolling.
 
 ### **Operations & Settings**
-* [ ] **Mobile Attendance Audit:** Surface Attendance Audit on Mobile Admin.
-* [ ] **Mobile Grading Penalty Settings:** Surface Grading Penalty Settings on Mobile Admin.
+* [x] **Mobile Attendance Audit:** Surface Attendance Audit on Mobile Admin.
+* [x] **Mobile Grading Penalty Settings:** Surface Grading Penalty Settings on Mobile Admin.
 
 ## Git
 For all Git, branching, and release operations, strictly follow the rules in ./GIT_WORKFLOW.md.

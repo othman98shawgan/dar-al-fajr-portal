@@ -724,9 +724,20 @@ void showAdminAddStudentOrUserDialog(
                   spacing: 6,
                   runSpacing: 6,
                   children: studentEnrollments.map((e) {
+                    final slotLabel = (e.oneOnOneSlotTime != null && e.oneOnOneSlotTime!.isNotEmpty)
+                        ? '${e.groupName} (${e.oneOnOneSlotTime})'
+                        : e.groupName;
                     return InputChip(
-                      label: Text(e.groupName, style: const TextStyle(fontSize: 12)),
+                      label: Text(slotLabel, style: const TextStyle(fontSize: 12)),
                       backgroundColor: DarAlFajrTheme.primary.withValues(alpha: 0.08),
+                      onPressed: isSaving
+                          ? null
+                          : () => showAdminEditEnrollmentSlotModal(
+                                sheetContext,
+                                cRef,
+                                e,
+                                langCode,
+                              ),
                       deleteIcon: const Icon(Icons.close_rounded, size: 16),
                       deleteIconColor: Colors.red.shade600,
                       onDeleted: isSaving ? null : () => handleUnenroll(e),
@@ -1893,10 +1904,25 @@ void showAdminGroupRosterModal(
                                   height: 20,
                                   child: CircularProgressIndicator(strokeWidth: 2),
                                 )
-                              : IconButton(
-                                  icon: Icon(Icons.delete_outline_rounded, color: Colors.red.shade600, size: 20),
-                                  tooltip: trByLang(langCode, ar: 'إزالة من الحلقة', he: 'הסר מהקבוצה', en: 'Remove from group'),
-                                  onPressed: () => removeEnrollment(e),
+                              : Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    IconButton(
+                                      icon: const Icon(Icons.schedule_rounded, color: DarAlFajrTheme.primary, size: 20),
+                                      tooltip: trByLang(langCode, ar: 'تعديل الموعد الفردي', he: 'ערוך תור אישי', en: 'Edit 1-on-1 Slot'),
+                                      onPressed: () => showAdminEditEnrollmentSlotModal(
+                                        sheetContext,
+                                        ref,
+                                        e,
+                                        langCode,
+                                      ),
+                                    ),
+                                    IconButton(
+                                      icon: Icon(Icons.delete_outline_rounded, color: Colors.red.shade600, size: 20),
+                                      tooltip: trByLang(langCode, ar: 'إزالة من الحلقة', he: 'הסר מהקבוצה', en: 'Remove from group'),
+                                      onPressed: () => removeEnrollment(e),
+                                    ),
+                                  ],
                                 ),
                         );
                       },
@@ -2145,6 +2171,167 @@ void showAdminUserProfileModal(
                   ),
                 ),
               ],
+            ),
+          ],
+        ),
+      );
+    },
+  );
+}
+
+void showAdminEditEnrollmentSlotModal(
+  BuildContext context,
+  WidgetRef ref,
+  Enrollment enrollment,
+  String langCode,
+) {
+  final existingSlot = enrollment.oneOnOneSlotTime?.trim() ?? '';
+  bool hasSlot = existingSlot.isNotEmpty;
+  String selectedDay = adminWeekDaysAr.first;
+  String initialTime = '17:15';
+
+  if (existingSlot.isNotEmpty) {
+    final parts = existingSlot.split('•');
+    if (parts.length >= 2) {
+      final parsedDay = parts.first.trim();
+      if (adminWeekDaysAr.contains(parsedDay)) {
+        selectedDay = parsedDay;
+      }
+      initialTime = parts[1].trim();
+    } else {
+      initialTime = existingSlot;
+    }
+  }
+
+  final timeCtrl = TextEditingController(text: initialTime);
+  bool isSaving = false;
+  String? errorMessage;
+  final messenger = ScaffoldMessenger.maybeOf(context);
+
+  _showAdminFormSheet(
+    context: context,
+    builder: (sheetContext, setSheetState) {
+      Future<void> saveSlot() async {
+        setSheetState(() {
+          isSaving = true;
+          errorMessage = null;
+        });
+        try {
+          final slotValue = hasSlot
+              ? '$selectedDay • ${timeCtrl.text.trim().isNotEmpty ? timeCtrl.text.trim() : "17:15"}'
+              : null;
+          await ref.read(adminRepositoryProvider).updateEnrollmentSlot(
+                enrollmentId: enrollment.id,
+                oneOnOneSlotTime: slotValue,
+              );
+          if (!sheetContext.mounted) return;
+          Navigator.of(sheetContext).pop();
+          messenger?.showSnackBar(
+            SnackBar(
+              content: Text(
+                trByLang(
+                  langCode,
+                  ar: 'تم تحديث الموعد الفردي بنجاح!',
+                  he: 'התור האישי עודכן בהצלחה!',
+                  en: '1-on-1 arrival slot updated!',
+                ),
+              ),
+              backgroundColor: DarAlFajrTheme.primary,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        } catch (e) {
+          if (sheetContext.mounted) {
+            setSheetState(() {
+              isSaving = false;
+              errorMessage = e.toString();
+            });
+          }
+        }
+      }
+
+      return SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _buildSheetHeader(
+              sheetContext,
+              trByLang(
+                langCode,
+                ar: 'تعديل الموعد الفردي (1-on-1)',
+                he: 'עריכת תור אישי (1-on-1)',
+                en: 'Edit 1-on-1 Arrival Slot',
+              ),
+            ),
+            Text(
+              '${enrollment.studentName} — ${enrollment.groupName}',
+              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFF3D4947)),
+            ),
+            if (errorMessage != null) ...[
+              const SizedBox(height: 10),
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.red.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.red.shade200),
+                ),
+                child: Text(errorMessage!, style: TextStyle(fontSize: 12, color: Colors.red.shade800)),
+              ),
+            ],
+            const SizedBox(height: 12),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              value: hasSlot,
+              title: Text(
+                trByLang(langCode, ar: 'تفعيل موعد تسميع فردي', he: 'הפעל תור אישי', en: 'Enable 1-on-1 Arrival Slot'),
+                style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600),
+              ),
+              onChanged: isSaving ? null : (v) => setSheetState(() => hasSlot = v),
+            ),
+            if (hasSlot) ...[
+              const SizedBox(height: 8),
+              DropdownButtonFormField<String>(
+                initialValue: selectedDay,
+                isExpanded: true,
+                decoration: InputDecoration(
+                  labelText: trByLang(langCode, ar: 'اليوم', he: 'יום', en: 'Day'),
+                ),
+                items: adminWeekDaysAr.map((d) {
+                  final wd = ScheduleDayHelper.parseWeekday(d);
+                  final label = wd != null ? ScheduleDayHelper.localizedDayName(wd, langCode) : d;
+                  return DropdownMenuItem<String>(value: d, child: Text(label));
+                }).toList(),
+                onChanged: isSaving
+                    ? null
+                    : (val) {
+                        if (val != null) setSheetState(() => selectedDay = val);
+                      },
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: timeCtrl,
+                decoration: InputDecoration(
+                  labelText: trByLang(langCode, ar: 'وقت الحضور الفردي', he: 'שעת הגעה אישית', en: 'Arrival Time'),
+                  suffixIcon: IconButton(
+                    icon: const Icon(Icons.access_time_rounded, size: 18),
+                    onPressed: () => _pickAdminTime(sheetContext, timeCtrl),
+                  ),
+                ),
+              ),
+            ],
+            const SizedBox(height: 20),
+            ElevatedButton(
+              onPressed: isSaving ? null : saveSlot,
+              style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 14)),
+              child: isSaving
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                    )
+                  : Text(trByLang(langCode, ar: 'حفظ الموعد', he: 'שמור תור', en: 'Save Slot')),
             ),
           ],
         ),

@@ -7,6 +7,7 @@ import '../../auth/models/app_user.dart';
 import '../../hifz/models/teacher_models.dart';
 import '../models/admin_models.dart';
 import '../providers/admin_providers.dart';
+import 'admin_attendance_audit_tab.dart';
 import 'admin_dialogs.dart';
 import 'admin_mobile_dialogs.dart';
 import 'admin_mobile_models.dart';
@@ -414,7 +415,7 @@ class AdminMobileGroupsTab extends ConsumerWidget {
   }
 }
 
-class AdminMobileUsersTab extends ConsumerWidget {
+class AdminMobileUsersTab extends ConsumerStatefulWidget {
   final String langCode;
   final List<AppUser> allUsers;
   final bool isDemoMode;
@@ -427,7 +428,25 @@ class AdminMobileUsersTab extends ConsumerWidget {
   });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<AdminMobileUsersTab> createState() => _AdminMobileUsersTabState();
+}
+
+class _AdminMobileUsersTabState extends ConsumerState<AdminMobileUsersTab> {
+  String _searchQuery = '';
+  UserRole? _roleFilter;
+
+  @override
+  Widget build(BuildContext context) {
+    final langCode = widget.langCode;
+    final query = _searchQuery.trim().toLowerCase();
+    final filteredUsers = widget.allUsers.where((u) {
+      if (_roleFilter != null && u.role != _roleFilter) return false;
+      if (query.isEmpty) return true;
+      return u.fullName.toLowerCase().contains(query) ||
+          u.email.toLowerCase().contains(query) ||
+          (u.phoneNumber?.toLowerCase().contains(query) ?? false);
+    }).toList();
+
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
       children: [
@@ -452,18 +471,77 @@ class AdminMobileUsersTab extends ConsumerWidget {
             ),
           ],
         ),
-        const SizedBox(height: 12),
-        if (allUsers.isNotEmpty)
-          ...allUsers.map(
-            (u) => _MobileUserCard(
-              name: u.fullName,
-              email: u.email,
-              role: u.role.localizedName(langCode),
-              isPendingFirstLogin: u.isFirstLogin,
-              onTap: () => showAdminUserProfileModal(context, ref, u, langCode),
+        const SizedBox(height: 8),
+        TextField(
+          onChanged: (v) => setState(() => _searchQuery = v),
+          decoration: InputDecoration(
+            isDense: true,
+            filled: true,
+            fillColor: Colors.white,
+            prefixIcon: const Icon(Icons.search_rounded, size: 18),
+            hintText: trByLang(
+              langCode,
+              ar: 'بحث بالاسم أو البريد أو الهاتف...',
+              he: 'חיפוש לפי שם, דוא״ל או טלפון...',
+              en: 'Search by name, email, or phone...',
             ),
-          )
-        else if (isDemoMode) ...[
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide.none,
+            ),
+          ),
+        ),
+        const SizedBox(height: 8),
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: [
+              Padding(
+                padding: const EdgeInsetsDirectional.only(end: 6),
+                child: ChoiceChip(
+                  label: Text(trByLang(langCode, ar: 'الكل', he: 'הכל', en: 'All'), style: const TextStyle(fontSize: 12)),
+                  selected: _roleFilter == null,
+                  visualDensity: VisualDensity.compact,
+                  onSelected: (_) => setState(() => _roleFilter = null),
+                ),
+              ),
+              ...[UserRole.teacher, UserRole.parent, UserRole.student, UserRole.admin].map(
+                (r) => Padding(
+                  padding: const EdgeInsetsDirectional.only(end: 6),
+                  child: ChoiceChip(
+                    label: Text(r.localizedName(langCode), style: const TextStyle(fontSize: 12)),
+                    selected: _roleFilter == r,
+                    visualDensity: VisualDensity.compact,
+                    onSelected: (_) => setState(() => _roleFilter = r),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 10),
+        if (widget.allUsers.isNotEmpty) ...[
+          if (filteredUsers.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 24),
+              child: Center(
+                child: Text(
+                  trByLang(langCode, ar: 'لا يوجد مستخدمون مطابقون للبحث', he: 'לא נמצאו משתמשים תואמים', en: 'No matching users found'),
+                  style: const TextStyle(color: Color(0xFF6D7A77), fontSize: 13),
+                ),
+              ),
+            )
+          else
+            ...filteredUsers.map(
+              (u) => _MobileUserCard(
+                name: u.fullName,
+                email: u.email,
+                role: u.role.localizedName(langCode),
+                isPendingFirstLogin: u.isFirstLogin,
+                onTap: () => showAdminUserProfileModal(context, ref, u, langCode),
+              ),
+            ),
+        ] else if (widget.isDemoMode) ...[
           const _MobileUserCard(name: 'الشيخ عبد الرحمن', email: 'abdulrahman@daralfajr.org', role: 'معلم', isPendingFirstLogin: false),
           const _MobileUserCard(name: 'الأستاذ طارق', email: 'tariq@daralfajr.org', role: 'معلم', isPendingFirstLogin: false),
           const _MobileUserCard(name: 'طه عثمان', email: 'taha.osman@email.com', role: 'ولي أمر', isPendingFirstLogin: false),
@@ -484,9 +562,10 @@ class AdminMobileUsersTab extends ConsumerWidget {
   }
 }
 
-class AdminMobileReportsTab extends ConsumerWidget {
+class AdminMobileReportsTab extends ConsumerStatefulWidget {
   final String langCode;
   final List<StudentProfile> students;
+  final List<StudyGroup> groups;
   final List<Enrollment> enrollments;
   final bool isDemoMode;
 
@@ -494,12 +573,24 @@ class AdminMobileReportsTab extends ConsumerWidget {
     super.key,
     required this.langCode,
     required this.students,
+    this.groups = const [],
     required this.enrollments,
     required this.isDemoMode,
   });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<AdminMobileReportsTab> createState() => _AdminMobileReportsTabState();
+}
+
+class _AdminMobileReportsTabState extends ConsumerState<AdminMobileReportsTab> {
+  bool _showAttendanceAudit = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final langCode = widget.langCode;
+    final students = widget.students;
+    final enrollments = widget.enrollments;
+    final isDemoMode = widget.isDemoMode;
     final logs = ref.watch(adminAttendanceLogsProvider).asData?.value ?? const <AttendanceLog>[];
     final assignments = ref.watch(adminHifzAssignmentsProvider).asData?.value ?? const <HifzAssignment>[];
 
@@ -522,14 +613,64 @@ class AdminMobileReportsTab extends ConsumerWidget {
         ? ((passedAssignments / gradedAssignments.length) * 100).round()
         : (isDemoMode ? 88 : 0);
 
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
+    return Column(
       children: [
-        Text(
-          trByLang(langCode, ar: 'لوحة التقارير والتحليلات', he: 'דוחות וניתוחים', en: 'Reports & Analytics'),
-          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+          child: Row(
+            children: [
+              Expanded(
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [
+                      ChoiceChip(
+                        label: Text(
+                          trByLang(langCode, ar: 'التقارير', he: 'דוחות', en: 'Analytics'),
+                          style: const TextStyle(fontSize: 12),
+                        ),
+                        selected: !_showAttendanceAudit,
+                        visualDensity: VisualDensity.compact,
+                        onSelected: (_) => setState(() => _showAttendanceAudit = false),
+                      ),
+                      const SizedBox(width: 8),
+                      ChoiceChip(
+                        label: Text(
+                          trByLang(langCode, ar: 'تدقيق الحضور', he: 'בקרת נוכחות', en: 'Attendance Audit'),
+                          style: const TextStyle(fontSize: 12),
+                        ),
+                        selected: _showAttendanceAudit,
+                        visualDensity: VisualDensity.compact,
+                        onSelected: (_) => setState(() => _showAttendanceAudit = true),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              IconButton(
+                onPressed: () => showAdminGradingSettingsDialog(context, ref, langCode),
+                tooltip: trByLang(langCode, ar: 'إعدادات خصم الدرجات', he: 'הגדרות ציונים', en: 'Grading Penalty Settings'),
+                icon: const Icon(Icons.tune_rounded, color: DarAlFajrTheme.primary, size: 20),
+                visualDensity: VisualDensity.compact,
+              ),
+            ],
+          ),
         ),
-        const SizedBox(height: 14),
+        Expanded(
+          child: _showAttendanceAudit
+              ? AdminAttendanceAuditTab(
+                  langCode: langCode,
+                  groups: widget.groups,
+                  isDemoFallback: isDemoMode,
+                )
+              : ListView(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
+                  children: [
+                    Text(
+                      trByLang(langCode, ar: 'لوحة التقارير والتحليلات', he: 'דוחות וניתוחים', en: 'Reports & Analytics'),
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                    ),
+                    const SizedBox(height: 14),
         Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
@@ -640,6 +781,9 @@ class AdminMobileReportsTab extends ConsumerWidget {
               ),
             ],
           ),
+        ),
+      ],
+    ),
         ),
       ],
     );
